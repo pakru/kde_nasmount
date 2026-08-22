@@ -1,33 +1,16 @@
-# kde_mount — network mounts via generated systemd units
+# kde_mount - easy network mounts without CLI hustle
 
-The repository is `kde_mount`; the software it builds is **nasmount** — the
-`nasmount-*` binaries, the `kcm_nasmount` System Settings module and the KAuth
-helper `io.github.pakru.nasmount`.
+Make your SMB network shares on your NAS or any other remote host easly connected to your Linux host.
 
-It mounts CIFS/SMB shares as real kernel mounts at **any path you choose**, using
-generated static systemd `.mount`/`.automount` pairs. A share mounts **on demand**
-— the first time a process opens its path — and the idle timeout releases it
-while the trigger stays armed. A share's credential is a root-owned file that
-survives reboot, and the trigger is armed at boot before anyone logs in — so a
-saved share is simply there again after a restart, with nothing to re-enter and
-nothing to arm by hand.
-
-| Tool | Kernel mount | Arbitrary mount path | Password store |
-|------|--------------|----------------------|-----------------|
-| Dolphin `smb://` + kio-fuse | no (FUSE) | no | KWallet |
-| Smb4K | yes | no — derived from host/share | KWallet |
-| this | yes | **yes** | root-owned `/etc` credential |
-
-Two ways in, one backend — and now literally one dialog: **System Settings →
-Network Mounts** to list, add and remove shares with live state for each, or
-the **Dolphin service menu** (right-click an `smb://` share → **Mount as
-Network Drive…**). Both render the same `ShareForm.qml`.
-
-## Supported downloads
+Requirements:
+ - Kubuntu 26.04+ or Fedora 44+, **or**
+ - KDE Plasma 6.0+ and Linux kernel 6.8+ on any other distro
+ 
+## Downloads and Install
 
 Download the latest package for your system with one command.
 
-Ubuntu/Kubuntu 26.04 LTS amd64:
+Kubuntu 26.04 LTS amd64:
 
 ```bash
 wget https://github.com/pakru/kde_mount/releases/latest/download/nasmount-amd64-0.1.0.deb
@@ -42,17 +25,29 @@ wget https://github.com/pakru/kde_mount/releases/latest/download/nasmount-fedora
 Then install the downloaded package:
 
 ```bash
-sudo apt install ./nasmount-amd64-0.1.0.deb                       # Kubuntu or other deb-based distro
-sudo dnf install ./nasmount-fedora44-x86_64-0.1.0.rpm             # Fedora or other rpm-based distro
+sudo dpkg -i ./nasmount-amd64-0.1.0.deb                       # Kubuntu
+sudo dnf install ./nasmount-fedora44-x86_64-0.1.0.rpm         # Fedora
 ```
 
-The Release notes contain the exact one-line commands for their version.
-Optional checksums are published as `nasmount-<version>-SHA256SUMS`.
+![Mount as Network drive in dolphin](docs/img/img3.png)
 
-The package manager installs the required runtime dependencies. A compiler,
-CMake, Qt/KF development packages, and a source checkout are not required.
-Packages are clean-install only: uninstall an existing nasmount installation
-before installing a different version.
+![Mount as Network Drive dialog](docs/img/img1.png)
+
+![Network Mounts settings page](docs/img/img2.png)
+
+
+It mounts CIFS/SMB shares as real kernel mounts at **any path you choose**, using
+generated static systemd `.mount`/`.automount` pairs. A share mounts **on demand**
+— the first time a process opens its path — and the idle timeout releases it
+while the trigger stays armed. A share's credential is a root-owned file that
+survives reboot, and the trigger is armed at boot before anyone logs in — so a
+saved share is simply there again after a restart, with nothing to re-enter and
+nothing to arm by hand.
+
+Two ways in, one backend — and now literally one dialog: **System Settings →
+Network Mounts** to list, add and remove shares with live state for each, or
+the **Dolphin service menu** (right-click an `smb://` share → **Mount as
+Network Drive…**). Both render the same `ShareForm.qml`.
 
 
 ## Source-build requirements
