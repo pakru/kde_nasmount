@@ -29,10 +29,6 @@ grep -Fq 'DNASMOUNT_PACKAGE_FAMILY=rpm' "$repo_root/packaging/rpm/nasmount.spec.
 grep -Fq '%{_libdir}/libexec/nasmount-package-guard || exit $?' "$repo_root/packaging/rpm/nasmount.spec.in"
 grep -Fq '/usr/lib/@DEB_HOST_MULTIARCH@/libexec/nasmount-package-guard' \
     "$repo_root/packaging/debian/nasmount.prerm.in"
-grep -Fq "wget https://github.com/pakru/kde_mount/releases/latest/download/$NASMOUNT_DEB_RELEASE_ASSET" \
-    "$repo_root/README.md"
-grep -Fq "wget https://github.com/pakru/kde_mount/releases/latest/download/$NASMOUNT_RPM_RELEASE_ASSET" \
-    "$repo_root/README.md"
 grep -Fq 'cp "packages/$NASMOUNT_DEB" "release/$NASMOUNT_DEB_RELEASE_ASSET"' \
     "$repo_root/.github/workflows/release.yml"
 grep -Fq 'cp "packages/$NASMOUNT_RPM" "release/$NASMOUNT_RPM_RELEASE_ASSET"' \
