@@ -96,7 +96,7 @@ uses tag `v0.3.0`). The release workflow rejects a tag whose value does not
 match `VERSION`, rebuilds both native packages from that tag, smoke-installs
 and removes them on their target distributions, verifies the two-package set,
 generates checksums and a JSON release manifest, attests both packages, and
-creates a draft GitHub Release.
+creates and publishes the GitHub Release.
 
 For a release, change `VERSION`, commit it, push, and wait for regular
 CI to pass. Then create the matching tag without entering the version again:

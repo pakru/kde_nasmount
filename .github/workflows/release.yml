@@ -271,7 +271,7 @@ jobs:
           if-no-files-found: error
 
   attest_and_publish:
-    name: Attest and create draft release
+    name: Attest and publish release
     needs: [validate_release, verify_release_set]
     runs-on: ubuntu-24.04
     environment: release
@@ -299,7 +299,7 @@ jobs:
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: release/*.rpm
-      - name: Create draft release and upload assets
+      - name: Create, upload, and publish release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.validate_release.outputs.tag }}
@@ -335,3 +335,4 @@ jobs:
           fi
           gh release upload "$TAG" release/*.deb release/*.rpm \
             release/*-SHA256SUMS release/*-release-manifest.json
+          gh release edit "$TAG" --draft=false
