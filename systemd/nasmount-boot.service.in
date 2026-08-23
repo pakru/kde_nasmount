@@ -21,6 +21,13 @@ ExecStart=@KDE_INSTALL_FULL_LIBEXECDIR@/nasmount-boot
 # Only arms autofs triggers, never mounts, so an unreachable NAS cannot make
 # this run long; bounds a pathological run rather than an expected one.
 TimeoutStartSec=60
+# This runs directly under systemd with no dedicated SELinux domain, so it
+# inherits init_t, whose targeted policy denies execmem. Qt's QRegularExpression
+# (used throughout nasmount-core for unit-file parsing) otherwise JIT-compiles
+# patterns via PCRE2, which needs execmem to do so. Disabling the JIT avoids
+# that denial instead of granting the permission; matching a handful of short
+# strings once at boot costs nothing without it.
+Environment=QT_ENABLE_REGEXP_JIT=0
 
 [Install]
 WantedBy=multi-user.target
