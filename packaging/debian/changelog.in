@@ -1,5 +1,5 @@
 nasmount (@VERSION@-@RELEASE@) resolute; urgency=medium
 
-  * Build the upstream @VERSION@ release for Ubuntu 26.04 LTS.
+  * Upstream release @VERSION@ for Ubuntu 26.04 LTS.
 
- -- Pavel Krupets <pakru@users.noreply.github.com>  @DATE@
+ -- Pavel Krutikhin <krutikhin92@gmail.com>  @DATE@

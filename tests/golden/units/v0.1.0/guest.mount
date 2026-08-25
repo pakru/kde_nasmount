@@ -1,0 +1,16 @@
+# Managed by nasmount — do not edit by hand; use the KCM or the dialog.
+# X-Nasmount-Managed=1
+# X-Nasmount-Owner-Uid=1000
+# X-Nasmount-Owner-Gid=1000
+# X-Nasmount-Id=fedcba9876543210fedcba9876543210
+# X-Nasmount-Mode=system
+# X-Nasmount-Authentication=guest
+[Unit]
+Description=nasmount: //nas.example.org/public
+
+[Mount]
+What=//nas.example.org/public
+Where=/home/tester/mnt/public
+Type=cifs
+Options=guest,nosuid,nodev,forceuid,forcegid,uid=1000,gid=1000,nounix,iocharset=utf8,file_mode=0600,dir_mode=0700
+TimeoutSec=30

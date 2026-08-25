@@ -1,0 +1,45 @@
+#!/bin/sh
+# Upgrades are supported in place; downgrades and pre-contract versions are not.
+#
+# Debian Policy §6.5 runs this script — the *new* package's — with `upgrade`
+# and the version being replaced. The already-installed package contributes
+# only its prerm/postrm, neither of which blocks, so this file is the single
+# point that decides whether an upgrade proceeds (plan §1.2).
+set -e
+
+NEW_VERSION="@VERSION@-@RELEASE@"
+# Oldest installed version whose on-disk unit/marker format this package still
+# reads unchanged (plan §1.3, and tests/golden/units/). Raise this only
+# together with a migration.
+MIN_UPGRADABLE_VERSION="0.1.0-1"
+
+case "$1" in
+    install|upgrade)
+        # $2 is the version being replaced. dpkg passes it for `upgrade`, and
+        # *also* for `install` when the package sits in config-files state
+        # (Policy §6.5). That second case is not theoretical here: `apt remove`
+        # deliberately leaves managed shares and credentials on disk, so
+        # installing an older package after a remove would otherwise meet
+        # newer on-disk state with this gate skipped entirely.
+        #
+        # A genuine first install passes no $2 and is exempt. Equal versions
+        # occur on `apt install --reinstall` and must be allowed.
+        if [ -n "${2:-}" ]; then
+            if dpkg --compare-versions "$2" gt "$NEW_VERSION"; then
+                echo "ERROR: nasmount does not support downgrades ($2 -> $NEW_VERSION)." >&2
+                echo "Run nasmount-uninstall, then install the older package." >&2
+                exit 1
+            fi
+            if dpkg --compare-versions "$2" lt "$MIN_UPGRADABLE_VERSION"; then
+                echo "ERROR: nasmount cannot install in place over $2." >&2
+                echo "Run nasmount-uninstall, then install this package." >&2
+                exit 1
+            fi
+        fi
+        ;;
+    abort-upgrade)
+        ;;
+esac
+
+#DEBHELPER#
+exit 0

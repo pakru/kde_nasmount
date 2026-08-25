@@ -13,6 +13,28 @@
 namespace Session
 {
 
+/** Whether KAuth rejected the call before our helper code could run. Kept
+ *  next to classifyOutcome() so the two lists cannot drift apart. */
+bool rejectedBeforeDispatch(bool execSucceeded, int jobError)
+{
+    if (execSucceeded) {
+        return false;
+    }
+    switch (jobError) {
+    case KAuth::ActionReply::AuthorizationDeniedError:
+    case KAuth::ActionReply::UserCancelledError:
+    case KAuth::ActionReply::NoSuchActionError:
+    case KAuth::ActionReply::InvalidActionError:
+    case KAuth::ActionReply::HelperBusyError:
+    case KAuth::ActionReply::AlreadyStartedError:
+        return true;
+    default:
+        // -1 is our own helper's HelperErrorReply: it ran. Everything else is
+        // indeterminate.
+        return false;
+    }
+}
+
 HelperOutcome classifyOutcome(bool execSucceeded, int jobError)
 {
     if (execSucceeded) {
@@ -50,6 +72,7 @@ HelperResult invokeHelperAction(const QString &action, const QVariantMap &args)
 
     HelperResult result;
     result.outcome = classifyOutcome(execSucceeded, job->error());
+    result.rejectedBeforeDispatch = rejectedBeforeDispatch(execSucceeded, job->error());
     if (execSucceeded) {
         result.data = job->data();
         result.message = result.data.value(QStringLiteral("message")).toString();

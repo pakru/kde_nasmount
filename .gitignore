@@ -4,6 +4,8 @@
 # and build-debug/ that otherwise get committed by accident.
 /build/
 /build-*/
+# `make deb` / `make rpm` write native packages here.
+/dist/
 
 # An in-source build (cmake -S . -B .) would scatter these at the root.
 /CMakeCache.txt

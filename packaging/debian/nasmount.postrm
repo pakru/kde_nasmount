@@ -1,5 +1,145 @@
 #!/bin/sh
 set -e
 
+# Duplicated verbatim from nasmount.prerm: by the time this script runs on
+# purge, every file this package ships has already been deleted, so there is
+# nothing left to source a shared helper from. Keep the two copies identical.
+nasmount_managed_units()
+{
+    for path in /etc/systemd/system/*.mount /etc/systemd/system/*.automount; do
+        if [ -L "$path" ] || [ ! -f "$path" ]; then
+            continue
+        fi
+        name=${path##*/}
+        case "$name" in
+            *[!A-Za-z0-9:._\\-]*)
+                echo "WARNING: ignoring unit file with an unexpected name." >&2
+                continue
+                ;;
+        esac
+        if grep -Fxq '# X-Nasmount-Managed=1' "$path" 2>/dev/null; then
+            printf '%s\n' "$name"
+        fi
+    done
+}
+
+# `apt purge` on an already-removed package does not re-run prerm, so the
+# units may or may not still be running here. Stopping them again is cheap and
+# makes purge self-sufficient; deleting a running unit's file without stopping
+# it would strand a live mount with no unit backing it.
+nasmount_stop_units()
+{
+    [ -d /run/systemd/system ] || return 0
+
+    nasmount_managed_units | while IFS= read -r unit; do
+        case "$unit" in
+            *.automount) systemctl disable --now -- "$unit" >/dev/null 2>&1 || true ;;
+        esac
+    done
+    nasmount_managed_units | while IFS= read -r unit; do
+        case "$unit" in
+            *.mount)
+                systemctl stop -- "$unit" >/dev/null 2>&1 \
+                    || echo "WARNING: could not stop $unit; it may still be mounted." >&2
+                ;;
+        esac
+    done
+}
+
+nasmount_remove_state_dir()
+{
+    dir=$1
+    if [ -L "$dir" ]; then
+        echo "WARNING: $dir is a symlink and was left in place." >&2
+        return 1
+    fi
+    [ -d "$dir" ] || return 0
+
+    # A different device number from the parent means something is mounted
+    # here, so its contents belong to another filesystem. `rm -rf` would delete
+    # through it; refuse instead.
+    parent=${dir%/*}
+    [ -n "$parent" ] || parent=/
+    if [ "$(stat -c '%d' -- "$dir" 2>/dev/null)" \
+         != "$(stat -c '%d' -- "$parent" 2>/dev/null)" ]; then
+        echo "WARNING: $dir is a mount point and was left in place." >&2
+        return 1
+    fi
+
+    # Non-recursive on purpose. Everything nasmount writes into these roots is
+    # a flat regular file; anything else is not ours, so remove entries one by
+    # one and let the final rmdir fail if something unexpected remains.
+    rc=0
+    for entry in "$dir"/*; do
+        [ -e "$entry" ] || [ -L "$entry" ] || continue
+        if [ -L "$entry" ] || [ ! -f "$entry" ]; then
+            echo "WARNING: $entry is not a regular file and was left in place." >&2
+            rc=1
+            continue
+        fi
+        rm -f -- "$entry" || {
+            echo "WARNING: could not remove $entry." >&2
+            rc=1
+        }
+    done
+
+    if [ "$rc" -eq 0 ] && rmdir -- "$dir" 2>/dev/null; then
+        return 0
+    fi
+    echo "WARNING: $dir was left in place; remove it by hand." >&2
+    return 1
+}
+
+nasmount_purge_state()
+{
+    failed=0
+    # A failed unlink must not be reported as a successful purge: the package
+    # manager would tell the user everything was removed while root-owned
+    # state remains. The heredoc keeps this loop in the current shell -- a
+    # `... | while read` pipeline would run it in a subshell and lose $failed.
+    units=$(nasmount_managed_units)
+    while IFS= read -r unit; do
+        [ -n "$unit" ] || continue
+        rm -f -- "/etc/systemd/system/$unit" || failed=1
+    done <<UNITS
+$units
+UNITS
+
+    # The credential and runtime roots belong to the same shares as the units
+    # just removed. Leaving them would strand root-owned credential files with
+    # nothing left that can read or remove them.
+    for root in /etc/nasmount /run/nasmount /run/nasmount-ids; do
+        nasmount_remove_state_dir "$root" || failed=1
+    done
+
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+
+    if [ "$failed" -ne 0 ]; then
+        echo "WARNING: nasmount state could not be fully removed (see above)." >&2
+    fi
+
+    # Per-user configuration is deliberately untouched: this script runs as
+    # root with no way to know which accounts own shares, and guessing at
+    # $HOME paths from a maintainer script is worse than leaving a stale
+    # ~/.config/nasmountrc. nasmount-uninstall clears it for its own caller.
+}
+
+case "$1" in
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    purge)
+        nasmount_stop_units
+        nasmount_purge_state
+        ;;
+    *)
+        # Debian Policy §6.1: a maintainer script called with an argument it
+        # does not understand must fail loudly rather than silently succeed.
+        echo "postrm called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
 #DEBHELPER#
 exit 0

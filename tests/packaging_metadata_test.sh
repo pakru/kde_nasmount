@@ -16,19 +16,74 @@ read_release_contract "$repo_root"
 while IFS= read -r script; do
     bash -n "$script"
 done < <(find "$repo_root/packaging" "$repo_root/tests" -type f -name '*.sh' -print)
-for script in nasmount.preinst nasmount.postinst nasmount.postrm; do
+for script in nasmount.postinst nasmount.postrm; do
     sh -n "$repo_root/packaging/debian/$script"
 done
-sh -n "$repo_root/packaging/debian/nasmount.prerm.in"
+# @VERSION@/@DEB_HOST_MULTIARCH@ are ordinary words to `sh -n`, so the
+# templates parse without substitution.
+for template in nasmount.preinst.in nasmount.prerm.in; do
+    sh -n "$repo_root/packaging/debian/$template"
+done
+
+# --- upgrade contract (deb plan §2) ------------------------------------------
+preinst="$repo_root/packaging/debian/nasmount.preinst.in"
+[ -f "$preinst" ]
+if [ -e "$repo_root/packaging/debian/nasmount.preinst" ]; then
+    echo "ERROR: a non-templated nasmount.preinst would shadow the generated one" >&2
+    exit 1
+fi
+grep -Fq 'dpkg --compare-versions' "$preinst"
+grep -Fq 'MIN_UPGRADABLE_VERSION' "$preinst"
+if grep -Fq 'does not yet support in-place package upgrades' "$preinst"; then
+    echo "ERROR: the DEB still refuses in-place upgrades" >&2
+    exit 1
+fi
+grep -Fq 'nasmount.preinst.in' "$repo_root/packaging/build-deb.sh"
+
+# Rule §2.1: an upgrade must never run the removal guard. `remove)` is the
+# only case that may reach it.
+if grep -Eq '^\s*upgrade\)' "$repo_root/packaging/debian/nasmount.prerm.in"; then
+    echo "ERROR: prerm runs the package guard on upgrade" >&2
+    exit 1
+fi
+
+postrm="$repo_root/packaging/debian/nasmount.postrm"
+grep -Eq '^\s*purge\)' "$postrm"
+grep -Fq "postrm called with unknown argument" "$postrm"
+
+grep -Fq 'dh_installsystemd --restart-after-upgrade' "$repo_root/packaging/debian/rules"
+
+# --- authorship (deb plan §6) ------------------------------------------------
+for metadata in debian/control debian/copyright debian/changelog.in; do
+    grep -Fq 'Pavel Krutikhin <krutikhin92@gmail.com>' "$repo_root/packaging/$metadata"
+done
+if grep -R -n -E 'Krupets|pakru@users\.noreply\.github\.com' "$repo_root/packaging" \
+    "$repo_root/src" "$repo_root/README.md"; then
+    echo "ERROR: stale or malformed maintainer identity remains" >&2
+    exit 1
+fi
 
 grep -Fq 'Rules-Requires-Root: no' "$repo_root/packaging/debian/control"
 grep -Fq 'build-deb.sh must run as an unprivileged build user' "$repo_root/packaging/build-deb.sh"
 grep -Fq 'build-rpm.sh must run as an unprivileged build user' "$repo_root/packaging/build-rpm.sh"
 grep -Fq 'DNASMOUNT_PACKAGE_FAMILY=deb' "$repo_root/packaging/debian/rules"
 grep -Fq 'DNASMOUNT_PACKAGE_FAMILY=rpm' "$repo_root/packaging/rpm/nasmount.spec.in"
-grep -Fq '%{_libdir}/libexec/nasmount-package-guard || exit $?' "$repo_root/packaging/rpm/nasmount.spec.in"
-grep -Fq '/usr/lib/@DEB_HOST_MULTIARCH@/libexec/nasmount-package-guard' \
-    "$repo_root/packaging/debian/nasmount.prerm.in"
+# Both families now tear managed shares down themselves rather than refusing
+# removal. The guard binary still ships and is still a useful diagnostic, but
+# it must not appear in any maintainer scriptlet; package_scripts_test.sh
+# checks the RPM scriptlet bodies, this checks the DEB prerm.
+grep -Fq '@CHANGELOG_DATE@' "$repo_root/packaging/rpm/nasmount.spec.in"
+grep -Fq 'LC_ALL=C TZ=UTC0' "$repo_root/packaging/build-rpm.sh"
+grep -Fq '@CHANGELOG_DATE@' "$repo_root/packaging/build-rpm.sh"
+# The DEB no longer refuses removal: prerm tears managed shares down itself
+# and postrm purges their state. The guard binary stays installed and is still
+# authoritative for the RPM's %preun (asserted above); it must not reappear in
+# the DEB prerm, where it would refuse the removal this design now performs.
+if grep -Fq 'nasmount-package-guard' "$repo_root/packaging/debian/nasmount.prerm.in"; then
+    echo "ERROR: the DEB prerm refuses removal again; teardown is its job now" >&2
+    exit 1
+fi
+grep -Fq 'nasmount_disable_units' "$repo_root/packaging/debian/nasmount.prerm.in"
 grep -Fq 'cp "packages/$NASMOUNT_DEB" "release/$NASMOUNT_DEB_RELEASE_ASSET"' \
     "$repo_root/.github/workflows/release.yml"
 grep -Fq 'cp "packages/$NASMOUNT_RPM" "release/$NASMOUNT_RPM_RELEASE_ASSET"' \
@@ -38,15 +93,55 @@ grep -Fq 'name: Check out validated tag for publication' \
 grep -A5 -F 'name: Check out validated tag for publication' \
     "$repo_root/.github/workflows/release.yml" | grep -Fq 'persist-credentials: false'
 grep -Fq -- '--no-autoremove nasmount' "$repo_root/packaging/nasmount-uninstall.sh"
+# Every Fedora removal anywhere in the workflows must carry --no-autoremove:
+# DNF can keep removing unused dependencies after a failed transaction, leaving
+# nasmount installed without Qt. Counting is the point -- a bare `dnf remove`
+# added later must not slip past, so compare against the total.
 for workflow in "$repo_root/.github/workflows/ci.yml" "$repo_root/.github/workflows/release.yml"; do
-    [ "$(grep -Fc 'dnf remove -y --no-autoremove nasmount' "$workflow")" -eq 2 ]
-    grep -Fq 'rpm-packages-before-blocked-removal.txt' "$workflow"
-    grep -Fq 'rpm-packages-after-blocked-removal.txt' "$workflow"
-    if grep -Fq 'dnf remove -y nasmount' "$workflow"; then
-        echo "ERROR: Fedora removal permits dependency autoremove in $workflow" >&2
+    guarded=$(grep -Fc 'dnf remove -y --no-autoremove nasmount' "$workflow" || true)
+    total=$(grep -Ec 'dnf remove [^|]*nasmount' "$workflow" || true)
+    [ "$guarded" -eq "$total" ] && [ "$guarded" -ge 1 ] || {
+        echo "ERROR: $workflow has $total Fedora removals but only $guarded" >&2
+        echo "       carry --no-autoremove" >&2
+        exit 1
+    }
+    grep -Fq 'rpm-packages-before-removal.txt' "$workflow"
+    grep -Fq 'rpm-packages-after-removal.txt' "$workflow"
+    # The snapshot comparison must be a cmp against an expected set. Piping
+    # `diff` into `grep -v '^[<>]'` discards every content line, so such a
+    # check passes however many dependencies DNF removed.
+    grep -Fq 'rpm-packages-expected-after.txt' "$workflow"
+    if grep -Eq "diff logs/rpm-packages-before-removal" "$workflow" \
+        && grep -Eq "grep -Ev .\^\[0-9<>-\]" "$workflow"; then
+        echo "ERROR: $workflow uses a diff|grep snapshot check that cannot fail" >&2
         exit 1
     fi
 done
+
+# `make deb` / `make rpm` must use the exact images CI uses. A local build
+# against a different digest proves nothing about the CI result, and the pins
+# live in two files that nothing else keeps in step.
+container_helper="$repo_root/packaging/build-in-container.sh"
+[ -x "$container_helper" ]
+for family in DEB:ubuntu RPM:fedora; do
+    var=${family%%:*}
+    distro=${family##*:}
+    helper_pin=$(sed -n -E "s/^readonly NASMOUNT_${var}_IMAGE=(.*)$/\1/p" "$container_helper")
+    workflow_pin=$(grep -oE "image: ${distro}:[^[:space:]]+" \
+        "$repo_root/.github/workflows/ci.yml" | head -1 | sed 's/^image: //')
+    [ -n "$helper_pin" ] && [ -n "$workflow_pin" ] || {
+        echo "ERROR: could not read the $var image pin from both files" >&2
+        exit 1
+    }
+    [ "$helper_pin" = "$workflow_pin" ] || {
+        echo "ERROR: $var image pin drifted from ci.yml" >&2
+        echo "       build-in-container.sh: $helper_pin" >&2
+        echo "       ci.yml:                $workflow_pin" >&2
+        exit 1
+    }
+done
+grep -Fq 'build-in-container.sh deb' "$repo_root/Makefile"
+grep -Fq 'build-in-container.sh rpm' "$repo_root/Makefile"
 
 if grep -R -n -E 'Fedora 43|fedora-43|fc43' "$repo_root/packaging"; then
     echo "ERROR: retired Fedora 43 target remains in packaging" >&2
@@ -67,9 +162,20 @@ for workflow in "$repo_root/.github/workflows/ci.yml" "$repo_root/.github/workfl
     done < <(sed -n -E 's/^[[:space:]]*uses:[[:space:]]*([^#[:space:]]+).*/\1/p' "$workflow")
 done
 
+# Listing a job in expected_ci proves it exists, not that it gates anything:
+# ci_success carries its own hand-maintained needs/env/loop. All three must
+# name upgrade_deb or an upgrade failure leaves the required check green.
+ci_success_block=$(sed -n '/^  ci_success:/,$p' "$repo_root/.github/workflows/ci.yml")
+for family in DEB RPM; do
+    job="upgrade_$(printf '%s' "$family" | tr '[:upper:]' '[:lower:]')"
+    grep -Fq "$job" <<<"$ci_success_block"
+    grep -Fq "UPGRADE_$family: \${{ needs.$job.result }}" <<<"$ci_success_block"
+    grep -Fq "\"\$UPGRADE_$family\"" <<<"$ci_success_block"
+done
+
 ci_jobs=$(sed -n '/^jobs:/,$p' "$repo_root/.github/workflows/ci.yml" \
     | sed -n -E 's/^  ([a-z_]+):$/\1/p' | sort)
-expected_ci=$(printf '%s\n' build_deb build_rpm ci_success smoke_packages validate_packaging verify_artifact_set | sort)
+expected_ci=$(printf '%s\n' build_deb build_rpm ci_success smoke_packages upgrade_deb upgrade_rpm validate_packaging verify_artifact_set | sort)
 [ "$ci_jobs" = "$expected_ci" ]
 release_jobs=$(sed -n '/^jobs:/,$p' "$repo_root/.github/workflows/release.yml" \
     | sed -n -E 's/^  ([a-z_]+):$/\1/p' | sort)

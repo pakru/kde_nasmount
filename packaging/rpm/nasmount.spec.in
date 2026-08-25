@@ -60,12 +60,12 @@ service-menu dialog.
 %install
 %cmake_install
 
-%pre
-if [ "$1" -gt 1 ]; then
-    echo "nasmount does not yet support in-place package upgrades." >&2
-    echo "Run nasmount-uninstall, then install the new package." >&2
-    exit 1
-fi
+# No %pre. Upgrades are supported in place: the new package's %pre is the only
+# scriptlet that can refuse one, and refusing would strand every user who
+# already has a share. Every scriptlet below that touches managed state is
+# gated on "$1" -eq 0 -- RPM runs the old package's %preun/%postun with $1=1
+# during an upgrade, and an ungated teardown would unmount every share on
+# every update.
 
 %post
 %systemd_post nasmount-boot.service
@@ -75,11 +75,170 @@ fi
 
 %preun
 if [ "$1" -eq 0 ]; then
-    %{_libdir}/libexec/nasmount-package-guard || exit $?
+    # Managed share units are root-owned files the KAuth helper wrote into
+    # /etc/systemd/system. They are identified only by the exact marker line
+    # the helper emits (the marker-v2 block in src/core/unitvalue.h) -- never
+    # by filename, which a user chooses via their mount point.
+    #
+    # The name is then checked against the alphabet systemd-escape can produce:
+    # alphanumerics, ':', '_', '.', '-' and the backslash of a \xNN escape. This is
+    # not cosmetic. systemctl expands '*', '?' and '[...]' in a unit argument as a
+    # pattern over every loaded unit, so a marked file named '*.mount' would turn
+    # `systemctl stop` into "stop every mount unit on the system"; `--` does not
+    # prevent it, since it stops option parsing, not globbing. A newline in a name
+    # would likewise be split by `read` into two unit names.
+    #
+    # This matcher is duplicated verbatim in %postun on purpose, and matches
+    # the copies in the DEB maintainer scripts: %postun runs after every file
+    # this package ships has been deleted, so it cannot source a helper.
+    nasmount_managed_units()
+    {
+        for path in /etc/systemd/system/*.mount /etc/systemd/system/*.automount; do
+            if [ -L "$path" ] || [ ! -f "$path" ]; then
+                continue
+            fi
+            name=${path##*/}
+            case "$name" in
+                *[!A-Za-z0-9:._\\-]*)
+                    echo "WARNING: ignoring unit file with an unexpected name." >&2
+                    continue
+                    ;;
+            esac
+            if grep -Fxq '# X-Nasmount-Managed=1' "$path" 2>/dev/null; then
+                printf '%%s\n' "$name"
+            fi
+        done
+    }
+
+    # Disarm every managed share. Automount halves go first: stopping the
+    # trigger before the mount half means nothing can re-mount the path
+    # underneath us while we are unmounting it.
+    #
+    # Stopping a .mount unit unmounts a live CIFS mount. Open file handles
+    # make that fail; report it and keep going rather than aborting, since a
+    # failing %preun leaves the package installed and the transaction broken.
+    if [ -d /run/systemd/system ]; then
+        nasmount_managed_units | while IFS= read -r unit; do
+            case "$unit" in
+                *.automount)
+                    systemctl disable --now -- "$unit" >/dev/null 2>&1 \
+                        || echo "WARNING: could not disable $unit." >&2
+                    ;;
+            esac
+        done
+        nasmount_managed_units | while IFS= read -r unit; do
+            case "$unit" in
+                *.mount)
+                    systemctl stop -- "$unit" >/dev/null 2>&1 \
+                        || echo "WARNING: could not stop $unit; it may still be mounted." >&2
+                    ;;
+            esac
+        done
+    fi
 fi
 %systemd_preun nasmount-boot.service
 
 %postun
+if [ "$1" -eq 0 ]; then
+    # Duplicated verbatim from %preun: by the time this runs, every file this
+    # package ships has already been deleted. Keep the copies identical.
+    nasmount_managed_units()
+    {
+        for path in /etc/systemd/system/*.mount /etc/systemd/system/*.automount; do
+            if [ -L "$path" ] || [ ! -f "$path" ]; then
+                continue
+            fi
+            name=${path##*/}
+            case "$name" in
+                *[!A-Za-z0-9:._\\-]*)
+                    echo "WARNING: ignoring unit file with an unexpected name." >&2
+                    continue
+                    ;;
+            esac
+            if grep -Fxq '# X-Nasmount-Managed=1' "$path" 2>/dev/null; then
+                printf '%%s\n' "$name"
+            fi
+        done
+    }
+
+    nasmount_remove_state_dir()
+    {
+        dir=$1
+        if [ -L "$dir" ]; then
+            echo "WARNING: $dir is a symlink and was left in place." >&2
+            return 1
+        fi
+        [ -d "$dir" ] || return 0
+
+        # A different device number from the parent means something is mounted
+        # here, so its contents belong to another filesystem. `rm -rf` would delete
+        # through it; refuse instead.
+        parent=${dir%/*}
+        [ -n "$parent" ] || parent=/
+        if [ "$(stat -c '%d' -- "$dir" 2>/dev/null)" \
+             != "$(stat -c '%d' -- "$parent" 2>/dev/null)" ]; then
+            echo "WARNING: $dir is a mount point and was left in place." >&2
+            return 1
+        fi
+
+        # Non-recursive on purpose. Everything nasmount writes into these roots is
+        # a flat regular file; anything else is not ours, so remove entries one by
+        # one and let the final rmdir fail if something unexpected remains.
+        rc=0
+        for entry in "$dir"/*; do
+            [ -e "$entry" ] || [ -L "$entry" ] || continue
+            if [ -L "$entry" ] || [ ! -f "$entry" ]; then
+                echo "WARNING: $entry is not a regular file and was left in place." >&2
+                rc=1
+                continue
+            fi
+            rm -f -- "$entry" || {
+                echo "WARNING: could not remove $entry." >&2
+                rc=1
+            }
+        done
+
+        if [ "$rc" -eq 0 ] && rmdir -- "$dir" 2>/dev/null; then
+            return 0
+        fi
+        echo "WARNING: $dir was left in place; remove it by hand." >&2
+        return 1
+    }
+
+    failed=0
+    # RPM has no remove/purge split, so an erase must do what `apt purge` does
+    # on the DEB: delete the unit files as well as disarming them. Stopping at
+    # the DEB's `remove` behaviour would strand root-owned credential files
+    # with nothing left installed that could read or remove them.
+    #
+    # The heredoc keeps this loop in the current shell -- a `... | while read`
+    # pipeline would run it in a subshell and lose $failed.
+    units=$(nasmount_managed_units)
+    while IFS= read -r unit; do
+        [ -n "$unit" ] || continue
+        rm -f -- "/etc/systemd/system/$unit" || failed=1
+    done <<UNITS
+$units
+UNITS
+
+    for root in /etc/nasmount /run/nasmount /run/nasmount-ids; do
+        nasmount_remove_state_dir "$root" || failed=1
+    done
+
+    if [ "$failed" -ne 0 ]; then
+        echo "WARNING: nasmount state could not be fully removed (see above)." >&2
+    fi
+
+    # systemd's own %transfiletriggerpostun daemon-reload runs before ordinary
+    # %postun, so the units deleted above are still loaded at this point.
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload >/dev/null 2>&1 || :
+    fi
+
+    # Per-user configuration is deliberately untouched: this runs as root with
+    # no way to know which accounts own shares. nasmount-uninstall clears
+    # ~/.config/nasmountrc for its own caller.
+fi
 %systemd_postun_with_restart nasmount-boot.service
 
 %files
@@ -102,5 +261,5 @@ fi
 %{_datadir}/polkit-1/actions/io.github.pakru.nasmount.policy
 
 %changelog
-* Sun Aug 16 2026 Pavel Krupets <pakru@users.noreply.github.com> - @VERSION@-@RELEASE@
-- Initial Fedora 44 package
+* @CHANGELOG_DATE@ Pavel Krutikhin <krutikhin92@gmail.com> - @VERSION@-@RELEASE@%{?dist}
+- Upstream release @VERSION@ for Fedora 44

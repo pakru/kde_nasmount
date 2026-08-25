@@ -5,7 +5,15 @@
         "Icon": "drive-network",
         "Id": "kcm_nasmount",
         "Category": "",
-        "FormFactors": []
+        "FormFactors": [],
+        "License": "GPL-3.0-or-later",
+        "Website": "https://github.com/pakru/kde_mount",
+        "Authors": [
+            {
+                "Name": "Pavel Krutikhin",
+                "Email": "krutikhin92@gmail.com"
+            }
+        ]
     },
     "X-KDE-System-Settings-Parent-Category": "network",
     "X-KDE-Keywords": "cifs,smb,samba,network,mount,share,drive,nas"

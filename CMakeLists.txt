@@ -344,6 +344,15 @@ add_executable(packagestate_test tests/packagestate_test.cpp)
 target_link_libraries(packagestate_test PRIVATE nasmount-core)
 add_test(NAME packagestate COMMAND packagestate_test)
 
+# The frozen unit corpus is read from the source tree, not staged into the
+# build tree: it is a record of released bytes, and copying it would make a
+# stale copy possible.
+add_executable(goldenunits_test tests/goldenunits_test.cpp)
+target_link_libraries(goldenunits_test PRIVATE nasmount-core)
+target_compile_definitions(goldenunits_test
+    PRIVATE NASMOUNT_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/units")
+add_test(NAME goldenunits COMMAND goldenunits_test)
+
 # The QML/C++ boundary is invisible to the compiler, qmllint and every ctest
 # binary: QML resolves these names at runtime against a QObject exposed as
 # `var`. This gate is the only thing that catches a C++ rename leaving a QML

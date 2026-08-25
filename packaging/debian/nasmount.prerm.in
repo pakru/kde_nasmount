@@ -1,12 +1,80 @@
 #!/bin/sh
 set -e
 
+# Managed share units are root-owned files the KAuth helper wrote into
+# /etc/systemd/system. They are identified only by the exact marker line the
+# helper emits (the marker-v2 block in src/core/unitvalue.h) -- never by
+# filename, which a user chooses via their mount point.
+#
+# The name is then checked against the alphabet systemd-escape can produce:
+# alphanumerics, ':', '_', '.', '-' and the backslash of a \xNN escape. This is
+# not cosmetic. systemctl expands '*', '?' and '[...]' in a unit argument as a
+# pattern over every loaded unit, so a marked file named '*.mount' would turn
+# `systemctl stop` into "stop every mount unit on the system"; `--` does not
+# prevent it, since it stops option parsing, not globbing. A newline in a name
+# would likewise be split by `read` into two unit names.
+#
+# This matcher is duplicated verbatim in nasmount.postrm on purpose: postrm
+# must keep working after every file this package ships has been deleted, so
+# it cannot source a shared helper.
+nasmount_managed_units()
+{
+    for path in /etc/systemd/system/*.mount /etc/systemd/system/*.automount; do
+        if [ -L "$path" ] || [ ! -f "$path" ]; then
+            continue
+        fi
+        name=${path##*/}
+        case "$name" in
+            *[!A-Za-z0-9:._\\-]*)
+                echo "WARNING: ignoring unit file with an unexpected name." >&2
+                continue
+                ;;
+        esac
+        if grep -Fxq '# X-Nasmount-Managed=1' "$path" 2>/dev/null; then
+            printf '%s\n' "$name"
+        fi
+    done
+}
+
+# Disarm every managed share. Automount halves go first: stopping the trigger
+# before the mount half means nothing can re-mount the path underneath us
+# while we are unmounting it.
+#
+# Stopping a .mount unit unmounts a live CIFS mount. A mount with open file
+# handles makes that fail; report it and keep going rather than aborting the
+# transaction, since a failing prerm would leave dpkg half-configured and the
+# package neither installed nor removed.
+nasmount_disable_units()
+{
+    [ -d /run/systemd/system ] || return 0
+
+    nasmount_managed_units | while IFS= read -r unit; do
+        case "$unit" in
+            *.automount)
+                systemctl disable --now -- "$unit" >/dev/null 2>&1 \
+                    || echo "WARNING: could not disable $unit." >&2
+                ;;
+        esac
+    done
+    nasmount_managed_units | while IFS= read -r unit; do
+        case "$unit" in
+            *.mount)
+                systemctl stop -- "$unit" >/dev/null 2>&1 \
+                    || echo "WARNING: could not stop $unit; it may still be mounted." >&2
+                ;;
+        esac
+    done
+}
+
 case "$1" in
     remove)
-        /usr/lib/@DEB_HOST_MULTIARCH@/libexec/nasmount-package-guard
+        # `upgrade` is intentionally absent. An upgrade replaces program files
+        # in place and must never disturb a live share; adding `upgrade)` here
+        # would unmount every share on every update.
+        nasmount_disable_units
         ;;
 esac
 
-# The guard must run before debhelper's generated service-stop snippet.
+# The teardown must run before debhelper's generated service-stop snippet.
 #DEBHELPER#
 exit 0

@@ -1,6 +1,6 @@
-# kde_mount - easy network mounts without CLI hustle
+# KDE NAS Mount - easy network mounts without CLI hustle
 
-Make your SMB network shares on your NAS or any other remote host easly connected to your Linux host.
+Make your SMB network shares on your NAS or any other remote host easly connected to your Linux host with KDE Plasma desktop.
 
 Requirements:
  - Kubuntu 26.04+ or Fedora 44+, **or**
@@ -25,9 +25,40 @@ wget https://github.com/pakru/kde_mount/releases/latest/download/nasmount-fedora
 Then install the downloaded package:
 
 ```bash
-sudo dpkg -i ./nasmount-amd64-0.1.1.deb                       # Kubuntu
-sudo dnf install ./nasmount-fedora44-x86_64-0.1.1.rpm         # Fedora
+sudo apt install ./nasmount-amd64-0.1.3.deb                   # Kubuntu
+sudo dnf install ./nasmount-fedora44-x86_64-0.1.3.rpm         # Fedora
 ```
+
+`apt install` is preferred over `dpkg -i` for the `.deb`: it resolves the
+package's dependencies, which `dpkg -i` leaves for you to install by hand.
+
+### Upgrading
+
+On Kubuntu, install the newer package over the installed one with the same
+command:
+
+```bash
+sudo apt install ./nasmount-amd64-<newer>.deb
+```
+
+Your shares, their credentials, and your configuration are preserved — an
+upgrade never touches `/etc/nasmount`, the generated units in
+`/etc/systemd/system`, or `~/.config/nasmountrc`. Afterwards, restart System
+Settings and Dolphin so they pick up the new KCM and service menu; nothing else
+is needed, and no reboot is required.
+
+On Fedora the same applies, with the same command:
+
+```bash
+sudo dnf install ./nasmount-fedora44-x86_64-<newer>.rpm
+```
+
+**Downgrades differ between the two, and not by choice.** The `.deb` refuses
+them: run `nasmount-uninstall` first, then install the older package. The
+`.rpm` cannot refuse — DNF downgrades whenever it is given an exact version,
+which a local `.rpm` file is — so on Fedora an accidental `dnf install` of an
+older package silently downgrades. Nothing protects you there; check the
+version before you install it.
 
 ![Mount as Network drive in dolphin](docs/img/img3.png)
 
@@ -117,9 +148,10 @@ The regular CI workflow has these required jobs:
 1. `validate_packaging` — rootless source, shell, workflow, and package-metadata gates;
 2. `build_deb` — unprivileged Ubuntu 26.04 build, all CTests, Lintian, and payload evidence;
 3. `build_rpm` — unprivileged Fedora 44 build, all CTests, rpmlint, and payload evidence;
-4. `smoke_packages` — clean-container install, package guard, and removal for both targets;
-5. `verify_artifact_set` — exact payload/layout checks plus checksums and release metadata;
-6. `ci_success` — one branch-protection result requiring every prior job.
+4. `smoke_packages` — clean-container install, payload inspection, and removal of seeded managed state for both targets;
+5. `upgrade_deb` / `upgrade_rpm` — real in-place upgrade over seeded shares, then removal, for each family;
+6. `verify_artifact_set` — exact payload/layout checks plus checksums and release metadata;
+7. `ci_success` — one branch-protection result requiring every prior job.
 
 Package creation deliberately uses `dpkg-buildpackage`/debhelper and
 `rpmbuild`/Fedora RPM macros. The repository `make install` target is only for
@@ -137,9 +169,9 @@ never while using a mounted share. Listing state is read-only and unauthenticate
 make test              # or: ctest --test-dir build --output-on-failure
 ```
 
-Fifteen test binaries plus shell, metadata, and AppStream gates; `install.sh`
+Sixteen test binaries plus shell, metadata, and AppStream gates; `install.sh`
 runs every one and refuses to install if any fail. Both native-package builds
-run the complete 21-test CTest suite. Privileged accept paths and real reboot /
+run the complete 22-test CTest suite. Privileged accept paths and real reboot /
 no-login behaviour must still be validated in disposable target VMs.
 
 ## Uninstall
@@ -151,18 +183,52 @@ nasmount-uninstall
 ```
 
 An authenticated full purge: every managed share, its credentials and runtime
-records, `~/.config/nasmountrc`, then the software itself. Mount points are retained; tampered state or an unsafe live mount is
-refused, leaving everything installed for retry.
+records, `~/.config/nasmountrc`, then the software itself. Mount points are
+retained; tampered state or an unsafe live mount is refused, leaving everything
+installed for retry. Add `--yes` to skip the confirmation prompt.
+
+On Kubuntu it *purges* rather than removes, so `dpkg -l` stops listing nasmount
+entirely. It reports what actually happened rather than assuming: if the
+authenticated cleanup cannot be confirmed, it says so and leaves the package
+installed, because a lost authorization reply cannot be distinguished from a
+purge that already ran.
 
 The command remains installed after the download is deleted. It authenticates
 and purges managed state while the KAuth helper and polkit policy still exist,
-then invokes `apt-get remove` or `dnf remove --no-autoremove` through `sudo`.
-Direct package-manager removal is allowed only when the read-only package guard
-proves that no nasmount-managed units, credentials, or runtime state remain;
-otherwise it stops and tells you to use `nasmount-uninstall`. On Fedora, never
-use plain `dnf remove nasmount`: DNF may continue auto-removing dependencies
-after an RPM pre-removal guard refuses. Use `nasmount-uninstall`, or
-`dnf remove --no-autoremove nasmount` only when the guard reports empty state.
+then invokes `apt-get purge` or `dnf remove --no-autoremove` through `sudo`.
+
+### Removing with apt or dnf directly
+
+The two families behave differently here, deliberately.
+
+**Kubuntu.** `apt remove` and `apt purge` both work with shares present, and
+the package tears them down itself:
+
+| Command | Effect |
+|---|---|
+| `sudo apt remove nasmount` | Disarms every managed share — stops its automount trigger and unmounts it — then removes the software. Unit files, credentials in `/etc/nasmount`, and runtime records are **kept**. |
+| `sudo apt purge nasmount` | The above, and then deletes the unit files, `/etc/nasmount`, and `/run/nasmount*`. |
+
+Two things this does **not** do, and cannot: it runs as root with no idea which
+account owns a share, so it never removes anyone's `~/.config/nasmountrc`, and
+it asks for no authentication. `nasmount-uninstall` remains the complete,
+owner-scoped path — prefer it. If a share has open files, the unmount fails and
+the removal prints a warning and continues, leaving that mount live until you
+unmount it or reboot.
+
+**Fedora.** RPM has no remove/purge split, so a single `dnf remove` does
+everything the two apt commands do together: it disarms every managed share and
+deletes its unit files, `/etc/nasmount`, and `/run/nasmount*`.
+
+Always pass `--no-autoremove`:
+
+```bash
+sudo dnf remove --no-autoremove nasmount
+```
+
+Without it, DNF may continue removing dependencies it now considers unused,
+which can leave other software on the system without Qt. `nasmount-uninstall`
+passes it for you.
 
 For an installation made from source, use:
 
@@ -173,3 +239,12 @@ For an installation made from source, use:
 It reads `build/install_manifest.txt` and refuses to run without it, so
 **source uninstall works only from the build tree that installed** — after
 `make clean`, or in a fresh checkout, re-run `./install.sh` first.
+
+## Author and licence
+
+Written by **Pavel Krutikhin** ([@pakru](https://github.com/pakru)),
+<krutikhin92@gmail.com>.
+
+Copyright © 2026 Pavel Krutikhin. Licensed under the **GNU General Public
+License, version 3 or later** (`GPL-3.0-or-later`); see [LICENSE](LICENSE) for
+the full text.

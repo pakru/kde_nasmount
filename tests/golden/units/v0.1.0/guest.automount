@@ -1,0 +1,15 @@
+# Managed by nasmount — do not edit by hand; use the KCM or the dialog.
+# X-Nasmount-Managed=1
+# X-Nasmount-Owner-Uid=1000
+# X-Nasmount-Owner-Gid=1000
+# X-Nasmount-Id=fedcba9876543210fedcba9876543210
+# X-Nasmount-Mode=system
+# X-Nasmount-Authentication=guest
+[Unit]
+Description=nasmount automount: /home/tester/mnt/public
+ConditionPathIsDirectory=/home/tester/mnt/public
+
+[Automount]
+Where=/home/tester/mnt/public
+TimeoutIdleSec=60
+DirectoryMode=0700

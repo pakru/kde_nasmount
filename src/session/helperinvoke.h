@@ -41,6 +41,19 @@ enum class HelperOutcome {
  */
 struct HelperResult {
     HelperOutcome outcome = HelperOutcome::Unknown;
+    /**
+     * True only when KAuth's own machinery rejected the call and our helper
+     * code provably never ran — authorization denied, user cancelled, unknown
+     * or invalid action, helper busy/already started.
+     *
+     * `outcome == ConfirmedFailure` alone does not imply this: it also covers
+     * our helper.cpp running and returning HelperErrorReply, and a privileged
+     * action is not necessarily atomic, so such a refusal can arrive after the
+     * helper has already changed system state. Only this flag distinguishes
+     * "nothing happened" from "it ran and then said no", which is the
+     * difference nasmount-cleanup reports to the user.
+     */
+    bool rejectedBeforeDispatch = false;
     QString message;
     QString id;             ///< the stable share id, when the helper action returns one
     bool activated = false; ///< whether the call is known to have left the share armed/active

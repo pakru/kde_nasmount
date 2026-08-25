@@ -180,45 +180,80 @@ jobs:
             dpkg-query -L nasmount > logs/owned-paths.txt
             bash packaging/smoke-installed-package.sh deb '${{ needs.validate_release.outputs.version }}' \
               | tee logs/inspection.txt
+            # Seed managed state. Both families now tear it down themselves:
+            # `apt remove` disarms and `apt purge` deletes; RPM has no split, so
+            # an erase does both. No running systemd here, so the unmount half
+            # is short-circuited and belongs to the VM checklist.
+            corpus=tests/golden/units/v0.1.0
             install -d -m 0700 /etc/nasmount
-            if DEBIAN_FRONTEND=noninteractive apt-get remove -y nasmount; then
-              echo 'ERROR: DEB removal ignored managed state' >&2
-              exit 1
-            fi
-            [ "$(dpkg-query -W -f='${db:Status-Status}' nasmount)" = installed ]
-            rmdir /etc/nasmount
+            install -m 0600 /dev/null /etc/nasmount/0123456789abcdef0123456789abcdef.cred
+            install -m 0644 "$corpus/credentials.mount" \
+              /etc/systemd/system/home-tester-mnt-media.mount
+            install -m 0644 "$corpus/credentials.automount" \
+              /etc/systemd/system/home-tester-mnt-media.automount
+
             DEBIAN_FRONTEND=noninteractive apt-get remove -y nasmount
             ! dpkg-query -s nasmount 2>/dev/null \
               | grep -q '^Status: install ok installed$'
+            # remove is not purge: state must survive for a later purge.
+            [ -f /etc/systemd/system/home-tester-mnt-media.mount ]
+            [ -f /etc/nasmount/0123456789abcdef0123456789abcdef.cred ]
+
+            DEBIAN_FRONTEND=noninteractive apt-get purge -y nasmount
+            for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
+                            /etc/systemd/system/home-tester-mnt-media.automount \
+                            /etc/nasmount; do
+              if [ -e "$leftover" ]; then
+                echo "ERROR: removal left $leftover behind" >&2
+                exit 1
+              fi
+            done
           else
             dnf install -y --allowerasing --setopt=install_weak_deps=False \
               ./downloaded/artifacts/*.rpm
             rpm -ql nasmount > logs/owned-paths.txt
             bash packaging/smoke-installed-package.sh rpm '${{ needs.validate_release.outputs.version }}' \
               | tee logs/inspection.txt
-            rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
-              > logs/rpm-packages-before-blocked-removal.txt
+            # Seed managed state. Both families now tear it down themselves:
+            # `apt remove` disarms and `apt purge` deletes; RPM has no split, so
+            # an erase does both. No running systemd here, so the unmount half
+            # is short-circuited and belongs to the VM checklist.
+            corpus=tests/golden/units/v0.1.0
             install -d -m 0700 /etc/nasmount
-            if dnf remove -y --no-autoremove nasmount; then
-              echo 'ERROR: RPM removal ignored managed state' >&2
-              exit 1
-            fi
-            rpm -q nasmount >/dev/null
+            install -m 0600 /dev/null /etc/nasmount/0123456789abcdef0123456789abcdef.cred
+            install -m 0644 "$corpus/credentials.mount" \
+              /etc/systemd/system/home-tester-mnt-media.mount
+            install -m 0644 "$corpus/credentials.automount" \
+              /etc/systemd/system/home-tester-mnt-media.automount
+
             rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
-              > logs/rpm-packages-after-blocked-removal.txt
-            cmp logs/rpm-packages-before-blocked-removal.txt \
-              logs/rpm-packages-after-blocked-removal.txt
-            if ldd /usr/lib64/libexec/nasmount-package-guard | grep -q 'not found'; then
-              echo 'ERROR: blocked RPM removal left the package guard unresolved' >&2
-              exit 1
-            fi
-            if /usr/lib64/libexec/nasmount-package-guard; then
-              echo 'ERROR: package guard accepted managed state after blocked removal' >&2
-              exit 1
-            fi
-            rmdir /etc/nasmount
+              > logs/rpm-packages-before-removal.txt
             dnf remove -y --no-autoremove nasmount
             ! rpm -q nasmount >/dev/null 2>&1
+            rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
+              > logs/rpm-packages-after-removal.txt
+            # --no-autoremove must leave every dependency in place. Build the
+            # expected after-set by removing exactly the nasmount line and
+            # compare byte for byte. A `diff | grep -v` check cannot work here:
+            # every content line diff emits starts with '<' or '>', so the
+            # filter eats them all and the test passes no matter what changed.
+            [ "$(grep -c '^nasmount-' logs/rpm-packages-before-removal.txt)" -eq 1 ]
+            grep -v '^nasmount-' logs/rpm-packages-before-removal.txt \
+              > logs/rpm-packages-expected-after.txt
+            cmp logs/rpm-packages-expected-after.txt logs/rpm-packages-after-removal.txt || {
+              echo 'ERROR: Fedora removal changed packages other than nasmount' >&2
+              diff logs/rpm-packages-expected-after.txt \
+                   logs/rpm-packages-after-removal.txt >&2 || true
+              exit 1
+            }
+            for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
+                            /etc/systemd/system/home-tester-mnt-media.automount \
+                            /etc/nasmount; do
+              if [ -e "$leftover" ]; then
+                echo "ERROR: removal left $leftover behind" >&2
+                exit 1
+              fi
+            done
           fi
           printf '%s release smoke passed\n' '${{ matrix.target }}' > logs/result.txt
       - name: Upload release smoke report

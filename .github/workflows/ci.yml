@@ -145,51 +145,296 @@ jobs:
             dpkg-query -L nasmount > logs/owned-paths.txt
             bash packaging/smoke-installed-package.sh deb "$(tr -d '[:space:]' < VERSION)" \
               | tee logs/inspection.txt
+            # Seed managed state. `apt remove` now disarms shares and
+            # succeeds; only `apt purge` deletes their units and credentials.
+            # The container has no running systemd, so prerm's unmount path is
+            # short-circuited here -- that half is covered by the VM checklist,
+            # not by CI.
+            corpus=tests/golden/units/v0.1.0
             install -d -m 0700 /etc/nasmount
-            if DEBIAN_FRONTEND=noninteractive apt-get remove -y nasmount; then
-              echo 'ERROR: DEB removal ignored managed state' >&2
-              exit 1
-            fi
-            [ "$(dpkg-query -W -f='${db:Status-Status}' nasmount)" = installed ]
-            rmdir /etc/nasmount
+            install -m 0600 /dev/null /etc/nasmount/0123456789abcdef0123456789abcdef.cred
+            install -m 0644 "$corpus/credentials.mount" \
+              /etc/systemd/system/home-tester-mnt-media.mount
+            install -m 0644 "$corpus/credentials.automount" \
+              /etc/systemd/system/home-tester-mnt-media.automount
+
             DEBIAN_FRONTEND=noninteractive apt-get remove -y nasmount
             ! dpkg-query -s nasmount 2>/dev/null \
               | grep -q '^Status: install ok installed$'
+            # remove is not purge: state must survive for a later purge.
+            [ -f /etc/systemd/system/home-tester-mnt-media.mount ]
+            [ -f /etc/nasmount/0123456789abcdef0123456789abcdef.cred ]
+
+            DEBIAN_FRONTEND=noninteractive apt-get purge -y nasmount
+            for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
+                            /etc/systemd/system/home-tester-mnt-media.automount \
+                            /etc/nasmount; do
+              if [ -e "$leftover" ]; then
+                echo "ERROR: purge left $leftover behind" >&2
+                exit 1
+              fi
+            done
+            if dpkg-query -W -f='${db:Status-Status}\n' nasmount 2>/dev/null | grep -q .; then
+              echo 'ERROR: purge left the package in dpkg state' >&2
+              exit 1
+            fi
           else
             dnf install -y --allowerasing --setopt=install_weak_deps=False \
               ./downloaded/artifacts/*.rpm
             rpm -ql nasmount > logs/owned-paths.txt
             bash packaging/smoke-installed-package.sh rpm "$(tr -d '[:space:]' < VERSION)" \
               | tee logs/inspection.txt
-            rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
-              > logs/rpm-packages-before-blocked-removal.txt
+
+            # Seed managed state. RPM has no remove/purge split, so an erase
+            # does what `apt purge` does on the DEB: disarm and delete. The
+            # container has no running systemd, so the unmount half is
+            # short-circuited -- that is covered by the VM checklist, not here.
+            corpus=tests/golden/units/v0.1.0
             install -d -m 0700 /etc/nasmount
-            if dnf remove -y --no-autoremove nasmount; then
-              echo 'ERROR: RPM removal ignored managed state' >&2
-              exit 1
-            fi
-            rpm -q nasmount >/dev/null
+            install -m 0600 /dev/null /etc/nasmount/0123456789abcdef0123456789abcdef.cred
+            install -m 0644 "$corpus/credentials.mount" \
+              /etc/systemd/system/home-tester-mnt-media.mount
+            install -m 0644 "$corpus/credentials.automount" \
+              /etc/systemd/system/home-tester-mnt-media.automount
+
             rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
-              > logs/rpm-packages-after-blocked-removal.txt
-            cmp logs/rpm-packages-before-blocked-removal.txt \
-              logs/rpm-packages-after-blocked-removal.txt
-            if ldd /usr/lib64/libexec/nasmount-package-guard | grep -q 'not found'; then
-              echo 'ERROR: blocked RPM removal left the package guard unresolved' >&2
-              exit 1
-            fi
-            if /usr/lib64/libexec/nasmount-package-guard; then
-              echo 'ERROR: package guard accepted managed state after blocked removal' >&2
-              exit 1
-            fi
-            rmdir /etc/nasmount
+              > logs/rpm-packages-before-removal.txt
             dnf remove -y --no-autoremove nasmount
             ! rpm -q nasmount >/dev/null 2>&1
+            rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
+              > logs/rpm-packages-after-removal.txt
+            # --no-autoremove must leave every dependency in place. Build the
+            # expected after-set by removing exactly the nasmount line and
+            # compare byte for byte. A `diff | grep -v` check cannot work here:
+            # every content line diff emits starts with '<' or '>', so the
+            # filter eats them all and the test passes no matter what changed.
+            [ "$(grep -c '^nasmount-' logs/rpm-packages-before-removal.txt)" -eq 1 ]
+            grep -v '^nasmount-' logs/rpm-packages-before-removal.txt \
+              > logs/rpm-packages-expected-after.txt
+            cmp logs/rpm-packages-expected-after.txt logs/rpm-packages-after-removal.txt || {
+              echo 'ERROR: Fedora removal changed packages other than nasmount' >&2
+              diff logs/rpm-packages-expected-after.txt \
+                   logs/rpm-packages-after-removal.txt >&2 || true
+              exit 1
+            }
+
+            for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
+                            /etc/systemd/system/home-tester-mnt-media.automount \
+                            /etc/nasmount; do
+              if [ -e "$leftover" ]; then
+                echo "ERROR: RPM erase left $leftover behind" >&2
+                exit 1
+              fi
+            done
           fi
           printf '%s smoke install/removal passed\n' '${{ matrix.target }}' > logs/result.txt
       - name: Upload smoke report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: smoke-${{ matrix.target }}
+          path: logs/
+          if-no-files-found: error
+          retention-days: 14
+
+  upgrade_deb:
+    name: Upgrade Ubuntu 26.04 DEB in place
+    needs: build_deb
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:26.04@sha256:7b202b0e2e0028c6250f5fcf41d04df492d145a1654c6995a6553f0c1f6f1960
+    steps:
+      - name: Install build and smoke dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            appstream binutils build-essential ca-certificates cmake debhelper devscripts \
+            extra-cmake-modules file git jq libkf6auth-dev libkf6config-dev \
+            libkf6coreaddons-dev libkf6i18n-dev libkf6kcmutils-dev \
+            libkf6widgetsaddons-dev qt6-base-dev qt6-declarative-dev sudo systemd
+          useradd --create-home --shell /bin/bash builder
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download the release-1 package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: package-ubuntu-26.04-amd64
+          path: downloaded
+      - name: Build the release-2 package from the same tree
+        run: |
+          # A packaging-only revision bump is a genuine dpkg upgrade and needs
+          # no published release asset. build-deb.sh refuses to run as root and
+          # requires an empty output directory, so mirror build_deb's setup.
+          printf '2\n' > packaging/RELEASE
+          mkdir -p artifacts-r2
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- ./packaging/build-deb.sh artifacts-r2
+          printf '1\n' > packaging/RELEASE
+      - name: Upgrade in place over seeded managed state
+        run: |
+          mkdir -p logs
+          version=$(tr -d '[:space:]' < VERSION)
+          old="downloaded/artifacts/nasmount_${version}-1_amd64.deb"
+          new="artifacts-r2/nasmount_${version}-2_amd64.deb"
+          [ -f "$old" ] && [ -f "$new" ]
+          guard="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/libexec/nasmount-package-guard"
+
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "./$old"
+          [ "$(dpkg-query -W -f='${Version}' nasmount)" = "${version}-1" ]
+
+          # State the removal guard would refuse to destroy. /etc/nasmount alone
+          # already classifies the host as Managed, so the seeded units are what
+          # actually exercise marker parsing across the upgrade.
+          install -d -m 0700 /etc/nasmount
+          corpus=tests/golden/units/v0.1.0
+          install -m 0644 "$corpus/credentials.mount" /etc/systemd/system/home-tester-mnt-media.mount
+          install -m 0644 "$corpus/credentials.automount" /etc/systemd/system/home-tester-mnt-media.automount
+          if "$guard"; then
+            echo 'ERROR: guard did not see the seeded state' >&2; exit 1
+          fi
+
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "./$new"
+          [ "$(dpkg-query -W -f='${Version}' nasmount)" = "${version}-2" ] || {
+            echo 'ERROR: in-place upgrade did not complete' >&2; exit 1; }
+
+          # Rule §2.2: the upgrade preserved every piece of managed state.
+          [ "$(stat -c '%a' /etc/nasmount)" = 700 ]
+          cmp "$corpus/credentials.mount" /etc/systemd/system/home-tester-mnt-media.mount
+          cmp "$corpus/credentials.automount" /etc/systemd/system/home-tester-mnt-media.automount
+          guard_status=0
+          "$guard" || guard_status=$?
+          [ "$guard_status" -eq 1 ] || {
+            echo "ERROR: guard reported $guard_status, expected 1 (Managed)." >&2
+            echo 'Exit 2 means Unsafe/Indeterminate, i.e. a broken corpus.' >&2
+            exit 1; }
+
+          # Rule §2.3: downgrades are refused by the new preinst.
+          if dpkg -i "./$old"; then
+            echo 'ERROR: downgrade was accepted' >&2; exit 1
+          fi
+          [ "$(dpkg-query -W -f='${Version}' nasmount)" = "${version}-2" ]
+
+          # Purge must clear the state the upgrade preserved -- no hand cleanup.
+          DEBIAN_FRONTEND=noninteractive apt-get purge -y nasmount
+          for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
+                          /etc/systemd/system/home-tester-mnt-media.automount \
+                          /etc/nasmount; do
+            if [ -e "$leftover" ]; then
+              echo "ERROR: purge left $leftover behind" >&2
+              exit 1
+            fi
+          done
+          if dpkg-query -W -f='${db:Status-Status}\n' nasmount 2>/dev/null | grep -q .; then
+            echo 'ERROR: purge left the package in dpkg state' >&2; exit 1
+          fi
+          printf 'deb in-place upgrade, downgrade refusal and purge passed\n' > logs/result.txt
+      - name: Upload upgrade report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: upgrade-ubuntu-26.04-amd64
+          path: logs/
+          if-no-files-found: error
+          retention-days: 14
+
+  upgrade_rpm:
+    name: Upgrade Fedora 44 RPM in place
+    needs: build_rpm
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:44@sha256:89f61a124414261868224666aa7fb8df1b78397a53623774bdfb105d1612b48b
+    steps:
+      - name: Install build and smoke dependencies
+        run: |
+          dnf install -y --allowerasing --setopt=install_weak_deps=False \
+            appstream binutils cmake cpio diffutils extra-cmake-modules file findutils \
+            gcc-c++ git gzip jq kf6-kauth-devel kf6-kcmutils-devel \
+            kf6-kconfig-devel kf6-kcoreaddons-devel kf6-ki18n-devel \
+            kf6-kwidgetsaddons-devel qt6-qtbase-devel qt6-qtdeclarative-devel \
+            rpm-build sudo systemd systemd-rpm-macros tar
+          useradd --create-home --shell /bin/bash builder
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download the release-1 package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: package-fedora-44-x86_64
+          path: downloaded
+      - name: Build the release-2 package from the same tree
+        run: |
+          # A packaging-only revision bump is a genuine RPM upgrade and needs no
+          # published release asset. build-rpm.sh refuses to run as root and
+          # requires an empty output directory, so mirror build_rpm's setup.
+          printf '2\n' > packaging/RELEASE
+          mkdir -p artifacts-r2
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- ./packaging/build-rpm.sh artifacts-r2
+          printf '1\n' > packaging/RELEASE
+      - name: Upgrade in place over seeded managed state
+        run: |
+          mkdir -p logs
+          version=$(tr -d '[:space:]' < VERSION)
+          old="downloaded/artifacts/nasmount-${version}-1.fc44.x86_64.rpm"
+          new="artifacts-r2/nasmount-${version}-2.fc44.x86_64.rpm"
+          [ -f "$old" ] && [ -f "$new" ]
+
+          dnf install -y --allowerasing --setopt=install_weak_deps=False "./$old"
+          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "1.fc44" ]
+
+          corpus=tests/golden/units/v0.1.0
+          install -d -m 0700 /etc/nasmount
+          install -m 0600 /dev/null /etc/nasmount/0123456789abcdef0123456789abcdef.cred
+          install -m 0644 "$corpus/credentials.mount" \
+            /etc/systemd/system/home-tester-mnt-media.mount
+          install -m 0644 "$corpus/credentials.automount" \
+            /etc/systemd/system/home-tester-mnt-media.automount
+
+          # The documented upgrade command. The old package's %preun/%postun run
+          # with $1=1 here; if their teardown were ungated this would unmount
+          # and delete every share.
+          dnf install -y --allowerasing --setopt=install_weak_deps=False "./$new"
+          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "2.fc44" ] || {
+            echo 'ERROR: in-place upgrade did not complete' >&2; exit 1; }
+
+          [ "$(stat -c '%a' /etc/nasmount)" = 700 ]
+          [ -f /etc/nasmount/0123456789abcdef0123456789abcdef.cred ]
+          cmp "$corpus/credentials.mount" /etc/systemd/system/home-tester-mnt-media.mount
+          cmp "$corpus/credentials.automount" /etc/systemd/system/home-tester-mnt-media.automount
+          guard_status=0
+          /usr/lib64/libexec/nasmount-package-guard || guard_status=$?
+          [ "$guard_status" -eq 1 ] || {
+            echo "ERROR: guard reported $guard_status, expected 1 (Managed)." >&2
+            echo 'Exit 2 means Unsafe/Indeterminate, i.e. a broken corpus.' >&2
+            exit 1; }
+
+          # DNF5 downgrades on an exact version spec, so unlike the DEB there is
+          # no refusal to assert. Record what actually happens, and prove the
+          # managed state survives it.
+          dnf install -y --allowerasing --setopt=install_weak_deps=False "./$old"
+          rpm -q --qf '%{RELEASE}\n' nasmount | tee logs/downgrade.txt
+          # Verified empirically against Fedora 44: DNF5 reports "Downgrading"
+          # and completes. Assert it, or every check below passes vacuously on
+          # a no-op that left release 2 installed.
+          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "1.fc44" ] || {
+            echo 'ERROR: expected DNF to downgrade to 1.fc44' >&2; exit 1; }
+          [ -d /etc/nasmount ]
+          [ -f /etc/nasmount/0123456789abcdef0123456789abcdef.cred ]
+          cmp "$corpus/credentials.mount" /etc/systemd/system/home-tester-mnt-media.mount
+          cmp "$corpus/credentials.automount" /etc/systemd/system/home-tester-mnt-media.automount
+
+          # Erase must clear what the upgrade preserved -- no hand cleanup.
+          dnf remove -y --no-autoremove nasmount
+          for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
+                          /etc/systemd/system/home-tester-mnt-media.automount \
+                          /etc/nasmount; do
+            if [ -e "$leftover" ]; then
+              echo "ERROR: erase left $leftover behind" >&2
+              exit 1
+            fi
+          done
+          printf 'rpm in-place upgrade and erase-time teardown passed\n' > logs/result.txt
+      - name: Upload upgrade report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: upgrade-fedora-44-x86_64
           path: logs/
           if-no-files-found: error
           retention-days: 14
@@ -228,7 +473,7 @@ jobs:
   ci_success:
     name: Required CI result
     if: always()
-    needs: [validate_packaging, build_deb, build_rpm, smoke_packages, verify_artifact_set]
+    needs: [validate_packaging, build_deb, build_rpm, smoke_packages, upgrade_deb, upgrade_rpm, verify_artifact_set]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every CI stage
@@ -237,9 +482,11 @@ jobs:
           DEB: ${{ needs.build_deb.result }}
           RPM: ${{ needs.build_rpm.result }}
           SMOKE: ${{ needs.smoke_packages.result }}
+          UPGRADE_DEB: ${{ needs.upgrade_deb.result }}
+          UPGRADE_RPM: ${{ needs.upgrade_rpm.result }}
           VERIFY: ${{ needs.verify_artifact_set.result }}
         run: |
-          for result in "$VALIDATE" "$DEB" "$RPM" "$SMOKE" "$VERIFY"; do
+          for result in "$VALIDATE" "$DEB" "$RPM" "$SMOKE" "$UPGRADE_DEB" "$UPGRADE_RPM" "$VERIFY"; do
             [ "$result" = success ] || exit 1
           done
           echo "Ubuntu 26.04 DEB and Fedora 44 RPM passed all required CI stages."

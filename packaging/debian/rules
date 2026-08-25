@@ -20,6 +20,17 @@ override_dh_auto_test:
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp cmake --install build
 
+# Restart the boot coordinator after an upgrade so the new nasmount-boot
+# re-validates and re-arms. Safe against shares that already exist: every
+# branch of Root::Arming::evaluateArmPrecheck() returns before the mount
+# point, the credential, or systemd is touched, and `startedByUs` is false on
+# each of them, so a restart can never stop a live automount it did not
+# create. A currently mounted share takes the Blocked branch and is logged and
+# skipped -- `a live mount already occupies the path` is expected here, not a
+# fault. Made explicit rather than inherited from the debhelper default.
+override_dh_installsystemd:
+	dh_installsystemd --restart-after-upgrade nasmount-boot.service
+
 override_dh_installchangelogs:
 	dh_installchangelogs
 	printf '%s\n' \

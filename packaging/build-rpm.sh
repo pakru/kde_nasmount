@@ -45,7 +45,17 @@ mkdir -p -- "$source_dir"
 tar --exclude-vcs --exclude='./build' --exclude='./build-*' --exclude='./dist' \
     -cf - -C "$repo_root" . | tar -xf - -C "$source_dir"
 tar -czf "$top_dir/SOURCES/nasmount-$version.tar.gz" -C "$work_dir" "nasmount-$version"
+build_epoch=${SOURCE_DATE_EPOCH:-}
+if ! [[ "$build_epoch" =~ ^[0-9]+$ ]]; then
+    build_epoch=$(git -C "$repo_root" show -s --format=%ct HEAD 2>/dev/null || date +%s)
+fi
+export SOURCE_DATE_EPOCH=$build_epoch
+# RPM changelog headers require English weekday/month names, and the local
+# timezone can move an epoch onto the adjacent calendar day. Without the pin a
+# ru_RU host emits "Пт авг 15 2025", which RPM rejects.
+changelog_date=$(LC_ALL=C TZ=UTC0 date --date="@$build_epoch" '+%a %b %d %Y')
 sed -e "s/@VERSION@/$version/g" -e "s/@RELEASE@/$release/g" \
+    -e "s/@CHANGELOG_DATE@/$changelog_date/g" \
     "$repo_root/packaging/rpm/nasmount.spec.in" > "$top_dir/SPECS/nasmount.spec"
 
 rpmbuild --define "_topdir $top_dir" -ba "$top_dir/SPECS/nasmount.spec"

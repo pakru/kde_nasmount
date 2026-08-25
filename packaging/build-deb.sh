@@ -55,6 +55,8 @@ sed -e "s/@VERSION@/$version/g" \
     -e "s/@RELEASE@/$release/g" \
     -e "s/@DATE@/$build_date/g" \
     "$source_dir/packaging/debian/changelog.in" > "$source_dir/debian/changelog"
+sed -e "s/@VERSION@/$version/g" -e "s/@RELEASE@/$release/g" \
+    "$source_dir/packaging/debian/nasmount.preinst.in" > "$source_dir/debian/nasmount.preinst"
 multiarch=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
 sed "s/@DEB_HOST_MULTIARCH@/$multiarch/g" \
     "$source_dir/packaging/debian/nasmount.prerm.in" > "$source_dir/debian/nasmount.prerm"
