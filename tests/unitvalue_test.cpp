@@ -111,7 +111,7 @@ int main(int argc, char **argv)
         check(QStringLiteral("empty rejected"), !UnitValue::isValidShareId(QString()));
     }
 
-    out << "=== marker v2: round trip, both modes, both authentication kinds ===" << Qt::endl;
+    out << "=== marker v2: round trip, every authentication kind x access mode ===" << Qt::endl;
     {
         const uid_t uid = ::getuid();
         const gid_t gid = ::getgid();
@@ -124,25 +124,104 @@ int main(int argc, char **argv)
             {UnitValue::AuthenticationKind::Credentials, "credentials"},
             {UnitValue::AuthenticationKind::Guest, "guest"},
         };
+        const struct {
+            UnitValue::AccessMode access;
+            const char *label;
+        } accessModes[] = {
+            {UnitValue::AccessMode::ReadWrite, "readwrite"},
+            {UnitValue::AccessMode::ReadOnly, "readonly"},
+            {UnitValue::AccessMode::ReadWriteExecutable, "readwrite-executable"},
+        };
         for (const auto &combo : combos) {
-            UnitValue::Marker in;
-            in.ownerUid = uid;
-            in.ownerGid = gid;
-            in.id = id;
-            in.authentication = combo.auth;
+            for (const auto &mode : accessModes) {
+                const QString label =
+                    QStringLiteral("%1/%2").arg(QLatin1String(combo.label), QLatin1String(mode.label));
+                UnitValue::Marker in;
+                in.ownerUid = uid;
+                in.ownerGid = gid;
+                in.id = id;
+                in.authentication = combo.auth;
+                in.access = mode.access;
 
-            const QString content = UnitValue::markerComment(in);
-            check(QStringLiteral("%1: marker is detected").arg(combo.label), UnitValue::hasMarker(content));
+                const QString content = UnitValue::markerComment(in);
+                check(QStringLiteral("%1: marker is detected").arg(label), UnitValue::hasMarker(content));
 
-            UnitValue::Marker out;
-            QString error;
-            check(QStringLiteral("%1: marker parses back").arg(combo.label),
-                  UnitValue::parseMarker(content, &out, &error), error);
-            check(QStringLiteral("%1: round-trips exactly").arg(combo.label), out == in);
+                UnitValue::Marker out;
+                QString error;
+                check(QStringLiteral("%1: marker parses back").arg(label),
+                      UnitValue::parseMarker(content, &out, &error), error);
+                check(QStringLiteral("%1: round-trips exactly").arg(label), out == in);
+            }
         }
 
         check(QStringLiteral("ordinary unit content has no marker"),
               !UnitValue::hasMarker(QStringLiteral("[Unit]\nDescription=something else\n")));
+    }
+
+    out << "=== marker v2: the access field is optional on read, omitted on write ===" << Qt::endl;
+    {
+        // This block is the upgrade gate in miniature. If any of it fails,
+        // every unit pair written by 0.1.0-0.1.3 becomes Tampered on upgrade
+        // and is silently unarmed at the next boot; goldenunits_test is the
+        // whole-file version of the same check.
+        UnitValue::Marker base;
+        base.ownerUid = 1000;
+        base.ownerGid = 1000;
+        base.id = QStringLiteral("0123456789abcdef0123456789abcdef");
+        base.authentication = UnitValue::AuthenticationKind::Credentials;
+
+        // The literal pre-change block, spelled out rather than derived, so a
+        // change to markerComment() cannot redefine its own expected output.
+        const QString frozenReadWriteBlock =
+            QStringLiteral("# X-Nasmount-Managed=1\n"
+                           "# X-Nasmount-Owner-Uid=1000\n"
+                           "# X-Nasmount-Owner-Gid=1000\n"
+                           "# X-Nasmount-Id=0123456789abcdef0123456789abcdef\n"
+                           "# X-Nasmount-Mode=system\n"
+                           "# X-Nasmount-Authentication=credentials\n");
+        check(QStringLiteral("ReadWrite emits the pre-change block byte-for-byte"),
+              UnitValue::markerComment(base) == frozenReadWriteBlock, UnitValue::markerComment(base));
+
+        UnitValue::Marker readOnly = base;
+        readOnly.access = UnitValue::AccessMode::ReadOnly;
+        check(QStringLiteral("ReadOnly appends exactly one line"),
+              UnitValue::markerComment(readOnly)
+                  == frozenReadWriteBlock + QStringLiteral("# X-Nasmount-Access=readonly\n"),
+              UnitValue::markerComment(readOnly));
+
+        UnitValue::Marker executable = base;
+        executable.access = UnitValue::AccessMode::ReadWriteExecutable;
+        check(QStringLiteral("ReadWriteExecutable appends exactly one line"),
+              UnitValue::markerComment(executable)
+                  == frozenReadWriteBlock
+                      + QStringLiteral("# X-Nasmount-Access=readwrite-executable\n"),
+              UnitValue::markerComment(executable));
+
+        // A marker with no Access line at all -- i.e. every unit already on a
+        // user's disk -- must parse, and must mean ReadWrite.
+        UnitValue::Marker parsed;
+        QString error;
+        check(QStringLiteral("a marker with no Access line still parses"),
+              UnitValue::parseMarker(frozenReadWriteBlock, &parsed, &error), error);
+        check(QStringLiteral("an absent Access line means ReadWrite"),
+              parsed.access == UnitValue::AccessMode::ReadWrite);
+        check(QStringLiteral("an absent Access line round-trips to the default marker"), parsed == base);
+
+        // Generation never writes it, but accepting it costs nothing and
+        // avoids a needless asymmetry.
+        UnitValue::Marker explicitRw;
+        check(QStringLiteral("an explicit Access=readwrite is accepted"),
+              UnitValue::parseMarker(
+                  frozenReadWriteBlock + QStringLiteral("# X-Nasmount-Access=readwrite\n"),
+                  &explicitRw, &error),
+              error);
+        check(QStringLiteral("an explicit Access=readwrite means ReadWrite"),
+              explicitRw.access == UnitValue::AccessMode::ReadWrite);
+
+        // The comparison that makes a pair disagreeing on access Tampered.
+        check(QStringLiteral("markers differing only in access compare unequal"), !(base == readOnly));
+        check(QStringLiteral("readonly and executable compare unequal"), !(readOnly == executable));
+        check(QStringLiteral("operator!= agrees"), base != executable);
     }
 
     out << "=== marker v2: embedded in a full unit file, other lines ignored ===" << Qt::endl;
@@ -248,6 +327,40 @@ int main(int argc, char **argv)
             QStringList lines = validLines();
             lines[0] = QStringLiteral("# X-Nasmount-Managed=2");
             expectRejected(QStringLiteral("Managed value other than 1 rejected"), lines);
+        }
+        {
+            QStringList lines = validLines();
+            lines << QStringLiteral("# X-Nasmount-Access=bogus");
+            expectRejected(QStringLiteral("malformed Access value rejected"), lines);
+        }
+        {
+            QStringList lines = validLines();
+            lines << QStringLiteral("# X-Nasmount-Access=ro");
+            expectRejected(QStringLiteral("Access value outside the closed vocabulary rejected"), lines);
+        }
+        {
+            QStringList lines = validLines();
+            lines << QStringLiteral("# X-Nasmount-Access=readonly")
+                  << QStringLiteral("# X-Nasmount-Access=readonly");
+            expectRejected(QStringLiteral("duplicate Access field rejected"), lines);
+        }
+        {
+            QStringList lines = validLines();
+            lines << QStringLiteral("# X-Nasmount-Access=readonly")
+                  << QStringLiteral("# X-Nasmount-Access=readwrite-executable");
+            expectRejected(QStringLiteral("conflicting duplicate Access fields rejected"), lines);
+        }
+        {
+            // The optional field must be optional in the *only* direction
+            // that is safe: absent is fine, present-but-wrong never is.
+            QStringList lines = validLines();
+            lines << QStringLiteral("# X-Nasmount-Access=readwrite-executable");
+            UnitValue::Marker out;
+            QString error;
+            check(QStringLiteral("a well-formed Access line parses"),
+                  UnitValue::parseMarker(lines.join(QLatin1Char('\n')), &out, &error), error);
+            check(QStringLiteral("and yields the mode it names"),
+                  out.access == UnitValue::AccessMode::ReadWriteExecutable);
         }
         {
             // hasMarker() must still see this as "ours", just broken — never

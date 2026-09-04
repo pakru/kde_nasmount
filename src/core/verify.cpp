@@ -202,6 +202,7 @@ void applyMarker(DefinitionCheck *result, const UnitValue::Marker &marker)
     result->ownerUid = marker.ownerUid;
     result->ownerGid = marker.ownerGid;
     result->authentication = marker.authentication;
+    result->access = marker.access;
 }
 
 } // namespace
@@ -306,6 +307,7 @@ QList<OwnedUnit> pairScannedHalves(const QList<ScannedHalf> &halves)
                 unit.ownerUid = g.mountHalf->marker.ownerUid;
                 unit.ownerGid = g.mountHalf->marker.ownerGid;
                 unit.authentication = g.mountHalf->marker.authentication;
+                unit.access = g.mountHalf->marker.access;
                 unit.what = g.mountHalf->what;
             }
         } else {
@@ -316,6 +318,7 @@ QList<OwnedUnit> pairScannedHalves(const QList<ScannedHalf> &halves)
             unit.ownerUid = only.marker.ownerUid;
             unit.ownerGid = only.marker.ownerGid;
             unit.authentication = only.marker.authentication;
+            unit.access = only.marker.access;
             unit.detail = QStringLiteral("only one half of the pair exists");
             unit.what = g.mountHalf ? g.mountHalf->what : QString();
         }
@@ -351,6 +354,7 @@ QList<OwnedUnit> pairScannedHalves(const QList<ScannedHalf> &halves)
         result[i].ownerUid = 0;
         result[i].ownerGid = 0;
         result[i].authentication = UnitValue::AuthenticationKind::Credentials;
+        result[i].access = UnitValue::AccessMode::ReadWrite;
     }
     return result;
 }

@@ -46,6 +46,7 @@ struct DefinitionCheck {
     uid_t ownerUid = 0;
     gid_t ownerGid = 0;
     UnitValue::AuthenticationKind authentication = UnitValue::AuthenticationKind::Credentials;
+    UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
     QString canonicalMountPoint; ///< the Where= this was checked against
     QString mountUnitName;       ///< "<unitName>.mount"
     QString automountUnitName;   ///< "<unitName>.automount"
@@ -93,6 +94,10 @@ struct OwnedUnit {
     uid_t ownerUid = 0; ///< the marker's recorded owner -- cleared to 0 for Tampered, like every other field
     gid_t ownerGid = 0;
     UnitValue::AuthenticationKind authentication = UnitValue::AuthenticationKind::Credentials;
+    /** The marker's recorded access mode -- reset to ReadWrite along with the
+     *  other marker-derived fields when this entry is demoted to Tampered, so
+     *  an untrusted mode is never surfaced. */
+    UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
     Definition state = Definition::None;
     QString detail;
     /** The `.mount` half's own What=, when a `.mount` half is part of this

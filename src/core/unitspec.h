@@ -112,7 +112,15 @@ int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QSt
  */
 int openMountpointNoCreate(const MountpointPlan &plan, uid_t expectedUid, gid_t expectedGid, QString *error);
 
-QString mountOptions(uid_t uid, gid_t gid, const QString &credPath);
+/**
+ * The fixed CIFS option list for one owner, credential path and access mode.
+ * An empty `credPath` selects `guest`.
+ *
+ * The access mode chooses `ro` and the file_mode/dir_mode pair, and nothing
+ * else: every security-load-bearing term (nosuid, nodev, forceuid, forcegid,
+ * nounix) is the same for all three modes and is not configurable.
+ */
+QString mountOptions(uid_t uid, gid_t gid, const QString &credPath, UnitValue::AccessMode access);
 
 // ---------------------------------------------------------------------------
 // Marker-v2 unit generation and the restricted-template validator (plan
@@ -132,16 +140,22 @@ QString credentialDirectory();
 QString credentialPathFor(const QString &id);
 
 /**
- * The complete, fixed `Options=` value for one authentication/id combination
- * (design §6.2): identical safety and ownership options either way, differing
- * only in the leading `guest` or `credentials=<path>` term. The credential
- * path is fully determined by the id; a caller can never steer it
- * independently, which is what makes "credential path inconsistent with
- * marker" a structural impossibility here rather than a check performed
- * elsewhere.
+ * The complete, fixed `Options=` value for one marker (design §6.2):
+ * identical safety and ownership options in every case, differing only in the
+ * leading `guest` or `credentials=<path>` term and in the access mode's `ro`
+ * and permission bits. The credential path is fully determined by the id; a
+ * caller can never steer it independently, which is what makes "credential
+ * path inconsistent with marker" a structural impossibility here rather than
+ * a check performed elsewhere.
+ *
+ * This takes the whole marker rather than the four fields it reads, because
+ * its two callers -- buildMountUnitContent() and validateMountUnitBody() --
+ * are the generation and validation halves of the same template. Passing
+ * loose fields would let one of them forward a stale or defaulted access mode
+ * while the other forwarded the real one, which is exactly the
+ * generation/validation split this function exists to make impossible.
  */
-QString mountOptionsFor(uid_t uid, gid_t gid, UnitValue::AuthenticationKind authentication,
-                        const QString &id);
+QString mountOptionsFor(const UnitValue::Marker &marker);
 
 /**
  * Builds the complete `.mount` unit content for `marker` at `mountPoint`,

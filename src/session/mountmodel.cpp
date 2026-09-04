@@ -165,16 +165,23 @@ RowClassification classifyRow(const RowClassifyInput &in)
     return out;
 }
 
-bool storeDefinitionDrift(const QString &storeUnc, const QString &storeMountPoint, bool storeSaysGuest,
-                          const QString &definitionWhat, const QString &definitionMountPoint,
-                          UnitValue::AuthenticationKind definitionAuthentication)
+bool storeDefinitionDrift(const StoreDefinitionDriftInput &input)
 {
     QString normalisedStoreUnc;
     QString uncError;
-    const bool uncValid = UnitSpec::validateUnc(storeUnc, &normalisedStoreUnc, &uncError);
-    const bool markerSaysGuest = (definitionAuthentication == UnitValue::AuthenticationKind::Guest);
-    const bool uncDrift = !definitionWhat.isEmpty() && (!uncValid || normalisedStoreUnc != definitionWhat);
-    return storeMountPoint != definitionMountPoint || storeSaysGuest != markerSaysGuest || uncDrift;
+    const bool uncValid = UnitSpec::validateUnc(input.storeUnc, &normalisedStoreUnc, &uncError);
+    const bool markerSaysGuest =
+        (input.definitionAuthentication == UnitValue::AuthenticationKind::Guest);
+    const bool uncDrift =
+        !input.definitionWhat.isEmpty() && (!uncValid || normalisedStoreUnc != input.definitionWhat);
+    // Compared as text, against the marker mode's canonical spelling. Store
+    // text outside the closed vocabulary therefore matches nothing and is
+    // drift -- which is the right answer: an unreadable local record is not
+    // evidence that it agrees with the marker.
+    const bool accessDrift =
+        input.storeAccess != UnitValue::accessModeToString(input.definitionAccess);
+    return input.storeMountPoint != input.definitionMountPoint || input.storeSaysGuest != markerSaysGuest
+        || uncDrift || accessDrift;
 }
 
 namespace
@@ -321,6 +328,8 @@ QVariant MountModel::data(const QModelIndex &index, int role) const
         return row.canRemoveLocalRecord;
     case RequiresAdministratorRole:
         return row.requiresAdministrator;
+    case AccessRole:
+        return UnitValue::accessModeToString(row.access);
     default:
         return {};
     }
@@ -348,6 +357,7 @@ QHash<int, QByteArray> MountModel::roleNames() const
         {CanRemoveDefinitionRole, "canRemoveDefinition"},
         {CanRemoveLocalRecordRole, "canRemoveLocalRecord"},
         {RequiresAdministratorRole, "requiresAdministrator"},
+        {AccessRole, "access"},
     };
 }
 
@@ -360,6 +370,7 @@ QVariantMap MountModel::shareDetails(const QString &id) const
                 {QStringLiteral("mountPoint"), row.mountPoint},
                 {QStringLiteral("username"), row.username},
                 {QStringLiteral("domain"), row.domain},
+                {QStringLiteral("access"), UnitValue::accessModeToString(row.access)},
             };
         }
     }
@@ -411,6 +422,10 @@ MountModel::RefreshResult MountModel::computeRefresh()
         row.unc = unit.what;
         row.definitionWhat = unit.what;
         row.authentication = unit.authentication;
+        // From the marker, via Verify -- never from the Store record merged
+        // in below (AGENTS.md: properties of an existing definition are
+        // always re-derived from the validated unit marker).
+        row.access = unit.access;
         row.definitionState = definitionStateText(unit.state);
         row.hasUnitFiles = true;
 
@@ -463,9 +478,16 @@ MountModel::RefreshResult MountModel::computeRefresh()
             } else {
                 row.username = share.username;
                 row.domain = share.domain;
-                const bool storeSaysGuest = share.username.isEmpty();
-                row.drift = storeDefinitionDrift(share.unc, share.mountPoint, storeSaysGuest,
-                                                  row.definitionWhat, row.mountPoint, row.authentication);
+                StoreDefinitionDriftInput driftInput;
+                driftInput.storeUnc = share.unc;
+                driftInput.storeMountPoint = share.mountPoint;
+                driftInput.storeSaysGuest = share.username.isEmpty();
+                driftInput.storeAccess = share.access;
+                driftInput.definitionWhat = row.definitionWhat;
+                driftInput.definitionMountPoint = row.mountPoint;
+                driftInput.definitionAuthentication = row.authentication;
+                driftInput.definitionAccess = row.access;
+                row.drift = storeDefinitionDrift(driftInput);
                 if (!row.drift) {
                     QString normalisedStoreUnc;
                     QString ignored;
@@ -521,6 +543,10 @@ MountModel::RefreshResult MountModel::computeRefresh()
                         row.hasUnitFiles = true;
                         row.drift = true; // same path, different stable id
                         row.authentication = storedDefinition.authentication;
+                        // Marker-sourced here too. Without this the row would
+                        // report the default read-write for a definition that
+                        // is not.
+                        row.access = storedDefinition.access;
                         row.mountPoint = storedDefinition.canonicalMountPoint;
                         row.definitionWhat = storedDefinition.what;
                         if (!storedDefinition.what.isEmpty()) {

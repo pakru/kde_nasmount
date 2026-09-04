@@ -46,6 +46,8 @@ CMakeLists.txt.user*
 
 # --- local Claude Code overrides (shared settings.json stays tracked) -------
 .claude/settings.local.json
+.claude/
+docs/plans_and_designs/
 
 # --- crash and profiling artifacts ------------------------------------------
 core.[0-9]*

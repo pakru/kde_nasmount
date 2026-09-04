@@ -206,6 +206,54 @@ int main(int argc, char **argv)
               !leaked);
     }
 
+    out << "=== Access: round-trips, and a record without the key is read-write ===" << Qt::endl;
+    {
+        QString error;
+        const struct {
+            const char *id;
+            const char *access;
+        } cases[] = {
+            {"00000000000000000000000000000a01", "readwrite"},
+            {"00000000000000000000000000000a02", "readonly"},
+            {"00000000000000000000000000000a03", "readwrite-executable"},
+        };
+        for (const auto &c : cases) {
+            Store::Share share;
+            share.id = QString::fromLatin1(c.id);
+            share.unc = QStringLiteral("//host/Share");
+            share.mountPoint = QStringLiteral("/mnt/") + QString::fromLatin1(c.id);
+            share.username = QStringLiteral("alice");
+            share.access = QString::fromLatin1(c.access);
+            check(QStringLiteral("%1: insert succeeds").arg(QLatin1String(c.access)),
+                  Store::commitShare(share, 0, &error) == Store::CommitResult::Ok, error);
+
+            const Store::Snapshot snap = Store::snapshotById(share.id);
+            check(QStringLiteral("%1: access round-trips").arg(QLatin1String(c.access)),
+                  snap.share.access == share.access, snap.share.access);
+        }
+
+        // Every record written before 0.1.4 looks like this: no Access key at
+        // all. It must read back as read-write, which is what those shares
+        // are -- and it must NOT be treated as a corrupt group, or every
+        // pre-upgrade row in the KCM breaks on first launch after the update.
+        auto config = KSharedConfig::openConfig(QStringLiteral("nasmountrc"));
+        KConfigGroup root = config->group(QStringLiteral("Shares"));
+        KConfigGroup g = root.group(QStringLiteral("00000000000000000000000000000a04"));
+        g.writeEntry("Unc", QStringLiteral("//host/Legacy"));
+        g.writeEntry("MountPoint", QStringLiteral("/mnt/legacy"));
+        g.writeEntry("Username", QStringLiteral("alice"));
+        // Access deliberately omitted, exactly as 0.1.0-0.1.3 wrote it.
+        g.writeEntry("Generation", 1LL);
+        config->sync();
+
+        const Store::Snapshot legacy =
+            Store::snapshotById(QStringLiteral("00000000000000000000000000000a04"));
+        check(QStringLiteral("a record with no Access key still exists"), legacy.exists);
+        check(QStringLiteral("a record with no Access key is not corrupt"), !legacy.corrupt);
+        check(QStringLiteral("a record with no Access key reads back as readwrite"),
+              legacy.share.access == QStringLiteral("readwrite"), legacy.share.access);
+    }
+
     out << "=== UserLock: a second acquirer blocks until the first releases (plan §1.6.7) ===" << Qt::endl;
     {
         QString err1;

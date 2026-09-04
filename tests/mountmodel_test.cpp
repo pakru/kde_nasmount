@@ -127,40 +127,103 @@ int main(int argc, char **argv)
     out << "=== exact-ID Store/definition drift comparison ===" << Qt::endl;
     {
         using Session::storeDefinitionDrift;
+        using Session::StoreDefinitionDriftInput;
+
+        // The agreeing baseline every case below perturbs by exactly one
+        // field, so a failure names the field that caused it.
+        auto agreeing = []() {
+            StoreDefinitionDriftInput in;
+            in.storeUnc = QStringLiteral("//host/share");
+            in.storeMountPoint = QStringLiteral("/mnt/share");
+            in.storeSaysGuest = false;
+            in.storeAccess = QStringLiteral("readwrite");
+            in.definitionWhat = QStringLiteral("//host/share");
+            in.definitionMountPoint = QStringLiteral("/mnt/share");
+            in.definitionAuthentication = UnitValue::AuthenticationKind::Credentials;
+            in.definitionAccess = UnitValue::AccessMode::ReadWrite;
+            return in;
+        };
+
         check(QStringLiteral("matching Store and definition are not drift"),
-              !storeDefinitionDrift(QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                    /*storeSaysGuest=*/false,
-                                    QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                    UnitValue::AuthenticationKind::Credentials));
-        check(QStringLiteral("equivalent UNC with trailing slash is normalised"),
-              !storeDefinitionDrift(QStringLiteral("//host/share/"), QStringLiteral("/mnt/share"),
-                                    /*storeSaysGuest=*/false,
-                                    QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                    UnitValue::AuthenticationKind::Credentials));
-        check(QStringLiteral("mount-point mismatch is drift"),
-              storeDefinitionDrift(QStringLiteral("//host/share"), QStringLiteral("/mnt/other"),
-                                   /*storeSaysGuest=*/false,
-                                   QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                   UnitValue::AuthenticationKind::Credentials));
-        check(QStringLiteral("UNC mismatch is drift"),
-              storeDefinitionDrift(QStringLiteral("//host/other"), QStringLiteral("/mnt/share"),
-                                   /*storeSaysGuest=*/false,
-                                   QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                   UnitValue::AuthenticationKind::Credentials));
+              !storeDefinitionDrift(agreeing()));
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeUnc = QStringLiteral("//host/share/");
+            check(QStringLiteral("equivalent UNC with trailing slash is normalised"),
+                  !storeDefinitionDrift(in));
+        }
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeMountPoint = QStringLiteral("/mnt/other");
+            check(QStringLiteral("mount-point mismatch is drift"), storeDefinitionDrift(in));
+        }
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeUnc = QStringLiteral("//host/other");
+            check(QStringLiteral("UNC mismatch is drift"), storeDefinitionDrift(in));
+        }
         // There is no "mode mismatch is drift" case any more: Store records
         // no mode, because a share has only one lifecycle. Mode remains
         // authoritative from the marker, but there is nothing local left for
         // it to disagree with.
-        check(QStringLiteral("authentication mismatch is drift"),
-              storeDefinitionDrift(QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                   /*storeSaysGuest=*/true,
-                                   QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                   UnitValue::AuthenticationKind::Credentials));
-        check(QStringLiteral("automount-only Partial defers unavailable UNC comparison"),
-              !storeDefinitionDrift(QStringLiteral("//host/share"), QStringLiteral("/mnt/share"),
-                                    /*storeSaysGuest=*/false,
-                                    QString(), QStringLiteral("/mnt/share"),
-                                    UnitValue::AuthenticationKind::Credentials));
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeSaysGuest = true;
+            check(QStringLiteral("authentication mismatch is drift"), storeDefinitionDrift(in));
+        }
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.definitionWhat = QString();
+            check(QStringLiteral("automount-only Partial defers unavailable UNC comparison"),
+                  !storeDefinitionDrift(in));
+        }
+
+        // Access: the marker is authoritative in both directions. A local
+        // record claiming read-write for a read-only definition is exactly as
+        // much drift as the reverse -- neither side is quietly believed.
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.definitionAccess = UnitValue::AccessMode::ReadOnly;
+            check(QStringLiteral("Store readwrite vs read-only marker is drift"),
+                  storeDefinitionDrift(in));
+        }
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeAccess = QStringLiteral("readonly");
+            check(QStringLiteral("Store readonly vs read-write marker is drift"),
+                  storeDefinitionDrift(in));
+        }
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeAccess = QStringLiteral("readwrite-executable");
+            in.definitionAccess = UnitValue::AccessMode::ReadWriteExecutable;
+            check(QStringLiteral("agreeing executable access is not drift"),
+                  !storeDefinitionDrift(in));
+        }
+        {
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeAccess = QStringLiteral("readonly");
+            in.definitionAccess = UnitValue::AccessMode::ReadWriteExecutable;
+            check(QStringLiteral("two different non-default modes are drift"),
+                  storeDefinitionDrift(in));
+        }
+        {
+            // An unreadable local record is not evidence that it agrees.
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeAccess = QStringLiteral("bogus");
+            check(QStringLiteral("unknown Store access text is drift, not defaulted"),
+                  storeDefinitionDrift(in));
+        }
+        {
+            // A record written before 0.1.4 has no Access key; Store reads it
+            // back as "readwrite", which is what those shares actually are.
+            // This must not look like drift or every pre-upgrade row breaks.
+            StoreDefinitionDriftInput in = agreeing();
+            in.storeAccess = QStringLiteral("readwrite");
+            in.definitionAccess = UnitValue::AccessMode::ReadWrite;
+            check(QStringLiteral("a pre-0.1.4 record's defaulted access is not drift"),
+                  !storeDefinitionDrift(in));
+        }
     }
 
     out << "=== Store-only rows (definitionState == none) ===" << Qt::endl;

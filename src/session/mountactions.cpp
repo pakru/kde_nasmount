@@ -87,7 +87,7 @@ bool guestFieldsConsistent(const QString &username, const QString &domain, const
 MountActions::MountActions(QObject *parent) : QObject(parent) { }
 
 void MountActions::addShare(const QString &unc, const QString &rawMountPoint, const QString &username,
-                            const QString &domain, const QString &password)
+                            const QString &domain, const QString &password, const QString &access)
 {
     const QString kind = QStringLiteral("add");
     const QString mountPoint = canonicalMountPoint(rawMountPoint);
@@ -113,7 +113,7 @@ void MountActions::addShare(const QString &unc, const QString &rawMountPoint, co
             QStringLiteral("definesystem"),
             {{QStringLiteral("unc"), unc}, {QStringLiteral("path"), mountPoint},
              {QStringLiteral("username"), username}, {QStringLiteral("domain"), domain},
-             {QStringLiteral("password"), password}});
+             {QStringLiteral("password"), password}, {QStringLiteral("access"), access}});
         if (defineResult.outcome != HelperOutcome::ConfirmedSuccess) {
             r.message = describeOutcome(defineResult.outcome, defineResult.message, QString());
             return r;
@@ -133,6 +133,12 @@ void MountActions::addShare(const QString &unc, const QString &rawMountPoint, co
         share.mountPoint = mountPoint;
         share.username = username;
         share.domain = domain;
+        // Convenience data only -- the marker stays authoritative, and
+        // MountModel reports a disagreement between the two as drift rather
+        // than trusting this copy. Recorded so the list can be rendered
+        // without re-reading a unit file per row.
+        share.access = access.isEmpty() ? UnitValue::accessModeToString(UnitValue::AccessMode::ReadWrite)
+                                        : access;
         QString commitError;
         if (Store::commitShare(share, /*expectedGeneration=*/0, &commitError) != Store::CommitResult::Ok) {
             r.message = QStringLiteral(

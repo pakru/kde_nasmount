@@ -89,10 +89,17 @@ bool isValidShareIdImpl(const QString &id)
 
 /** One managed-namespace field: its key, the regex capturing its whole line
  *  (anchored, so a line either matches exactly or is rejected outright), and
- *  a setter applying the captured value to a Marker. */
+ *  whether parseMarker() insists on seeing it.
+ *
+ *  `required` exists for exactly one field, `Access`, and the exception is
+ *  load-bearing rather than a convenience -- see markerComment()'s doc block.
+ *  A field may be optional-on-read only if its absence reproduces the exact
+ *  pre-existing byte output; anything else silently turns every unit already
+ *  on disk into Tampered at the next upgrade. */
 struct FieldSpec {
     QLatin1String key;
     QRegularExpression pattern;
+    bool required = true;
 };
 
 const QList<FieldSpec> &fieldSpecs()
@@ -112,6 +119,12 @@ const QList<FieldSpec> &fieldSpecs()
          QRegularExpression(QStringLiteral("^# X-Nasmount-Mode=(system)$"))},
         {QLatin1String("Authentication"),
          QRegularExpression(QStringLiteral("^# X-Nasmount-Authentication=(credentials|guest)$"))},
+        // The one optional field. Alternatives are ordered longest-first so
+        // the match never depends on backtracking off the `$` anchor.
+        {QLatin1String("Access"),
+         QRegularExpression(
+             QStringLiteral("^# X-Nasmount-Access=(readwrite-executable|readwrite|readonly)$")),
+         /*required=*/false},
     };
     return specs;
 }
@@ -123,20 +136,64 @@ bool isValidShareId(const QString &id)
     return isValidShareIdImpl(id);
 }
 
+QString accessModeToString(AccessMode access)
+{
+    switch (access) {
+    case AccessMode::ReadOnly:
+        return QStringLiteral("readonly");
+    case AccessMode::ReadWriteExecutable:
+        return QStringLiteral("readwrite-executable");
+    case AccessMode::ReadWrite:
+        break;
+    }
+    return QStringLiteral("readwrite");
+}
+
+bool accessModeFromString(const QString &text, AccessMode *access)
+{
+    if (text == QStringLiteral("readwrite")) {
+        *access = AccessMode::ReadWrite;
+    } else if (text == QStringLiteral("readonly")) {
+        *access = AccessMode::ReadOnly;
+    } else if (text == QStringLiteral("readwrite-executable")) {
+        *access = AccessMode::ReadWriteExecutable;
+    } else {
+        return false;
+    }
+    return true;
+}
+
 QString markerComment(const Marker &marker)
 {
     Q_ASSERT(isValidShareIdImpl(marker.id));
-    return QStringLiteral("# X-Nasmount-Managed=1\n"
-                           "# X-Nasmount-Owner-Uid=%1\n"
-                           "# X-Nasmount-Owner-Gid=%2\n"
-                           "# X-Nasmount-Id=%3\n"
-                           "# X-Nasmount-Mode=system\n"
-                           "# X-Nasmount-Authentication=%4\n")
-        .arg(marker.ownerUid)
-        .arg(marker.ownerGid)
-        .arg(marker.id,
-             marker.authentication == AuthenticationKind::Guest ? QStringLiteral("guest")
-                                                                 : QStringLiteral("credentials"));
+    QString block = QStringLiteral("# X-Nasmount-Managed=1\n"
+                                   "# X-Nasmount-Owner-Uid=%1\n"
+                                   "# X-Nasmount-Owner-Gid=%2\n"
+                                   "# X-Nasmount-Id=%3\n"
+                                   "# X-Nasmount-Mode=system\n"
+                                   "# X-Nasmount-Authentication=%4\n")
+                        .arg(marker.ownerUid)
+                        .arg(marker.ownerGid)
+                        .arg(marker.id,
+                             marker.authentication == AuthenticationKind::Guest
+                                 ? QStringLiteral("guest")
+                                 : QStringLiteral("credentials"));
+    // Nothing is emitted for ReadWrite. That is not a shortcut: it is what
+    // keeps a read-write share's bytes identical to what 0.1.0-0.1.3 wrote,
+    // so the frozen corpus still regenerates exactly and no existing unit
+    // pair becomes Tampered on upgrade. Do not "normalise" this by always
+    // writing the line.
+    switch (marker.access) {
+    case AccessMode::ReadWrite:
+        break;
+    case AccessMode::ReadOnly:
+        block += QStringLiteral("# X-Nasmount-Access=readonly\n");
+        break;
+    case AccessMode::ReadWriteExecutable:
+        block += QStringLiteral("# X-Nasmount-Access=readwrite-executable\n");
+        break;
+    }
+    return block;
 }
 
 bool hasMarker(const QString &unitFileContent)
@@ -152,7 +209,7 @@ bool hasMarker(const QString &unitFileContent)
 bool parseMarker(const QString &unitFileContent, Marker *marker, QString *error)
 {
     QSet<QString> seen;
-    QString ownerUidValue, ownerGidValue, idValue, authValue;
+    QString ownerUidValue, ownerGidValue, idValue, authValue, accessValue;
 
     for (const QString &line : unitFileContent.split(QLatin1Char('\n'))) {
         if (!line.startsWith(MarkerPrefix)) {
@@ -179,6 +236,8 @@ bool parseMarker(const QString &unitFileContent, Marker *marker, QString *error)
                 idValue = value;
             } else if (spec.key == QLatin1String("Authentication")) {
                 authValue = value;
+            } else if (spec.key == QLatin1String("Access")) {
+                accessValue = value;
             }
             break;
         }
@@ -189,7 +248,7 @@ bool parseMarker(const QString &unitFileContent, Marker *marker, QString *error)
     }
 
     for (const FieldSpec &spec : fieldSpecs()) {
-        if (!seen.contains(spec.key)) {
+        if (spec.required && !seen.contains(spec.key)) {
             *error = QStringLiteral("missing marker field: %1").arg(spec.key);
             return false;
         }
@@ -213,6 +272,22 @@ bool parseMarker(const QString &unitFileContent, Marker *marker, QString *error)
     result.id = idValue;
     result.authentication =
         (authValue == QStringLiteral("guest")) ? AuthenticationKind::Guest : AuthenticationKind::Credentials;
+    // An absent Access line leaves accessValue empty and means ReadWrite --
+    // that is the whole point of the field being optional. An explicit
+    // `readwrite` is accepted too, even though markerComment() never writes
+    // one: refusing it would be a needless asymmetry.
+    //
+    // Decoded through accessModeFromString() rather than a second if-chain so
+    // the spelling lives in exactly one place. The regex above has already
+    // restricted the value to the closed vocabulary, so the failure branch is
+    // unreachable today; it is kept so that a future divergence between the
+    // regex and the decoder fails closed rather than silently defaulting a
+    // value the marker did contain.
+    result.access = AccessMode::ReadWrite;
+    if (!accessValue.isEmpty() && !accessModeFromString(accessValue, &result.access)) {
+        *error = QStringLiteral("invalid Access");
+        return false;
+    }
     *marker = result;
     return true;
 }

@@ -40,6 +40,13 @@ ColumnLayout {
 
     readonly property bool canSubmit: effectiveUnc.length > 2 && pathField.text.length > 0
 
+    /** One of the three values UnitValue::accessModeToString() produces. The
+     *  helper re-validates it; this is convenience, like every other check
+     *  in this file. */
+    readonly property string accessMode: readOnlyRadio.checked
+        ? "readonly"
+        : (executableRadio.checked ? "readwrite-executable" : "readwrite")
+
     /** Emitted after a submit has been handed to `actions`; the host decides
      *  what closing means for it (a dialog closes, a window waits for the
      *  finished() signal so it can report the outcome). */
@@ -116,29 +123,53 @@ ColumnLayout {
     }
 
     QQC2.Label {
-        wrapMode: Text.WordWrap
-        visible: userField.text.length > 0
-        text: "This share's password is stored in a file on this computer, readable by administrators. "
-            + "Same as a hand-written system mount."
-        Layout.fillWidth: true
+        text: "Access:"
         Layout.topMargin: 6
     }
-
-    QQC2.Label {
-        wrapMode: Text.WordWrap
-        opacity: 0.7
-        font.italic: true
-        text: "Mounted on demand, on first access, with an idle unmount. Activated at startup, before "
-            + "anyone signs in — so it is available again after a reboot without signing in first."
-        Layout.fillWidth: true
+    QQC2.ButtonGroup { id: accessGroup }
+    QQC2.RadioButton {
+        id: readOnlyRadio
+        text: "Read only"
+        QQC2.ButtonGroup.group: accessGroup
+        // hoverEnabled is required: `hovered` stays false without it, so the
+        // tip would never appear (QtQuick.Controls ToolTip, "Delay and
+        // Timeout"). The three tips share one label instance -- that is the
+        // attached ToolTip's documented behaviour, and it is what keeps only
+        // the hovered row's tip on screen.
+        hoverEnabled: true
+        QQC2.ToolTip.visible: hovered
+        QQC2.ToolTip.delay: 500
+        QQC2.ToolTip.timeout: 8000
+        QQC2.ToolTip.text: "Read only access to remote files"            
     }
-
+    QQC2.RadioButton {
+        id: readWriteRadio
+        checked: true
+        text: "Read & Write"
+        QQC2.ButtonGroup.group: accessGroup
+        hoverEnabled: true
+        QQC2.ToolTip.visible: hovered
+        QQC2.ToolTip.delay: 500
+        QQC2.ToolTip.timeout: 8000
+        QQC2.ToolTip.text: "Read and Write access to remote files"            
+    }
+    QQC2.RadioButton {
+        id: executableRadio
+        text: "Read & Write & Execute"
+        QQC2.ButtonGroup.group: accessGroup
+        hoverEnabled: true
+        QQC2.ToolTip.visible: hovered
+        QQC2.ToolTip.delay: 500
+        QQC2.ToolTip.timeout: 8000
+        QQC2.ToolTip.text: "Read, Write and Execution access to remote files\nAllows programs stored on the share to run"            
+    }
     QQC2.Label {
         wrapMode: Text.WordWrap
         opacity: 0.6
         font.italic: true
-        text: "To change a network mount, remove it and add it again."
+        text: "To change a network mount, remove and add it again in System settings"
         Layout.fillWidth: true
+        Layout.topMargin: 6
     }
 
     function reset() {
@@ -147,15 +178,23 @@ ColumnLayout {
         userField.text = ""
         domainField.text = ""
         passwordField.text = ""
+        // The KCM's Add dialog reuses one form instance, so without this the
+        // previous share's access choice silently leaks into the next add.
+        readWriteRadio.checked = true
     }
 
     // One lifecycle, no per-share switches: saving a share means it is armed
     // at boot and mounts on first access. There is deliberately no "arm at
     // sign-in" or mode choice to make -- asking to mount a share *is* asking
     // for it to be there after a reboot.
+    //
+    // Access is the one exception, and only because it cannot be changed
+    // later: there is no in-place Edit anywhere in this codebase, so this
+    // submit is the single moment the choice exists. It is recorded in the
+    // root-owned unit marker, not here.
     function submit() {
         form.actions.addShare(effectiveUnc, pathField.text, userField.text, domainField.text,
-                              passwordField.text)
+                              passwordField.text, form.accessMode)
         form.submitted()
     }
 }

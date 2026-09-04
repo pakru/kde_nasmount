@@ -138,6 +138,15 @@ Both families upgrade in place. Five rules govern an upgrade, and
    catches this. If it fails, revert the change or design a migration and raise
    `MIN_UPGRADABLE_VERSION` — **never regenerate
    [`tests/golden/units/`](tests/golden/units/)** to make it pass.
+
+   A marker field may be **optional-on-read only if its absence reproduces the
+   exact pre-existing byte output.** That is the rule that let
+   `X-Nasmount-Access` be added in 0.1.4 without moving
+   `MIN_UPGRADABLE_VERSION`: it is omitted on write for the default
+   (read-write) value, so every unit pair 0.1.0–0.1.3 wrote still parses,
+   still validates, and still regenerates byte-for-byte. A plain new
+   *required* field would instead have failed every one of them with `missing
+   marker field:` — `Tampered`, and so unarmed at the next boot.
 5. Adding, renaming, or removing a KAuth action in
    [`io.github.pakru.nasmount.actions`](io.github.pakru.nasmount.actions) is an
    **upgrade-compatibility change**: a running old front end will call the new

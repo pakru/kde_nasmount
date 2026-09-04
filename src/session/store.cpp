@@ -27,6 +27,11 @@ Store::Share readShareFields(const KConfigGroup &g, const QString &id)
     s.unc = g.readEntry("Unc", QString());
     s.username = g.readEntry("Username", QString());
     s.domain = g.readEntry("Domain", QString());
+    // Every record written before 0.1.4 predates the access-mode feature and
+    // has no Access key. Those shares are read-write, so that is what a
+    // missing key means -- not a corrupt record, and deliberately not part of
+    // the corrupt-group check below.
+    s.access = g.readEntry("Access", QStringLiteral("readwrite"));
     return s;
 }
 
@@ -36,6 +41,13 @@ void writeShareFields(KConfigGroup &g, const Store::Share &share)
     g.writeEntry("Unc", share.unc);
     g.writeEntry("Username", share.username);
     g.writeEntry("Domain", share.domain);
+    // Normalised on write so an empty value can never reach the file. An
+    // empty Access entry is *present* as far as KConfig is concerned, so
+    // readShareFields()'s default would not apply to it on the way back, and
+    // the record would then read as neither a valid mode nor a pre-0.1.4
+    // record -- and be reported as drift against a perfectly good marker.
+    g.writeEntry("Access",
+                 share.access.isEmpty() ? QStringLiteral("readwrite") : share.access);
 }
 
 Store::Snapshot readSnapshot(const KConfigGroup &root, const QString &id)

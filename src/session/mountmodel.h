@@ -87,15 +87,39 @@ struct RowClassification {
  */
 RowClassification classifyRow(const RowClassifyInput &input);
 
+/**
+ * Inputs to the exact-ID Store/definition drift comparison.
+ *
+ * A named struct rather than a positional parameter list: the comparison has
+ * grown past the point where six or eight same-typed arguments in a row can
+ * be read (or called) safely, and every future comparison field should be a
+ * local addition here rather than another signature migration across every
+ * call site.
+ */
+struct StoreDefinitionDriftInput {
+    QString storeUnc;
+    QString storeMountPoint;
+    bool storeSaysGuest = false;
+    /** Store's recorded access spelling. Never trusted; only compared. */
+    QString storeAccess = QStringLiteral("readwrite");
+    /** Empty for an automount-only Partial, which has no validated What=. */
+    QString definitionWhat;
+    QString definitionMountPoint;
+    UnitValue::AuthenticationKind definitionAuthentication = UnitValue::AuthenticationKind::Credentials;
+    UnitValue::AccessMode definitionAccess = UnitValue::AccessMode::ReadWrite;
+};
+
 /** Pure comparison used by the exact-ID Store/definition merge. The root
  *  definition remains authoritative; any differing canonical mount point,
- *  normalised UNC, or authentication kind is local-record drift. Mode is no
- *  longer compared: Store does not record one, because there is only one. An
- *  automount-only Partial has no validated What=, so UNC comparison is
- *  deferred until a mount half exists. */
-bool storeDefinitionDrift(const QString &storeUnc, const QString &storeMountPoint, bool storeSaysGuest,
-                          const QString &definitionWhat, const QString &definitionMountPoint,
-                          UnitValue::AuthenticationKind definitionAuthentication);
+ *  normalised UNC, authentication kind, or access mode is local-record drift.
+ *  Mode is no longer compared: Store does not record one, because there is
+ *  only one. An automount-only Partial has no validated What=, so UNC
+ *  comparison is deferred until a mount half exists.
+ *
+ *  Store access text outside the closed vocabulary differs from every valid
+ *  marker mode and so becomes drift, rather than being quietly defaulted to
+ *  read-write and matching. */
+bool storeDefinitionDrift(const StoreDefinitionDriftInput &input);
 
 class MountModel : public QAbstractListModel
 {
@@ -119,12 +143,17 @@ public:
         DefinitionStateRole,    ///< "pair" | "partial" | "tampered" | "notOurs" | "none"
         HasStoreRecordRole,     ///< whether an id (and so the id-based actions) applies to this row
         StoreCorruptRole,
-        DriftRole,               ///< Store disagrees with the marker on authentication
+        DriftRole,               ///< Store disagrees with the marker on authentication or access
         CredentialApplicableRole, ///< only meaningful when true; a guest row never has a credential to check
         CredentialHealthyRole,
         CanRemoveDefinitionRole,   ///< Delete is offered
         CanRemoveLocalRecordRole,  ///< "Remove local record" is offered
         RequiresAdministratorRole, ///< Tampered/NotOurs/untrusted-active -- never casually actionable
+        /** "readwrite" | "readonly" | "readwrite-executable", always from the
+         *  validated marker and never from Store. Since there is no Edit,
+         *  this is the only way to discover a share's access mode short of
+         *  reading its unit file. */
+        AccessRole,
     };
 
     explicit MountModel(QObject *parent = nullptr);
@@ -172,6 +201,9 @@ private:
         QString domain;
         QString definitionWhat; ///< validated .mount What=; empty for automount-only Partial
         UnitValue::AuthenticationKind authentication = UnitValue::AuthenticationKind::Credentials;
+        /** From the validated marker, never from Store. Left at the default
+         *  for a row with no validated definition behind it. */
+        UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
         QString definitionState = QStringLiteral("none");
         /** Computed once, from source 2, and reused when source 3's fresh
          *  credential health triggers re-classification -- never re-queried. */

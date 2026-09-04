@@ -1,0 +1,17 @@
+# Managed by nasmount — do not edit by hand; use the KCM or the dialog.
+# X-Nasmount-Managed=1
+# X-Nasmount-Owner-Uid=1000
+# X-Nasmount-Owner-Gid=1000
+# X-Nasmount-Id=1a2b3c4d5e6f708192a3b4c5d6e7f809
+# X-Nasmount-Mode=system
+# X-Nasmount-Authentication=guest
+# X-Nasmount-Access=readwrite-executable
+[Unit]
+Description=nasmount: //nas.example.org/games
+
+[Mount]
+What=//nas.example.org/games
+Where=/home/tester/mnt/games
+Type=cifs
+Options=guest,nosuid,nodev,forceuid,forcegid,uid=1000,gid=1000,nounix,iocharset=utf8,file_mode=0700,dir_mode=0700
+TimeoutSec=30

@@ -43,9 +43,18 @@ struct DefineInput {
     QString unitName;   ///< re-derived by the caller via UnitValue::unitPathsFor()
     QString username;   ///< empty => guest
 
-    /** Hard-coded by the caller from which entry point was invoked --
-     *  Session for `define`, System for `definesystem` (design §7.1). Never
-     *  derived from a caller-supplied argument. */
+    /** The mount's access mode, and the one genuinely caller-chosen field
+     *  here: the user picks it in the Add form, unlike everything the entry
+     *  point fixes. Because there is no in-place Edit, this is the only
+     *  moment it can be chosen, and it is recorded in the marker rather than
+     *  in Store -- validation re-derives `Options=` from the marker, so a
+     *  mode Store alone knew about would make the share Tampered.
+     *
+     *  The default is ReadWrite so that a caller which does not set it (an
+     *  old front end calling a new helper across an upgrade) gets exactly
+     *  today's behaviour. The helper still rejects a malformed value rather
+     *  than defaulting it; only an *absent* one means read-write. */
+    UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
 
     /** System + authenticated only: written after both unit halves exist
      *  (simplification-implementation-plan.md §4, corrected ordering).

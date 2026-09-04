@@ -151,10 +151,15 @@ namespace
 {
 
 /**
- * Shared by `define` and `definesystem` (plan §3.1): `mode` is hard-coded by
- * the caller from which action was invoked, never read from `args` (design
- * §7.1). A fresh create only — an existing Partial half is never repaired;
- * it must be removed first (simplification-implementation-plan.md §4.1/§4.3).
+ * The body of `definesystem` (plan §3.1). A fresh create only — an existing
+ * Partial half is never repaired; it must be removed first
+ * (simplification-implementation-plan.md §4.1/§4.3).
+ *
+ * There is one lifecycle, so the share's mode is fixed by the action itself
+ * and never read from `args` (design §7.1). `access` is the one exception:
+ * it is a genuine user choice with no second action to encode it in, so it
+ * arrives as an argument and is validated here like every other untrusted
+ * input.
  */
 ActionReply doDefine(const QVariantMap &args)
 {
@@ -178,6 +183,19 @@ ActionReply doDefine(const QVariantMap &args)
     const QString username = args.value(QStringLiteral("username")).toString();
     const QString domain = args.value(QStringLiteral("domain")).toString();
     const QString password = args.value(QStringLiteral("password")).toString();
+
+    // Absent must mean read-write, not fail: across an upgrade a still-running
+    // old front end calls this new helper and will not send the key at all
+    // (AGENTS.md upgrade rule 5), and read-write is exactly what it asked for.
+    // A *present* but unrecognised value is a hard failure — defaulting a typo
+    // would give the user the opposite of the access they picked, silently.
+    UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
+    if (args.contains(QStringLiteral("access"))) {
+        const QString requested = args.value(QStringLiteral("access")).toString();
+        if (!UnitValue::accessModeFromString(requested, &access)) {
+            return fail(QStringLiteral("unrecognised access mode"));
+        }
+    }
     // Define takes domain/password and writes the credential itself (design
     // §8.1): there is no later step that could supply them, so both are
     // validated here. validateCredentialFields() covers the username's own
@@ -222,6 +240,7 @@ ActionReply doDefine(const QVariantMap &args)
     input.mountPoint = plan.path;
     input.unitName = paths.unitName;
     input.username = username;
+    input.access = access;
     input.domain = domain;
     input.password = password;
     input.mountPlan = plan; // needed for the immediate-arm path walk (design §6.3a)

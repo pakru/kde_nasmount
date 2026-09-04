@@ -231,12 +231,14 @@ int main(int argc, char **argv)
     out << "=== pairScannedHalves: pure grouping/pairing/collision logic ===" << Qt::endl;
     {
         auto makeMarker = [](const QString &id,
-                             UnitValue::AuthenticationKind auth = UnitValue::AuthenticationKind::Credentials) {
+                             UnitValue::AuthenticationKind auth = UnitValue::AuthenticationKind::Credentials,
+                             UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite) {
             UnitValue::Marker m;
             m.ownerUid = ::getuid();
             m.ownerGid = ::getgid();
             m.id = id;
             m.authentication = auth;
+            m.access = access;
             return m;
         };
         const QString id1 = QStringLiteral("11111111111111111111111111111111").left(32);
@@ -315,6 +317,60 @@ int main(int argc, char **argv)
                   result.size() == 1 && result.at(0).state == Verify::Definition::Tampered, result.at(0).detail);
         }
         {
+            // Same base name, halves agree on everything except the access
+            // mode -> Tampered. Nothing compares access explicitly; this
+            // works only because Marker::operator== includes it, which is
+            // exactly what the case is here to prove.
+            Verify::ScannedHalf mountHalf;
+            mountHalf.baseName = QStringLiteral("share-d2");
+            mountHalf.isMount = true;
+            mountHalf.marker = makeMarker(id1, UnitValue::AuthenticationKind::Credentials,
+                                          UnitValue::AccessMode::ReadOnly);
+            mountHalf.where = QStringLiteral("/mnt/d2");
+            Verify::ScannedHalf automountHalf = mountHalf;
+            automountHalf.isMount = false;
+            automountHalf.marker = makeMarker(id1, UnitValue::AuthenticationKind::Credentials,
+                                              UnitValue::AccessMode::ReadWrite);
+
+            const auto result = Verify::pairScannedHalves({mountHalf, automountHalf});
+            check(QStringLiteral("access mismatch within a pair -> Tampered"),
+                  result.size() == 1 && result.at(0).state == Verify::Definition::Tampered,
+                  result.at(0).detail);
+        }
+        {
+            // An agreeing non-default pair carries its access through to the
+            // OwnedUnit -- the model reads it from here, never from Store.
+            Verify::ScannedHalf mountHalf;
+            mountHalf.baseName = QStringLiteral("share-d3");
+            mountHalf.isMount = true;
+            mountHalf.marker = makeMarker(id1, UnitValue::AuthenticationKind::Credentials,
+                                          UnitValue::AccessMode::ReadWriteExecutable);
+            mountHalf.where = QStringLiteral("/mnt/d3");
+            mountHalf.what = QStringLiteral("//host/d3");
+            Verify::ScannedHalf automountHalf = mountHalf;
+            automountHalf.isMount = false;
+            automountHalf.what.clear();
+
+            const auto result = Verify::pairScannedHalves({mountHalf, automountHalf});
+            check(QStringLiteral("an agreeing pair carries access through to the OwnedUnit"),
+                  result.size() == 1 && result.at(0).state == Verify::Definition::Pair
+                      && result.at(0).access == UnitValue::AccessMode::ReadWriteExecutable);
+        }
+        {
+            // A surviving single half carries its access through too.
+            Verify::ScannedHalf mountHalf;
+            mountHalf.baseName = QStringLiteral("share-d4");
+            mountHalf.isMount = true;
+            mountHalf.marker = makeMarker(id2, UnitValue::AuthenticationKind::Guest,
+                                          UnitValue::AccessMode::ReadOnly);
+            mountHalf.where = QStringLiteral("/mnt/d4");
+
+            const auto result = Verify::pairScannedHalves({mountHalf});
+            check(QStringLiteral("a Partial carries access from its surviving half"),
+                  result.size() == 1 && result.at(0).state == Verify::Definition::Partial
+                      && result.at(0).access == UnitValue::AccessMode::ReadOnly);
+        }
+        {
             // Same base name, halves disagree on Where= -> Tampered.
             Verify::ScannedHalf mountHalf;
             mountHalf.baseName = QStringLiteral("share-e");
@@ -335,7 +391,10 @@ int main(int argc, char **argv)
             Verify::ScannedHalf mountHalf1;
             mountHalf1.baseName = QStringLiteral("share-f1");
             mountHalf1.isMount = true;
-            mountHalf1.marker = makeMarker(id1);
+            // Non-default access on both, so the reset below is observable:
+            // these entries are populated first and only then demoted.
+            mountHalf1.marker = makeMarker(id1, UnitValue::AuthenticationKind::Credentials,
+                                           UnitValue::AccessMode::ReadOnly);
             mountHalf1.where = QStringLiteral("/mnt/f1");
             Verify::ScannedHalf automountHalf1 = mountHalf1;
             automountHalf1.isMount = false;
@@ -343,7 +402,9 @@ int main(int argc, char **argv)
             Verify::ScannedHalf mountHalf2;
             mountHalf2.baseName = QStringLiteral("share-f2");
             mountHalf2.isMount = true;
-            mountHalf2.marker = makeMarker(id1); // same id as share-f1
+            // same id as share-f1
+            mountHalf2.marker = makeMarker(id1, UnitValue::AuthenticationKind::Credentials,
+                                           UnitValue::AccessMode::ReadWriteExecutable);
             mountHalf2.where = QStringLiteral("/mnt/f2");
             Verify::ScannedHalf automountHalf2 = mountHalf2;
             automountHalf2.isMount = false;
@@ -363,6 +424,12 @@ int main(int argc, char **argv)
             for (const auto &u : result) {
                 check(QStringLiteral("Tampered entry clears ownerUid too, not just id/mode/authentication"),
                       u.ownerUid == 0 && u.ownerGid == 0);
+                // The collision pass populates an entry and only then demotes
+                // it, so access has to be reset explicitly along with the
+                // other marker-derived fields -- otherwise a demoted row
+                // keeps and displays a mode nothing vouches for any more.
+                check(QStringLiteral("Tampered entry resets access to the default too"),
+                      u.access == UnitValue::AccessMode::ReadWrite);
             }
         }
         {

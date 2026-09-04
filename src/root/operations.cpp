@@ -192,6 +192,7 @@ DefineOutput define(const DefineInput &input)
     marker.ownerGid = input.ownerGid;
     marker.id = shareId;
     marker.authentication = authentication;
+    marker.access = input.access;
 
     QString mountContent, automountContent;
     if (!UnitSpec::buildMountUnitContent(marker, input.unc, input.mountPoint, &mountContent, &out.error)

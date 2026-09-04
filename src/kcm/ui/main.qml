@@ -107,6 +107,7 @@ Item {
                     required property bool canRemoveDefinition
                     required property bool canRemoveLocalRecord
                     required property bool requiresAdministrator
+                    required property string access
 
                     contentItem: RowLayout {
                         spacing: 8
@@ -130,7 +131,16 @@ Item {
                                 }
                             }
                             QQC2.Label {
-                                text: delegateRoot.unc + "  —  " + delegateRoot.stateText
+                                // The access mode is shown only when it is not
+                                // the default. There is no Edit, so this line
+                                // is the only way to tell a read-only or
+                                // executable share from an ordinary one
+                                // without reading its unit file by hand.
+                                readonly property string accessText:
+                                    delegateRoot.access === "readonly" ? "  ·  read-only"
+                                    : delegateRoot.access === "readwrite-executable" ? "  ·  executable files"
+                                    : ""
+                                text: delegateRoot.unc + "  —  " + delegateRoot.stateText + accessText
                                       + (delegateRoot.detail.length > 0 ? ("  (" + delegateRoot.detail + ")") : "")
                                 opacity: 0.7
                                 elide: Text.ElideRight

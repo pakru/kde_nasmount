@@ -28,6 +28,8 @@
 #include <QString>
 #include <QTextStream>
 
+#include <iterator>
+
 namespace
 {
 int passed = 0;
@@ -55,22 +57,64 @@ struct Fixture {
     gid_t ownerGid;
     const char *id;
     UnitValue::AuthenticationKind authentication;
+    UnitValue::AccessMode access;
     const char *unc;
     const char *mountPoint;
 };
 
-const Fixture Fixtures[] = {
+/** v0.1.0: the default read-write bytes, unchanged from 0.1.0 through 0.1.3. */
+const Fixture ReadWriteFixtures[] = {
     {"credentials", 1000, 1000, "0123456789abcdef0123456789abcdef",
-     UnitValue::AuthenticationKind::Credentials, "//nas.example.org/media",
-     "/home/tester/mnt/media"},
+     UnitValue::AuthenticationKind::Credentials, UnitValue::AccessMode::ReadWrite,
+     "//nas.example.org/media", "/home/tester/mnt/media"},
     {"guest", 1000, 1000, "fedcba9876543210fedcba9876543210",
-     UnitValue::AuthenticationKind::Guest, "//nas.example.org/public",
-     "/home/tester/mnt/public"},
+     UnitValue::AuthenticationKind::Guest, UnitValue::AccessMode::ReadWrite,
+     "//nas.example.org/public", "/home/tester/mnt/public"},
 };
 
-/** Corpus versions this build must still read. Add a directory here when a
- *  release changes the format; never remove one that users may still have. */
-const char *const CorpusVersions[] = {"v0.1.0"};
+/** v0.1.4: only the non-default access modes. The read-write bytes did not
+ *  change in 0.1.4 -- that is the whole point of the omit-on-read-write rule
+ *  -- so they stay frozen in v0.1.0 and are deliberately not duplicated here.
+ *  The .automount halves are included even though nothing in [Automount]
+ *  varies by access: both halves carry the marker, so both halves' bytes
+ *  changed, and both have to be frozen. */
+const Fixture NonDefaultAccessFixtures[] = {
+    {"credentials-ro", 1000, 1000, "00112233445566778899aabbccddeeff",
+     UnitValue::AuthenticationKind::Credentials, UnitValue::AccessMode::ReadOnly,
+     "//nas.example.org/archive", "/home/tester/mnt/archive"},
+    {"guest-ro", 1000, 1000, "ffeeddccbbaa99887766554433221100",
+     UnitValue::AuthenticationKind::Guest, UnitValue::AccessMode::ReadOnly,
+     "//nas.example.org/reference", "/home/tester/mnt/reference"},
+    {"credentials-exec", 1000, 1000, "0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+     UnitValue::AuthenticationKind::Credentials, UnitValue::AccessMode::ReadWriteExecutable,
+     "//nas.example.org/steam", "/home/tester/mnt/steam"},
+    {"guest-exec", 1000, 1000, "1a2b3c4d5e6f708192a3b4c5d6e7f809",
+     UnitValue::AuthenticationKind::Guest, UnitValue::AccessMode::ReadWriteExecutable,
+     "//nas.example.org/games", "/home/tester/mnt/games"},
+};
+
+/**
+ * Corpus versions this build must still read, each with its own fixture set.
+ *
+ * Each version names its own fixtures rather than every version sharing one
+ * list: a release freezes whatever bytes it actually changed, which is not
+ * necessarily every share shape. v0.1.4 changed only the non-default access
+ * modes, so duplicating the read-write pair into it would freeze the same
+ * bytes twice and imply a change that did not happen.
+ *
+ * Add a directory here when a release changes the format; never remove one
+ * that users may still be upgrading from.
+ */
+struct Corpus {
+    const char *version;
+    const Fixture *fixtures;
+    size_t count;
+};
+
+const Corpus Corpora[] = {
+    {"v0.1.0", ReadWriteFixtures, std::size(ReadWriteFixtures)},
+    {"v0.1.4", NonDefaultAccessFixtures, std::size(NonDefaultAccessFixtures)},
+};
 
 bool readCorpusFile(const QString &version, const QString &name, QString *content)
 {
@@ -89,6 +133,7 @@ UnitValue::Marker markerFor(const Fixture &fixture)
     marker.ownerGid = fixture.ownerGid;
     marker.id = QString::fromLatin1(fixture.id);
     marker.authentication = fixture.authentication;
+    marker.access = fixture.access;
     return marker;
 }
 
@@ -154,10 +199,11 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
 
-    for (const char *const version : CorpusVersions) {
-        for (const Fixture &fixture : Fixtures) {
-            checkHalf(QString::fromLatin1(version), fixture, /*isMount=*/true);
-            checkHalf(QString::fromLatin1(version), fixture, /*isMount=*/false);
+    for (const Corpus &corpus : Corpora) {
+        for (size_t i = 0; i < corpus.count; ++i) {
+            const Fixture &fixture = corpus.fixtures[i];
+            checkHalf(QString::fromLatin1(corpus.version), fixture, /*isMount=*/true);
+            checkHalf(QString::fromLatin1(corpus.version), fixture, /*isMount=*/false);
         }
     }
 

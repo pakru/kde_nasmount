@@ -21,11 +21,20 @@ QQC2.ApplicationWindow {
     readonly property bool existing: backend.existingId.length > 0
     property bool busy: false
 
+    /** Opens at this size, never smaller, freely larger. Binding width/height
+     *  to the minimums is what allows both: a resize assigns width/height
+     *  directly and breaks those bindings, while the minimums are never
+     *  assigned and keep enforcing the floor. Two heights because the
+     *  already-saved view is a few labels and one button, not the form. */
+    readonly property int preferredWidth: 560
+    readonly property int preferredHeight: existing ? 260 : 500
+
     visible: true
     title: "Mount as Network Drive"
-    width: 560
-    height: existing ? 260 : 620
-    minimumWidth: 420
+    width: preferredWidth
+    height: preferredHeight
+    minimumWidth: preferredWidth
+    minimumHeight: preferredHeight
 
     Connections {
         target: backend.actions
@@ -131,13 +140,12 @@ QQC2.ApplicationWindow {
             Layout.fillWidth: true
             Item { Layout.fillWidth: true }
             QQC2.Button {
-                text: "Cancel"
-                enabled: !root.busy
-                onClicked: Qt.quit()
-            }
-            QQC2.Button {
                 visible: !root.existing
                 text: "Mount"
+                // The same icon the KCM and the polkit prompt use for this
+                // tool (io.github.pakru.nasmount.actions), so the action the
+                // user is confirming looks like the thing they invoked.
+                icon.name: "drive-network"
                 enabled: form.canSubmit && !root.busy
                 onClicked: form.submit()
             }

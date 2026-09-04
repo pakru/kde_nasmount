@@ -54,9 +54,20 @@ public:
 
     /** The only create there is: a share is boot-armed with a root-owned
      *  credential, so there is no mode to choose and no per-share reconnect
-     *  switch. Requires authentication; a polkit prompt is expected. */
+     *  switch. Requires authentication; a polkit prompt is expected.
+     *
+     *  `access` is one of "readwrite", "readonly" or "readwrite-executable"
+     *  — the same closed vocabulary the marker and the helper use, via
+     *  UnitValue::accessModeToString(). A string rather than an enum because
+     *  this is a QML boundary; it is passed through untouched and the helper
+     *  remains the authoritative validator, since anything arriving here is
+     *  untrusted. An empty string means "not specified" and the helper's
+     *  read-write default applies.
+     *
+     *  Because there is no in-place Edit, this is the only opportunity to
+     *  choose the access mode for a share. */
     Q_INVOKABLE void addShare(const QString &unc, const QString &rawMountPoint, const QString &username,
-                              const QString &domain, const QString &password);
+                              const QString &domain, const QString &password, const QString &access);
 
     /** Removes the definition and the local record. */
     Q_INVOKABLE void deleteShare(const QString &id);

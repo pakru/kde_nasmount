@@ -113,7 +113,9 @@ int main(int argc, char **argv)
     QString error;
 
     out << "=== mount options are hardened ===" << Qt::endl;
-    const QString opts = UnitSpec::mountOptions(uid, gid, QStringLiteral("/etc/nasmount/x.cred"));
+    const QString opts =
+        UnitSpec::mountOptions(uid, gid, QStringLiteral("/etc/nasmount/x.cred"),
+                               UnitValue::AccessMode::ReadWrite);
     const QStringList optList = opts.split(QLatin1Char(','));
     for (const QString &flag : {QStringLiteral("nosuid"), QStringLiteral("nodev"),
                                 QStringLiteral("forceuid"), QStringLiteral("forcegid")}) {
@@ -125,6 +127,114 @@ int main(int argc, char **argv)
     // permissive modes, and there is no forcemode counterpart to forceuid.
     check(QStringLiteral("nounix present"), optList.contains(QStringLiteral("nounix")));
     out << "        " << opts << Qt::endl;
+
+    out << "=== access mode selects ro and the permission bits, and nothing else ===" << Qt::endl;
+    {
+        const QString cred = QStringLiteral("/etc/nasmount/0123456789abcdef0123456789abcdef.cred");
+        const QString readWrite =
+            UnitSpec::mountOptions(1000, 1000, cred, UnitValue::AccessMode::ReadWrite);
+        const QString readOnly =
+            UnitSpec::mountOptions(1000, 1000, cred, UnitValue::AccessMode::ReadOnly);
+        const QString executable =
+            UnitSpec::mountOptions(1000, 1000, cred, UnitValue::AccessMode::ReadWriteExecutable);
+
+        // The default is spelled out literally, not derived: this exact byte
+        // string is what every release through 0.1.3 wrote, and changing it
+        // turns every share already on disk into Tampered.
+        const QString frozenReadWrite =
+            QStringLiteral("credentials=/etc/nasmount/0123456789abcdef0123456789abcdef.cred,"
+                           "nosuid,nodev,forceuid,forcegid,uid=1000,gid=1000,nounix,"
+                           "iocharset=utf8,file_mode=0600,dir_mode=0700");
+        check(QStringLiteral("read-write options are byte-identical to the frozen string"),
+              readWrite == frozenReadWrite, readWrite);
+
+        const QStringList roList = readOnly.split(QLatin1Char(','));
+        check(QStringLiteral("read-only carries ro"), roList.contains(QStringLiteral("ro")));
+        check(QStringLiteral("read-only file_mode=0400"),
+              roList.contains(QStringLiteral("file_mode=0400")));
+        // 0500, not 0400: a directory still needs +x to be traversable.
+        check(QStringLiteral("read-only dir_mode=0500"),
+              roList.contains(QStringLiteral("dir_mode=0500")));
+        check(QStringLiteral("read-only never emits rw"), !roList.contains(QStringLiteral("rw")));
+
+        const QStringList execList = executable.split(QLatin1Char(','));
+        check(QStringLiteral("executable file_mode=0700"),
+              execList.contains(QStringLiteral("file_mode=0700")));
+        check(QStringLiteral("executable dir_mode=0700"),
+              execList.contains(QStringLiteral("dir_mode=0700")));
+        check(QStringLiteral("executable is not ro"), !execList.contains(QStringLiteral("ro")));
+        check(QStringLiteral("executable never emits rw"), !execList.contains(QStringLiteral("rw")));
+
+        // `rw` would be semantically identical and would rewrite every
+        // existing share's bytes. It must never appear in any mode.
+        const QStringList rwList = readWrite.split(QLatin1Char(','));
+        check(QStringLiteral("read-write never emits rw"), !rwList.contains(QStringLiteral("rw")));
+        check(QStringLiteral("read-write is not ro"), !rwList.contains(QStringLiteral("ro")));
+
+        // The security-load-bearing terms are identical in all three modes;
+        // access mode must never be a way to relax them.
+        for (const QString &fixed : {QStringLiteral("nosuid"), QStringLiteral("nodev"),
+                                     QStringLiteral("forceuid"), QStringLiteral("forcegid"),
+                                     QStringLiteral("nounix")}) {
+            check(QStringLiteral("%1 fixed across every access mode").arg(fixed),
+                  rwList.contains(fixed) && roList.contains(fixed) && execList.contains(fixed));
+        }
+
+        check(QStringLiteral("the three modes are actually distinct"),
+              readWrite != readOnly && readOnly != executable && readWrite != executable);
+        out << "        ro:   " << readOnly << Qt::endl;
+        out << "        exec: " << executable << Qt::endl;
+    }
+
+    out << "=== access is load-bearing: a body never validates against another mode ===" << Qt::endl;
+    {
+        // Everything else in this suite would still pass if `access` were
+        // threaded into the marker and then dropped on the floor by
+        // mountOptionsFor(). This is the case that would not: it proves the
+        // generated Options= actually depends on the mode the marker records,
+        // in both directions, for every ordered pair.
+        const UnitValue::AccessMode modes[] = {UnitValue::AccessMode::ReadWrite,
+                                               UnitValue::AccessMode::ReadOnly,
+                                               UnitValue::AccessMode::ReadWriteExecutable};
+        const char *const modeNames[] = {"readwrite", "readonly", "readwrite-executable"};
+        const QString mountPoint = QStringLiteral("/home/tester/mnt/media");
+        const QString unc = QStringLiteral("//nas.example.org/media");
+
+        for (int i = 0; i < 3; ++i) {
+            UnitValue::Marker generated;
+            generated.ownerUid = 1000;
+            generated.ownerGid = 1000;
+            generated.id = QStringLiteral("0123456789abcdef0123456789abcdef");
+            generated.authentication = UnitValue::AuthenticationKind::Credentials;
+            generated.access = modes[i];
+
+            QString content;
+            QString buildError;
+            const bool built =
+                UnitSpec::buildMountUnitContent(generated, unc, mountPoint, &content, &buildError);
+            check(QStringLiteral("%1: builds").arg(QLatin1String(modeNames[i])), built, buildError);
+            if (!built) {
+                continue;
+            }
+
+            for (int j = 0; j < 3; ++j) {
+                UnitValue::Marker against = generated;
+                against.access = modes[j];
+                QString what;
+                QString error;
+                const bool valid =
+                    UnitSpec::validateMountUnitBody(content, against, mountPoint, &what, &error);
+                const QString label = QStringLiteral("%1 body vs %2 marker")
+                                          .arg(QLatin1String(modeNames[i]), QLatin1String(modeNames[j]));
+                if (i == j) {
+                    check(label + QStringLiteral(": validates"), valid, error);
+                } else {
+                    check(label + QStringLiteral(": rejected"), !valid,
+                          valid ? QStringLiteral("unexpectedly validated") : error);
+                }
+            }
+        }
+    }
 
     out << "=== allowlist cannot be escaped by aliasing an allowed root ===" << Qt::endl;
     {

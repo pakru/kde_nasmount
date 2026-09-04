@@ -39,6 +39,12 @@ struct Share {
     QString mountPoint;
     QString username;
     QString domain;
+    /** "readwrite" | "readonly" | "readwrite-executable"
+     *  (UnitValue::accessModeToString()). Convenience only: the marker is
+     *  authoritative, and MountModel reports a disagreement as drift rather
+     *  than trusting this. A record written before 0.1.4 has no `Access` key
+     *  at all and reads back as "readwrite", which is what those shares are. */
+    QString access;
 };
 
 /**
