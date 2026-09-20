@@ -122,6 +122,70 @@ int main(int argc, char **argv)
               Dialog::SmbUrl::suggestMountpoint(QStringLiteral("//")));
     }
 
+    out << "=== authLookupTarget ===" << Qt::endl;
+    {
+        auto expectTarget = [](const QString &label, const QString &unc, const QString &expected) {
+            const QUrl url = Dialog::SmbUrl::authLookupTarget(unc);
+            check(label, url.toString(QUrl::FullyEncoded) == expected, url.toString());
+        };
+        // The share root is the lookup target even when the user opened a
+        // folder deep inside it: that is what KDE's own SMB worker
+        // authenticates against, so anything narrower would miss the entry
+        // Dolphin saved.
+        expectTarget(QStringLiteral("share root"), QStringLiteral("//10.0.0.10/DATA"),
+                     QStringLiteral("smb://10.0.0.10/DATA"));
+        expectTarget(QStringLiteral("subdirectories are dropped"),
+                     QStringLiteral("//10.0.0.10/DATA/Pavel/Docs"),
+                     QStringLiteral("smb://10.0.0.10/DATA"));
+        expectTarget(QStringLiteral("a space in the share name is encoded once"),
+                     QStringLiteral("//nas.local/Media Library"),
+                     QStringLiteral("smb://nas.local/Media%20Library"));
+        expectTarget(QStringLiteral("a literal percent is encoded, not re-read"),
+                     QStringLiteral("//nas.local/100%"), QStringLiteral("smb://nas.local/100%25"));
+        expectTarget(QStringLiteral("an already-encoded-looking name is not decoded again"),
+                     QStringLiteral("//nas.local/Media%20Library"),
+                     QStringLiteral("smb://nas.local/Media%2520Library"));
+        expectTarget(QStringLiteral("a non-ASCII share name survives"),
+                     QStringLiteral("//nas.local/Материалы"),
+                     QStringLiteral("smb://nas.local/%D0%9C%D0%B0%D1%82%D0%B5%D1%80%D0%B8%D0%B0%D0%BB%D1%8B"));
+        expectTarget(QStringLiteral("a trailing slash does not create an empty component"),
+                     QStringLiteral("//nas.local/DATA/"), QStringLiteral("smb://nas.local/DATA"));
+
+        check(QStringLiteral("a server-only UNC has no lookup target"),
+              !Dialog::SmbUrl::authLookupTarget(QStringLiteral("//nas.local")).isValid());
+        check(QStringLiteral("an empty UNC has no lookup target"),
+              !Dialog::SmbUrl::authLookupTarget(QString()).isValid());
+    }
+
+    out << "=== splitDomainUser ===" << Qt::endl;
+    {
+        auto expectSplit = [](const QString &label, const QString &combined,
+                              const QString &domain, const QString &username) {
+            const Dialog::SmbUrl::Identity identity = Dialog::SmbUrl::splitDomainUser(combined);
+            check(label, identity.domain == domain && identity.username == username,
+                  QStringLiteral("domain=%1 user=%2").arg(identity.domain, identity.username));
+        };
+        expectSplit(QStringLiteral("plain username"), QStringLiteral("pavel"), QString(),
+                    QStringLiteral("pavel"));
+        expectSplit(QStringLiteral("backslash-qualified"), QStringLiteral("WORKGROUP\\pavel"),
+                    QStringLiteral("WORKGROUP"), QStringLiteral("pavel"));
+        expectSplit(QStringLiteral("slash-qualified"), QStringLiteral("WORKGROUP/pavel"),
+                    QStringLiteral("WORKGROUP"), QStringLiteral("pavel"));
+        // A UPN is one name, not a qualified pair: splitting it at the @
+        // would submit "example.com" as a CIFS domain and "pavel" as a user
+        // that the server has never heard of.
+        expectSplit(QStringLiteral("a UPN is left whole"), QStringLiteral("pavel@example.com"),
+                    QString(), QStringLiteral("pavel@example.com"));
+        // Upstream's rule, kept exactly: the first separator wins, whichever
+        // it is.
+        expectSplit(QStringLiteral("the first separator wins"),
+                    QStringLiteral("WORKGROUP/sub\\pavel"), QStringLiteral("WORKGROUP"),
+                    QStringLiteral("sub\\pavel"));
+        expectSplit(QStringLiteral("a leading separator does not split"),
+                    QStringLiteral("\\pavel"), QString(), QStringLiteral("\\pavel"));
+        expectSplit(QStringLiteral("an empty name stays empty"), QString(), QString(), QString());
+    }
+
     out << Qt::endl << passed << " passed, " << failed << " failed" << Qt::endl;
     return failed == 0 ? 0 : 1;
 }

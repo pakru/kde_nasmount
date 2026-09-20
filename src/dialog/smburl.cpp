@@ -113,6 +113,51 @@ QString suggestMountpoint(const QString &unc)
     return QDir::homePath() + QLatin1Char('/') + leaf;
 }
 
+QUrl authLookupTarget(const QString &unc)
+{
+    // The UNC is already validated when this runs, but it is reached from the
+    // command line, so treat anything unexpected as "no target" rather than
+    // assuming the shape.
+    QString rest = unc;
+    while (rest.startsWith(QLatin1Char('/'))) {
+        rest.remove(0, 1);
+    }
+    const QString host = rest.section(QLatin1Char('/'), 0, 0);
+    const QString share = rest.section(QLatin1Char('/'), 1, 1);
+    if (host.isEmpty() || share.isEmpty()) {
+        return QUrl();
+    }
+
+    // Deliberately the same three calls kio-extras' SMB authenticator makes
+    // (smbauthenticator.cpp): an empty smb:/// URL, then setHost() and a path
+    // of exactly one component. Assigning a concatenated string instead would
+    // re-parse the share name as URL syntax, so "Media Library" or a name
+    // containing "%" would arrive at the password service as a different key
+    // than the one Dolphin's own lookup wrote.
+    QUrl url(QStringLiteral("smb:///"));
+    url.setHost(host);
+    url.setPath(QLatin1Char('/') + share);
+    if (!url.isValid() || url.host() != host) {
+        return QUrl();
+    }
+    return url;
+}
+
+Identity splitDomainUser(const QString &combined)
+{
+    const qsizetype slash = combined.indexOf(QLatin1Char('/'));
+    const qsizetype backslash = combined.indexOf(QLatin1Char('\\'));
+    // qMin only when both exist: with one absent its index is -1, which would
+    // otherwise always win. This is upstream's own formulation, kept
+    // recognisably so.
+    const qsizetype sep = (slash >= 0 && backslash >= 0) ? qMin(slash, backslash)
+                                                         : qMax(slash, backslash);
+    if (sep > 0) {
+        return Identity{combined.left(sep), combined.mid(sep + 1)};
+    }
+    return Identity{QString(), combined};
+}
+
 QString describeState(const QString &mountPoint)
 {
     UnitValue::UnitPaths paths;

@@ -45,7 +45,13 @@ include(KDECompilerSettings NO_POLICY_SCOPE)
 include(FeatureSummary)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent Quick QuickControls2)
-find_package(KF6 6.0 REQUIRED COMPONENTS Auth I18n WidgetsAddons Config CoreAddons KCMUtils)
+# KIO is required for one thing only: KPasswdServerClient, the public way to
+# ask the user's own session whether it already knows a password for an SMB
+# share (SMB credential autofill plan §2.2). It is linked into
+# nasmount-dialog alone -- never into kde_nasmount-core, and so never into
+# the privileged helper, which must not gain a dependency on the session's
+# password service.
+find_package(KF6 6.0 REQUIRED COMPONENTS Auth I18n WidgetsAddons Config CoreAddons KCMUtils KIO)
 
 set(CMAKE_AUTOMOC ON)
 
@@ -154,8 +160,15 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/nasmount-boot.service
 # dialog.qrc embeds ShareForm.qml from src/kcm/ui -- one form definition
 # serving both front ends, rather than a second copy that can drift.
 qt_add_resources(NASMOUNT_DIALOG_QRC src/dialog/dialog.qrc)
+# credentiallookupworker.cpp is the private credential-lookup mode of this
+# same binary rather than an executable of its own: it needs no privileges and
+# no install path, so compiling it in leaves the installed file set -- and
+# therefore the cleanup manifest, both package payload lists and
+# Session::validateInstallManifest() -- untouched (autofill plan §6).
 add_executable(nasmount-dialog
     src/dialog/main.cpp
+    src/dialog/credentiallookup.cpp
+    src/dialog/credentiallookupworker.cpp
     src/dialog/dialogbackend.cpp
     src/dialog/smburl.cpp
     ${NASMOUNT_DIALOG_QRC}
@@ -163,7 +176,7 @@ add_executable(nasmount-dialog
 target_link_libraries(nasmount-dialog
     PRIVATE kde_nasmount-core kde_nasmount-session
             Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Quick Qt6::QuickControls2
-            KF6::I18n
+            KF6::I18n KF6::KIOCore
 )
 install(TARGETS nasmount-dialog DESTINATION ${KDE_INSTALL_BINDIR})
 
@@ -291,6 +304,31 @@ add_executable(smburl_test tests/smburl_test.cpp src/dialog/smburl.cpp)
 target_include_directories(smburl_test PRIVATE src/dialog)
 target_link_libraries(smburl_test PRIVATE kde_nasmount-core KF6::I18n)
 add_test(NAME smburl COMMAND smburl_test)
+
+# Links the two dialog translation units the way smburl_test does, and
+# deliberately not KF6::KIOCore: everything tested here -- the pipe protocol,
+# the acceptance policy, and the controller's lifetime -- is pure, so the
+# suite never needs a wallet, a password service, or a NAS to run.
+add_executable(credentiallookup_test
+    tests/credentiallookup_test.cpp
+    src/dialog/credentiallookup.cpp
+    src/dialog/smburl.cpp
+)
+target_include_directories(credentiallookup_test PRIVATE src/dialog)
+target_link_libraries(credentiallookup_test PRIVATE kde_nasmount-core KF6::I18n)
+add_test(NAME credentiallookup COMMAND credentiallookup_test)
+
+# Loads the *real* ShareForm.qml from the source tree, for the one rule no
+# C++ model can stand in for: that an imported credential is never paired with
+# a manually entered one. A duplicate model in C++ would keep passing while
+# the QML it mirrors drifted (autofill plan §8.1). Read from the source
+# directory rather than a staged copy, for the same reason the golden corpus
+# is: a copy can go stale.
+add_executable(shareform_qml_test tests/shareform_qml_test.cpp)
+target_link_libraries(shareform_qml_test PRIVATE Qt6::Gui Qt6::Qml Qt6::Quick)
+target_compile_definitions(shareform_qml_test
+    PRIVATE NASMOUNT_SHAREFORM_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/kcm/ui/ShareForm.qml")
+add_test(NAME shareform_qml COMMAND shareform_qml_test)
 
 add_executable(unitvalue_test tests/unitvalue_test.cpp)
 target_link_libraries(unitvalue_test PRIVATE kde_nasmount-core)
