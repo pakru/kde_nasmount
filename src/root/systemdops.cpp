@@ -85,30 +85,4 @@ bool stop(const QString &unit, QString *error)
     return true;
 }
 
-bool showProperty(const QString &unit, const QString &property, QString *value, QString *error)
-{
-    QString out;
-    const int rc = dispatch(QStringLiteral("systemctl"),
-                            {QStringLiteral("show"), unit, QStringLiteral("--property=%1").arg(property),
-                             QStringLiteral("--value")},
-                            &out);
-    if (rc != 0) {
-        *error = QStringLiteral("systemctl show %1 --property=%2 failed: %3").arg(unit, property, out);
-        return false;
-    }
-    *value = out;
-    return true;
-}
-
-void stopQuiet(const QStringList &units)
-{
-    if (units.isEmpty()) {
-        return;
-    }
-    QString out;
-    QStringList args{QStringLiteral("stop")};
-    args += units;
-    dispatch(QStringLiteral("systemctl"), args, &out);
-}
-
 } // namespace Root::SystemdOps

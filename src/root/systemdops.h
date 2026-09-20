@@ -43,14 +43,4 @@ bool daemonReload(QString *error);
 bool start(const QString &unit, QString *error);
 bool stop(const QString &unit, QString *error);
 
-/** `systemctl show <unit> --property=<property> --value`, bounded/checked
- *  like every other call here. Read-only, but routed through the same
- *  injectable runner for testability and consistency. */
-bool showProperty(const QString &unit, const QString &property, QString *value, QString *error);
-
-/** Best-effort: for cleanup paths where the outcome is already fatal and
- *  stopping units is a courtesy, not something the caller can act on if it
- *  fails. Never use this where the result must be checked. */
-void stopQuiet(const QStringList &units);
-
 } // namespace Root::SystemdOps

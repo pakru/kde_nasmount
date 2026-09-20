@@ -129,23 +129,22 @@ class MountModel : public QAbstractListModel
     Q_PROPERTY(bool bootHealthy READ bootHealthy NOTIFY refreshed)
 
 public:
+    /**
+     * Only what a delegate actually renders. Authentication kind, definition
+     * state, Store corruption and credential health are *inputs* to
+     * classifyRow(), which folds them into stateText/detail/drift -- they are
+     * deliberately not re-exported raw, so there is one place that decides
+     * what a row means and the two front ends cannot disagree about it.
+     */
     enum Roles {
         IdRole = Qt::UserRole + 1,
         UncRole,
         MountPointRole,
-        UsernameRole,
-        DomainRole,
-        StateRole,
         StateTextRole,
         DetailRole,
         HasUnitFilesRole,
-        AuthenticationRole,     ///< "credentials" | "guest"
-        DefinitionStateRole,    ///< "pair" | "partial" | "tampered" | "notOurs" | "none"
-        HasStoreRecordRole,     ///< whether an id (and so the id-based actions) applies to this row
-        StoreCorruptRole,
+        HasStoreRecordRole,      ///< whether an id (and so the id-based actions) applies to this row
         DriftRole,               ///< Store disagrees with the marker on authentication or access
-        CredentialApplicableRole, ///< only meaningful when true; a guest row never has a credential to check
-        CredentialHealthyRole,
         CanRemoveDefinitionRole,   ///< Delete is offered
         CanRemoveLocalRecordRole,  ///< "Remove local record" is offered
         RequiresAdministratorRole, ///< Tampered/NotOurs/untrusted-active -- never casually actionable
@@ -161,10 +160,6 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
-
-    /** unc/mountPoint/username/domain/reconnect for `id`, or an empty map. Lets
-     *  the QML add dialog pre-fill a form without indexing the model by hand. */
-    Q_INVOKABLE QVariantMap shareDetails(const QString &id) const;
 
     /** Whether at least one row is System mode -- gates the boot-health
      *  banner's visibility (design §7.1.8: shown as global health, not
@@ -197,8 +192,6 @@ private:
         QString id;
         QString unc;
         QString mountPoint;
-        QString username;
-        QString domain;
         QString definitionWhat; ///< validated .mount What=; empty for automount-only Partial
         UnitValue::AuthenticationKind authentication = UnitValue::AuthenticationKind::Credentials;
         /** From the validated marker, never from Store. Left at the default

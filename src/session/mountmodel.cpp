@@ -279,12 +279,6 @@ QVariant MountModel::data(const QModelIndex &index, int role) const
         return row.unc;
     case MountPointRole:
         return row.mountPoint;
-    case UsernameRole:
-        return row.username;
-    case DomainRole:
-        return row.domain;
-    case StateRole:
-        return static_cast<int>(row.state);
     case StateTextRole:
         switch (row.state) {
         case DisplayState::Inactive:
@@ -307,21 +301,10 @@ QVariant MountModel::data(const QModelIndex &index, int role) const
         return row.detail;
     case HasUnitFilesRole:
         return row.hasUnitFiles;
-    case AuthenticationRole:
-        return row.authentication == UnitValue::AuthenticationKind::Guest ? QStringLiteral("guest")
-                                                                          : QStringLiteral("credentials");
-    case DefinitionStateRole:
-        return row.definitionState;
     case HasStoreRecordRole:
         return row.hasStoreRecord;
-    case StoreCorruptRole:
-        return row.storeCorrupt;
     case DriftRole:
         return row.drift;
-    case CredentialApplicableRole:
-        return row.credentialApplicable;
-    case CredentialHealthyRole:
-        return row.credentialHealthy;
     case CanRemoveDefinitionRole:
         return row.canRemoveDefinition;
     case CanRemoveLocalRecordRole:
@@ -341,40 +324,16 @@ QHash<int, QByteArray> MountModel::roleNames() const
         {IdRole, "shareId"},
         {UncRole, "unc"},
         {MountPointRole, "mountPoint"},
-        {UsernameRole, "username"},
-        {DomainRole, "domain"},
-        {StateRole, "state"},
         {StateTextRole, "stateText"},
         {DetailRole, "detail"},
         {HasUnitFilesRole, "hasUnitFiles"},
-        {AuthenticationRole, "authentication"},
-        {DefinitionStateRole, "definitionState"},
         {HasStoreRecordRole, "hasStoreRecord"},
-        {StoreCorruptRole, "storeCorrupt"},
         {DriftRole, "drift"},
-        {CredentialApplicableRole, "credentialApplicable"},
-        {CredentialHealthyRole, "credentialHealthy"},
         {CanRemoveDefinitionRole, "canRemoveDefinition"},
         {CanRemoveLocalRecordRole, "canRemoveLocalRecord"},
         {RequiresAdministratorRole, "requiresAdministrator"},
         {AccessRole, "access"},
     };
-}
-
-QVariantMap MountModel::shareDetails(const QString &id) const
-{
-    for (const Row &row : m_rows) {
-        if (row.id == id) {
-            return {
-                {QStringLiteral("unc"), row.unc},
-                {QStringLiteral("mountPoint"), row.mountPoint},
-                {QStringLiteral("username"), row.username},
-                {QStringLiteral("domain"), row.domain},
-                {QStringLiteral("access"), UnitValue::accessModeToString(row.access)},
-            };
-        }
-    }
-    return {};
 }
 
 bool MountModel::hasShares() const
@@ -476,8 +435,6 @@ MountModel::RefreshResult MountModel::computeRefresh()
             if (snap.corrupt) {
                 row.storeCorrupt = true;
             } else {
-                row.username = share.username;
-                row.domain = share.domain;
                 StoreDefinitionDriftInput driftInput;
                 driftInput.storeUnc = share.unc;
                 driftInput.storeMountPoint = share.mountPoint;
@@ -519,8 +476,6 @@ MountModel::RefreshResult MountModel::computeRefresh()
             row.id = share.id;
             row.unc = share.unc;
             row.mountPoint = share.mountPoint;
-            row.username = share.username;
-            row.domain = share.domain;
             row.hasStoreRecord = true;
             row.storeCorrupt = snap.corrupt;
             row.definitionState = QStringLiteral("none");
