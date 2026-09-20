@@ -13,9 +13,9 @@
  * the owner-uid marker are scoped to who really called.
  *
  * This file is deliberately thin (plan §2.1.6): caller validation, typed
- * argument decoding, root-lock acquisition, dispatch into nasmount-root, and
+ * argument decoding, root-lock acquisition, dispatch into kde_nasmount-root, and
  * structured reply conversion. Every privileged filesystem/systemd mutation
- * lives in nasmount-root (durablefs, credentialstore, runtimefiles,
+ * lives in kde_nasmount-root (durablefs, credentialstore, runtimefiles,
  * systemdops, arming, operations) — nothing here writes a file, starts/stops
  * a unit, or touches a credential directly any more.
  */

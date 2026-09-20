@@ -5,7 +5,7 @@
  *
  * armShare()/arm()/disarm() all write below
  * /etc/nasmount and /etc/systemd/system and call real systemctl, so — like
- * every other nasmount-root test file — a real accept path needs root and
+ * every other kde_nasmount-root test file — a real accept path needs root and
  * belongs to VM integration testing. evaluateArmPrecheck() is the one piece
  * of this module that is pure decision logic over an already-computed
  * snapshot (design §6.4's "never bless an unrecorded trigger"); it is

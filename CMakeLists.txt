@@ -12,7 +12,7 @@ if(NOT NASMOUNT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
         "'${NASMOUNT_VERSION}'.")
 endif()
 
-project(nasmount VERSION "${NASMOUNT_VERSION}" LANGUAGES CXX)
+project(kde_nasmount VERSION "${NASMOUNT_VERSION}" LANGUAGES CXX)
 
 # `source` preserves the checkout-driven install/uninstall lifecycle. Native
 # packages select their family explicitly so the installed uninstaller never
@@ -32,7 +32,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# nasmount-core/-session are STATIC (deliberately: see below) but kcm_nasmount
+# kde_nasmount-core/-session are STATIC (deliberately: see below) but kcm_nasmount
 # links them into a plugin (a shared object), which requires PIC code.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -62,17 +62,17 @@ configure_file(src/core/nasmountversion.h.in
 # library rather than a shared one: the helper must have no runtime
 # dependency on a .so a non-root user could replace.
 # ---------------------------------------------------------------------------
-add_library(nasmount-core STATIC
+add_library(kde_nasmount-core STATIC
     src/core/packagestate.cpp
     src/core/unitspec.cpp
     src/core/unitvalue.cpp
     src/core/verify.cpp
 )
-target_include_directories(nasmount-core PUBLIC
+target_include_directories(kde_nasmount-core PUBLIC
     src/core
     ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
-target_link_libraries(nasmount-core PUBLIC Qt6::Core)
+target_link_libraries(kde_nasmount-core PUBLIC Qt6::Core)
 
 # ---------------------------------------------------------------------------
 # session — Store (KConfig), the per-user lock, the KAuth call
@@ -80,7 +80,7 @@ target_link_libraries(nasmount-core PUBLIC Qt6::Core)
 # linked into the helper (plan §8: "session -> dialog, kcm --
 # never the helper").
 # ---------------------------------------------------------------------------
-add_library(nasmount-session STATIC
+add_library(kde_nasmount-session STATIC
     src/session/cleanupvalidation.cpp
     src/session/store.cpp
     src/session/userlock.cpp
@@ -88,9 +88,9 @@ add_library(nasmount-session STATIC
     src/session/mountactions.cpp
     src/session/mountmodel.cpp
 )
-target_include_directories(nasmount-session PUBLIC src/session)
-target_link_libraries(nasmount-session PUBLIC
-    nasmount-core
+target_include_directories(kde_nasmount-session PUBLIC src/session)
+target_link_libraries(kde_nasmount-session PUBLIC
+    kde_nasmount-core
     Qt6::Core Qt6::Concurrent
     KF6::AuthCore KF6::ConfigCore
 )
@@ -100,12 +100,12 @@ target_link_libraries(nasmount-session PUBLIC
 # primitives, the root lock, systemd command execution, and credential/
 # runtime artifact stores (plan §2.1). Linked ONLY into privileged
 # executables (nasmount-helper, nasmount-boot). NEVER linked into
-# nasmount-session, the KCM, or the dialog — those are
+# kde_nasmount-session, the KCM, or the dialog — those are
 # reachable by an unprivileged, potentially hostile local process, and must
 # have no code path that can mutate root-owned state. Enforced below by
-# nasmount_assert_no_root_link(), not just by this comment.
+# kde_nasmount_assert_no_root_link(), not just by this comment.
 # ---------------------------------------------------------------------------
-add_library(nasmount-root STATIC
+add_library(kde_nasmount-root STATIC
     src/root/arming.cpp
     src/root/credentialstore.cpp
     src/root/durablefs.cpp
@@ -115,8 +115,8 @@ add_library(nasmount-root STATIC
     src/root/runtimefiles.cpp
     src/root/systemdops.cpp
 )
-target_include_directories(nasmount-root PUBLIC src/root)
-target_link_libraries(nasmount-root PUBLIC nasmount-core Qt6::Core)
+target_include_directories(kde_nasmount-root PUBLIC src/root)
+target_link_libraries(kde_nasmount-root PUBLIC kde_nasmount-core Qt6::Core)
 
 # --- privileged KAuth helper ------------------------------------------------
 add_executable(nasmount-helper src/helper/helper.cpp)
@@ -125,7 +125,7 @@ add_executable(nasmount-helper src/helper/helper.cpp)
 # on the caller's behalf. libQt6Gui still appears in ldd output as a transitive
 # dependency of KF6CoreAddons, which KAuth requires — but nothing here
 # constructs a QGuiApplication, so no GUI machinery is initialised.
-target_link_libraries(nasmount-helper PRIVATE nasmount-core nasmount-root Qt6::Core KF6::AuthCore)
+target_link_libraries(nasmount-helper PRIVATE kde_nasmount-core kde_nasmount-root Qt6::Core KF6::AuthCore)
 install(TARGETS nasmount-helper DESTINATION ${KAUTH_HELPER_INSTALL_DIR})
 
 # Generates and installs the D-Bus policy + system service file that let the
@@ -142,7 +142,7 @@ kauth_install_actions(${NASMOUNT_HELPER_ID} ${CMAKE_CURRENT_SOURCE_DIR}/${NASMOU
 # §6.3). Installed into the KDE libexec dir, matching the service template's
 # ExecStart=.
 add_executable(nasmount-boot src/boot/main.cpp)
-target_link_libraries(nasmount-boot PRIVATE nasmount-core nasmount-root Qt6::Core)
+target_link_libraries(nasmount-boot PRIVATE kde_nasmount-core kde_nasmount-root Qt6::Core)
 install(TARGETS nasmount-boot DESTINATION ${KDE_INSTALL_LIBEXECDIR})
 
 configure_file(systemd/nasmount-boot.service.in
@@ -161,7 +161,7 @@ add_executable(nasmount-dialog
     ${NASMOUNT_DIALOG_QRC}
 )
 target_link_libraries(nasmount-dialog
-    PRIVATE nasmount-core nasmount-session
+    PRIVATE kde_nasmount-core kde_nasmount-session
             Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Quick Qt6::QuickControls2
             KF6::I18n
 )
@@ -172,14 +172,14 @@ install(TARGETS nasmount-dialog DESTINATION ${KDE_INSTALL_BINDIR})
 # install manifest, invokes the single auth_admin purge action, then removes
 # config data only after the privileged purge is confirmed.
 add_executable(nasmount-cleanup src/cleanup/main.cpp)
-target_link_libraries(nasmount-cleanup PRIVATE nasmount-session Qt6::Core)
+target_link_libraries(nasmount-cleanup PRIVATE kde_nasmount-session Qt6::Core)
 install(TARGETS nasmount-cleanup DESTINATION ${KDE_INSTALL_BINDIR})
 
 # --- native-package removal guard and persistent uninstall entry point ------
 # The guard is intentionally linked only to read-only core code. Package
 # maintainer scripts run it before erasure; it cannot mutate or repair state.
 add_executable(nasmount-package-guard src/packageguard/main.cpp)
-target_link_libraries(nasmount-package-guard PRIVATE nasmount-core Qt6::Core)
+target_link_libraries(nasmount-package-guard PRIVATE kde_nasmount-core Qt6::Core)
 install(TARGETS nasmount-package-guard DESTINATION ${KDE_INSTALL_LIBEXECDIR})
 
 install(PROGRAMS packaging/nasmount-uninstall.sh
@@ -255,25 +255,25 @@ configure_file(packaging/cleanup-manifest.in
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cleanup-manifest.txt
         DESTINATION ${KDE_INSTALL_DATADIR}/nasmount)
 
-# --- linkage invariant: nasmount-root reaches only privileged executables ---
+# --- linkage invariant: kde_nasmount-root reaches only privileged executables ---
 # (plan §2.1.2). Structural placement (never adding it to these
 # target_link_libraries calls) is the primary defence; this is the check that
 # catches a future accidental addition instead of relying on that forever.
-function(nasmount_assert_no_root_link target)
+function(kde_nasmount_assert_no_root_link target)
     get_target_property(_nasmount_libs ${target} LINK_LIBRARIES)
-    if(_nasmount_libs AND "nasmount-root" IN_LIST _nasmount_libs)
+    if(_nasmount_libs AND "kde_nasmount-root" IN_LIST _nasmount_libs)
         message(FATAL_ERROR
-            "${target} must never link nasmount-root (plan 2.1.2): privileged "
+            "${target} must never link kde_nasmount-root (plan 2.1.2): privileged "
             "filesystem/systemd mutation code must not be reachable from an "
             "unprivileged, potentially hostile local process.")
     endif()
 endfunction()
 
-nasmount_assert_no_root_link(nasmount-session)
-nasmount_assert_no_root_link(nasmount-dialog)
-nasmount_assert_no_root_link(nasmount-cleanup)
-nasmount_assert_no_root_link(nasmount-package-guard)
-nasmount_assert_no_root_link(kcm_nasmount)
+kde_nasmount_assert_no_root_link(kde_nasmount-session)
+kde_nasmount_assert_no_root_link(nasmount-dialog)
+kde_nasmount_assert_no_root_link(nasmount-cleanup)
+kde_nasmount_assert_no_root_link(nasmount-package-guard)
+kde_nasmount_assert_no_root_link(kcm_nasmount)
 
 # --- tests -------------------------------------------------------------------
 # Not installed; built so `ctest` can exercise the same validation/encoding/
@@ -281,7 +281,7 @@ nasmount_assert_no_root_link(kcm_nasmount)
 enable_testing()
 
 add_executable(unitspec_test tests/unitspec_test.cpp)
-target_link_libraries(unitspec_test PRIVATE nasmount-core)
+target_link_libraries(unitspec_test PRIVATE kde_nasmount-core)
 add_test(NAME unitspec COMMAND unitspec_test)
 
 # smburl links the dialog's own translation unit directly rather than a
@@ -289,66 +289,66 @@ add_test(NAME unitspec COMMAND unitspec_test)
 # a library purely for the test would be more structure than it earns.
 add_executable(smburl_test tests/smburl_test.cpp src/dialog/smburl.cpp)
 target_include_directories(smburl_test PRIVATE src/dialog)
-target_link_libraries(smburl_test PRIVATE nasmount-core KF6::I18n)
+target_link_libraries(smburl_test PRIVATE kde_nasmount-core KF6::I18n)
 add_test(NAME smburl COMMAND smburl_test)
 
 add_executable(unitvalue_test tests/unitvalue_test.cpp)
-target_link_libraries(unitvalue_test PRIVATE nasmount-core)
+target_link_libraries(unitvalue_test PRIVATE kde_nasmount-core)
 add_test(NAME unitvalue COMMAND unitvalue_test)
 
 add_executable(verify_test tests/verify_test.cpp)
-target_link_libraries(verify_test PRIVATE nasmount-core)
+target_link_libraries(verify_test PRIVATE kde_nasmount-core)
 add_test(NAME verify COMMAND verify_test)
 
 add_executable(helperinvoke_test tests/helperinvoke_test.cpp)
-target_link_libraries(helperinvoke_test PRIVATE nasmount-session)
+target_link_libraries(helperinvoke_test PRIVATE kde_nasmount-session)
 add_test(NAME helperinvoke COMMAND helperinvoke_test)
 
 add_executable(store_test tests/store_test.cpp)
-target_link_libraries(store_test PRIVATE nasmount-session KF6::ConfigCore)
+target_link_libraries(store_test PRIVATE kde_nasmount-session KF6::ConfigCore)
 add_test(NAME store COMMAND store_test)
 
 add_executable(mountactions_test tests/mountactions_test.cpp)
-target_link_libraries(mountactions_test PRIVATE nasmount-session)
+target_link_libraries(mountactions_test PRIVATE kde_nasmount-session)
 add_test(NAME mountactions COMMAND mountactions_test)
 
 add_executable(mountmodel_test tests/mountmodel_test.cpp)
-target_link_libraries(mountmodel_test PRIVATE nasmount-session)
+target_link_libraries(mountmodel_test PRIVATE kde_nasmount-session)
 add_test(NAME mountmodel COMMAND mountmodel_test)
 
 add_executable(durablefs_test tests/durablefs_test.cpp)
-target_link_libraries(durablefs_test PRIVATE nasmount-root)
+target_link_libraries(durablefs_test PRIVATE kde_nasmount-root)
 add_test(NAME durablefs COMMAND durablefs_test)
 
 add_executable(inventory_test tests/inventory_test.cpp)
-target_link_libraries(inventory_test PRIVATE nasmount-root)
+target_link_libraries(inventory_test PRIVATE kde_nasmount-root)
 add_test(NAME inventory COMMAND inventory_test)
 
 add_executable(operations_test tests/operations_test.cpp)
-target_link_libraries(operations_test PRIVATE nasmount-root)
+target_link_libraries(operations_test PRIVATE kde_nasmount-root)
 add_test(NAME operations COMMAND operations_test)
 
 add_executable(arming_test tests/arming_test.cpp)
-target_link_libraries(arming_test PRIVATE nasmount-root)
+target_link_libraries(arming_test PRIVATE kde_nasmount-root)
 add_test(NAME arming COMMAND arming_test)
 
 add_executable(credentialstore_test tests/credentialstore_test.cpp)
-target_link_libraries(credentialstore_test PRIVATE nasmount-root)
+target_link_libraries(credentialstore_test PRIVATE kde_nasmount-root)
 add_test(NAME credentialstore COMMAND credentialstore_test)
 
 add_executable(cleanupvalidation_test tests/cleanupvalidation_test.cpp)
-target_link_libraries(cleanupvalidation_test PRIVATE nasmount-session)
+target_link_libraries(cleanupvalidation_test PRIVATE kde_nasmount-session)
 add_test(NAME cleanupvalidation COMMAND cleanupvalidation_test)
 
 add_executable(packagestate_test tests/packagestate_test.cpp)
-target_link_libraries(packagestate_test PRIVATE nasmount-core)
+target_link_libraries(packagestate_test PRIVATE kde_nasmount-core)
 add_test(NAME packagestate COMMAND packagestate_test)
 
 # The frozen unit corpus is read from the source tree, not staged into the
 # build tree: it is a record of released bytes, and copying it would make a
 # stale copy possible.
 add_executable(goldenunits_test tests/goldenunits_test.cpp)
-target_link_libraries(goldenunits_test PRIVATE nasmount-core)
+target_link_libraries(goldenunits_test PRIVATE kde_nasmount-core)
 target_compile_definitions(goldenunits_test
     PRIVATE NASMOUNT_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/units")
 add_test(NAME goldenunits COMMAND goldenunits_test)

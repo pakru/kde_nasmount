@@ -1,6 +1,6 @@
 /*
  * durablefs — descriptor-based, crash-durable filesystem primitives for the
- * privileged nasmount-root library (plan §2.2).
+ * privileged kde_nasmount-root library (plan §2.2).
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *

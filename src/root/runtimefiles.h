@@ -15,7 +15,7 @@
  *
  * Writes only; reading the recorded automount id back is unprivileged (any
  * process may read a file under /run/nasmount-ids to compute
- * Verify::ActivationTrust) and stays in nasmount-core as
+ * Verify::ActivationTrust) and stays in kde_nasmount-core as
  * Verify::readRecordedAutomountId(). Everything here is root-only to write:
  * only the privileged helper (and the boot coordinator) ever creates,
  * moves, or removes one of these records.

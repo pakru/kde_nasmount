@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Every function here writes below /etc/nasmount or /run/nasmount, so --
- * like every other nasmount-root test file -- a real accept path needs root
+ * like every other kde_nasmount-root test file -- a real accept path needs root
  * and belongs to VM integration testing. What is testable without root is
  * the id-validation fail-closed path, common to every function and checked
  * first, before any filesystem access at all.

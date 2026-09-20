@@ -1,5 +1,5 @@
 /*
- * systemdops — privileged systemd command execution for nasmount-root
+ * systemdops — privileged systemd command execution for kde_nasmount-root
  * (plan §2.1.5).
  *
  * SPDX-License-Identifier: GPL-3.0-or-later

@@ -190,8 +190,8 @@ namespace
 /** Queries nasmount-boot.service's own health (design §7.1.8): enabled
  *  state plus ActiveState/Result/ExecMainStatus from its last run. A system
  *  unit's read-only properties are queryable by any local user, no
- *  capability needed -- this never touches nasmount-root, which
- *  nasmount-session must never link. Transport failure (systemctl itself
+ *  capability needed -- this never touches kde_nasmount-root, which
+ *  kde_nasmount-session must never link. Transport failure (systemctl itself
  *  could not be reached) is kept distinct from "reachable, but disabled or
  *  failed". */
 void queryBootHealth(QString *text, bool *healthy)

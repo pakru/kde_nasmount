@@ -6,7 +6,7 @@
  *
  * Session credential files live below /run/nasmount; System files (phase 3+)
  * below /etc/nasmount. UnitSpec::credentialDirectory()/credentialPathFor()
- * in nasmount-core compute the *string* embedded in a generated unit's
+ * in kde_nasmount-core compute the *string* embedded in a generated unit's
  * Options=; this is the privileged counterpart that actually creates,
  * durably replaces, and removes the file those strings point at, through
  * the same descriptor-verified primitives every other root-owned artifact

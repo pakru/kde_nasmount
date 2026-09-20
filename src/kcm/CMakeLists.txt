@@ -19,8 +19,8 @@ kcmutils_add_qml_kcm(kcm_nasmount
 )
 target_include_directories(kcm_nasmount PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(kcm_nasmount PRIVATE
-    nasmount-core
-    nasmount-session
+    kde_nasmount-core
+    kde_nasmount-session
     Qt6::Core
     Qt6::Quick
     KF6::KCMUtilsQuick

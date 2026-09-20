@@ -23,7 +23,7 @@ ExecStart=@KDE_INSTALL_FULL_LIBEXECDIR@/nasmount-boot
 TimeoutStartSec=60
 # This runs directly under systemd with no dedicated SELinux domain, so it
 # inherits init_t, whose targeted policy denies execmem. Qt's QRegularExpression
-# (used throughout nasmount-core for unit-file parsing) otherwise JIT-compiles
+# (used throughout kde_nasmount-core for unit-file parsing) otherwise JIT-compiles
 # patterns via PCRE2, which needs execmem to do so. Disabling the JIT avoids
 # that denial instead of granting the permission; matching a handful of short
 # strings once at boot costs nothing without it.
