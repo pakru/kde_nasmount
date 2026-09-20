@@ -1,4 +1,4 @@
-# AGENTS.md — nasmount
+# AGENTS.md — kde_nasmount
 
 A KDE/Plasma 6 tool that mounts CIFS shares by generating **static systemd
 `.mount` / `.automount` unit pairs** in `/etc/systemd/system`. Two front ends
@@ -228,8 +228,8 @@ carries two more copies of the same function; the test extracts them, expands
 literal `%` as `%%` inside a spec scriptlet** — rpm macro-expands scriptlet
 bodies, so a bare `printf '%s\n'` is handed to the macro expander.
 
-The guard links `nasmount-core` only; never give it mutation or
-`nasmount-root` access, and never launch KAuth from a package-manager script.
+The guard links `kde_nasmount-core` only; never give it mutation or
+`kde_nasmount-root` access, and never launch KAuth from a package-manager script.
 Every Fedora removal path must pass `--no-autoremove`: DNF can continue
 removing unused dependencies after a failed RPM `%preun`, leaving nasmount
 installed without Qt. The Fedora smoke gate snapshots the complete RPM set
@@ -244,6 +244,54 @@ Before publishing a draft, run the privileged release checklist on fresh
 Kubuntu 26.04 and Fedora KDE 44 VMs; GitHub container smoke tests do not replace
 KAuth, polkit, D-Bus, CIFS, service enablement, and reboot checks.
 
+## Project name vs product name
+
+The project is called `kde_nasmount`; the thing it installs is called
+`nasmount`. That is deliberate, not an unfinished rename:
+
+| Identity | Value | Where it appears |
+|----------|-------|------------------|
+| **Project / repository** | `kde_nasmount` | GitHub repo, clone URL, CMake `project()`, the three static library targets, prose |
+| **Product / shipped artifact** | `nasmount` | package name, binaries, unit names, KAuth id, on-disk state, config |
+
+The rule: anything a user's machine can observe keeps the name `nasmount`;
+anything that exists only in the source tree is `kde_nasmount`. Do not
+"finish" the rename by carrying it across that line — every identifier below
+is load-bearing on an installed host, and renaming one destroys existing
+shares rather than failing loudly:
+
+- `# X-Nasmount-Managed=1` and every `X-Nasmount-*` marker key — frozen
+  on-disk format (upgrade rule 4). Renaming makes every existing share
+  `Tampered`, and so unarmed at the next boot;
+  [`goldenunits_test.cpp`](tests/goldenunits_test.cpp) is the only gate that
+  catches it.
+- `/etc/nasmount`, `/run/nasmount`, `/run/nasmount-ids`. Upgrade rule 2
+  forbids migrating them, and `/etc/nasmount/<id>.cred` is baked into the
+  `Options=` line of every golden unit — frozen by the same gate as the
+  marker, not merely by policy.
+- `~/.config/nasmountrc`.
+- `nasmount-boot.service` and `90-nasmount.preset`.
+- The KAuth/D-Bus/polkit id `io.github.pakru.nasmount` and its action names;
+  renaming them is an upgrade-compatibility change (upgrade rule 5) and buys
+  nothing.
+- Package names (`nasmount` in both families), the six installed binaries,
+  `kcm_nasmount.so`, `kcm_nasmount.desktop`, `nasmount.desktop`,
+  `share/nasmount/`, `share/doc/nasmount/`, and the release asset names
+  `nasmount-amd64-<version>.deb` / `nasmount-fedora44-x86_64-<version>.rpm`.
+
+Consequently [`cleanupvalidation.cpp`](src/session/cleanupvalidation.cpp)'s
+allowlist, `packaging/cleanup-manifest.in`, `uninstall.sh`, both package file
+lists, and the artifact filename *values* in `packaging/lib.sh` must never
+change for a naming reason. The build/CI variable prefix is still
+`NASMOUNT_*` (`NASMOUNT_PACKAGE_FAMILY`, `NASMOUNT_CONTAINER_ENGINE`): it is
+source-tree-only, so it could carry the project name, but renaming it has no
+external effect and crosses four syntaxes, so it was deliberately left alone.
+
+Release provenance attestations are bound to the repository name. Tags
+v0.1.0–v0.1.4 reference `pakru/kde_mount`; anything published after the
+rename references `pakru/kde_nasmount`. The discontinuity is expected, not
+tampering.
+
 ## Architecture and the linkage invariant
 
 Three static libraries, and which binaries may link them is a **security
@@ -251,19 +299,19 @@ boundary**, not a style preference:
 
 | Library | Contents | Linked into |
 |---------|----------|-------------|
-| `nasmount-core` | validation, unit-value encoding, read-only state model (`src/core`) | everything, helper included |
-| `nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model (`src/session`) | dialog, KCM, cleanup — **never the helper** |
-| `nasmount-root` | durable fd-based filesystem ops, root lock, systemd execution, credential/runtime stores (`src/root`) | `nasmount-helper`, `nasmount-boot` **only** |
+| `kde_nasmount-core` | validation, unit-value encoding, read-only state model (`src/core`) | everything, helper included |
+| `kde_nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model (`src/session`) | dialog, KCM, cleanup — **never the helper** |
+| `kde_nasmount-root` | durable fd-based filesystem ops, root lock, systemd execution, credential/runtime stores (`src/root`) | `nasmount-helper`, `nasmount-boot` **only** |
 
 - Everything is **STATIC** on purpose: the privileged helper must not depend on
   a `.so` an unprivileged user could replace. Don't convert these to shared.
-- `nasmount_assert_no_root_link()` in [`CMakeLists.txt`](CMakeLists.txt#L166)
-  fails the configure step if `nasmount-root` ever reaches
-  `nasmount-session`, the dialog, the cleanup tool, or the KCM.
+- `kde_nasmount_assert_no_root_link()` in [`CMakeLists.txt`](CMakeLists.txt#L166)
+  fails the configure step if `kde_nasmount-root` ever reaches
+  `kde_nasmount-session`, the dialog, the cleanup tool, or the KCM.
   Structural placement is the real defence; that check catches accidents.
 - The helper ([`src/helper/helper.cpp`](src/helper/helper.cpp)) is deliberately
   thin: caller validation, typed argument decoding, root-lock acquisition,
-  dispatch into `nasmount-root`, reply conversion. **Do not add filesystem or
+  dispatch into `kde_nasmount-root`, reply conversion. **Do not add filesystem or
   systemd mutation there** — it belongs in `src/root`.
 - Everything in a helper argument map is untrusted. Caller identity comes only
   from `KAuth::HelperSupport::callerUid()`, never from the arguments. Validation
