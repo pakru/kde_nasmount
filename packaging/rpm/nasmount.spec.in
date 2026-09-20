@@ -10,7 +10,7 @@ Summary:        KDE Plasma CIFS mounts backed by static systemd units
 %undefine __brp_mangle_shebangs
 
 License:        GPL-3.0-or-later
-URL:            https://github.com/pakru/kde_mount
+URL:            https://github.com/pakru/kde_nasmount
 ExclusiveArch:  x86_64
 Source0:        %{name}-%{version}.tar.gz
 

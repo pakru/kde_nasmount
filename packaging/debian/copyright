@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: nasmount
 Upstream-Contact: Pavel Krutikhin <krutikhin92@gmail.com>
-Source: https://github.com/pakru/kde_mount
+Source: https://github.com/pakru/kde_nasmount
 
 Files: *
 Copyright: 2026 Pavel Krutikhin

@@ -19,9 +19,9 @@ Build-Depends:
  systemd
 Standards-Version: 4.7.2
 Rules-Requires-Root: no
-Homepage: https://github.com/pakru/kde_mount
-Vcs-Browser: https://github.com/pakru/kde_mount
-Vcs-Git: https://github.com/pakru/kde_mount.git
+Homepage: https://github.com/pakru/kde_nasmount
+Vcs-Browser: https://github.com/pakru/kde_nasmount
+Vcs-Git: https://github.com/pakru/kde_nasmount.git
 
 Package: nasmount
 Architecture: amd64

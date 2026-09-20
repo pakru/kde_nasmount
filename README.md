@@ -13,13 +13,13 @@ Download the latest package for your system with one command.
 Kubuntu 26.04 LTS amd64:
 
 ```bash
-wget https://github.com/pakru/kde_mount/releases/latest/download/nasmount-amd64-0.x.y.deb
+wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-amd64-0.x.y.deb
 ```
 
 Fedora KDE 44 x86_64:
 
 ```bash
-wget https://github.com/pakru/kde_mount/releases/latest/download/nasmount-fedora44-x86_64-0.x.y.rpm
+wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-fedora44-x86_64-0.x.y.rpm
 ```
 
 Then install the downloaded package:
