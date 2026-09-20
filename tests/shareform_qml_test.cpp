@@ -24,6 +24,7 @@
  * is written anywhere.
  */
 
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -281,6 +282,39 @@ int main(int argc, char **argv)
               applySuggestion(form, QStringLiteral("nasuser"), QString(),
                               QStringLiteral("synthetic-secret")));
         delete form;
+    }
+
+    // --- the host's binding, not an assignment ------------------------------
+    // The service-menu window does not assign the initial username; it binds
+    // it (`username: backend.suggestedUser`). A binding that survived the
+    // suggestion would silently restore the local login over the imported
+    // account name, so instantiate the form the way its real host does and
+    // check that the suggestion wins.
+    {
+        const QString directory = QFileInfo(QStringLiteral(NASMOUNT_SHAREFORM_QML)).absolutePath();
+        QQmlComponent host(&engine);
+        host.setData(QByteArrayLiteral("import QtQuick\n"
+                                       "import \".\"\n"
+                                       "Item {\n"
+                                       "    property string suggestedUser: \"pavel\"\n"
+                                       "    ShareForm { objectName: \"form\"; username: parent.suggestedUser }\n"
+                                       "}\n"),
+                     QUrl::fromLocalFile(directory + QStringLiteral("/host_under_test.qml")));
+        QObject *wrapper = host.create();
+        if (!wrapper) {
+            out << "  FAIL  the host wrapper does not load   " << host.errorString() << Qt::endl;
+            return 1;
+        }
+        QObject *form = wrapper->findChild<QObject *>(QStringLiteral("form"));
+        check(QStringLiteral("the bound initial username reaches the field"),
+              form && textOf(form, "userField") == QStringLiteral("pavel"),
+              form ? textOf(form, "userField") : QStringLiteral("<no form>"));
+        const bool applied = applySuggestion(form, QStringLiteral("nasuser"), QString(),
+                                             QStringLiteral("synthetic-secret"));
+        check(QStringLiteral("a suggestion replaces a bound initial username"),
+              applied && textOf(form, "userField") == QStringLiteral("nasuser"),
+              textOf(form, "userField"));
+        delete wrapper;
     }
 
     // --- reset(), which the KCM's Add dialog relies on ----------------------

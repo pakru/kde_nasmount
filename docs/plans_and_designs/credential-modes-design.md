@@ -277,6 +277,43 @@ state instead of an unindexed secret.
 Credential files and directories are opened and verified through descriptors,
 written by atomic replacement, and synced. Guest operations assert absence.
 
+### 8.2 Input autofill is an import, not a second credential source
+
+The service-menu dialog may fill its credential fields from what the user's
+own session already knows about the share, through KDE's password service
+(`KPasswdServerClient::checkAuthInfo`). See
+[smb-credential-autofill-implementation-plan.md](smb-credential-autofill-implementation-plan.md).
+
+This happens **entirely before** §8.1 and changes nothing in it. An imported
+credential is input to the same authenticated Define as a typed one: it is
+re-validated by the helper, written to the same root-owned
+`/etc/nasmount/<id>.cred`, and armed at boot by the same coordinator. There is
+no second credential source at runtime and no boot-time dependency on a
+wallet, a session, or the password service — §1.1's removed sign-in-scoped
+mode is not reintroduced by this, because nothing reads a credential again
+after Define.
+
+Three properties make the import safe to treat as ordinary input:
+
+- It is **one-shot and pre-submission**. The lookup runs once per window, is
+  abandoned the moment the user edits a credential field or submits, and holds
+  the result only in a pipe, a controller buffer, and the form. Nothing is
+  written to Store, to a file, or to a log.
+- It is **all-or-nothing**. A suggestion is applied as one tuple or not at
+  all, so an imported password can never be paired with a manually entered
+  username — two halves of different accounts would produce a credential that
+  was never valid on the server, and the failure would appear at boot rather
+  than at Define.
+- It **never asserts identity**. The password service answers from what it has
+  stored for a server and share, which is not proof of which account a Dolphin
+  tab is using. Where the `smb://` URL names a user, a candidate for any other
+  account is refused rather than substituted; where it does not, the user sees
+  the username before they submit.
+
+The lookup requires neither the per-user lock nor the root lock: it performs
+no nasmount mutation. Asking the password service to *store* anything — the
+`queryAuthInfo`/`addAuthInfo` side of that API — is deliberately never done.
+
 ## 9. Direct operations
 
 ### 9.1 Define
