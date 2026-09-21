@@ -392,6 +392,27 @@ int main(int argc, char **argv)
                    QString(), QStringLiteral("pavel"), QStringLiteral("WORKGROUP"),
                    QStringLiteral("secret"));
 
+    // The shape the real password service actually returns (plan §9.4): a
+    // host-level entry answers a share-level question and comes back with no
+    // share component. Rejecting this threw away every credential Dolphin
+    // saves by default, which is the bug that made autofill appear not to
+    // work at all on a real NAS.
+    expectAccepted(QStringLiteral("a host-level entry answers for the share"),
+                   candidateReply(QStringLiteral("pa_kru"), QStringLiteral("secret"), QString(),
+                                  QStringLiteral("smb://nas.example/")),
+                   QString(), QStringLiteral("pa_kru"), QString(), QStringLiteral("secret"));
+    expectAccepted(QStringLiteral("a path-level entry answers for its own share"),
+                   candidateReply(QStringLiteral("pa_kru"), QStringLiteral("secret"), QString(),
+                                  QStringLiteral("smb://nas.example/DATA")),
+                   QString(), QStringLiteral("pa_kru"), QString(), QStringLiteral("secret"));
+    {
+        // No identity at all is not a contradiction either: the reply answers
+        // the single request this process made.
+        Reply anonymous = candidateReply(QStringLiteral("pa_kru"), QStringLiteral("secret"));
+        anonymous.resultUrl = QUrl();
+        expectAccepted(QStringLiteral("a reply with no URL is not a contradiction"), anonymous,
+                       QString(), QStringLiteral("pa_kru"), QString(), QStringLiteral("secret"));
+    }
     {
         Reply miss;
         miss.outcome = Reply::Outcome::Miss;
@@ -403,12 +424,12 @@ int main(int argc, char **argv)
     expectRejected(QStringLiteral("a reply about another host"),
                    candidateReply(QStringLiteral("pavel"), QStringLiteral("secret"), QString(),
                                   QStringLiteral("smb://other.example/DATA")));
+    expectRejected(QStringLiteral("a host-level reply about another host"),
+                   candidateReply(QStringLiteral("pavel"), QStringLiteral("secret"), QString(),
+                                  QStringLiteral("smb://other.example/")));
     expectRejected(QStringLiteral("a reply about another share"),
                    candidateReply(QStringLiteral("pavel"), QStringLiteral("secret"), QString(),
                                   QStringLiteral("smb://nas.example/BACKUP")));
-    expectRejected(QStringLiteral("a reply with no URL at all"),
-                   candidateReply(QStringLiteral("pavel"), QStringLiteral("secret"), QString(),
-                                  QString()));
     expectRejected(QStringLiteral("empty username is not guest selection"),
                    candidateReply(QString(), QStringLiteral("secret")));
     expectRejected(QStringLiteral("a username that is only a separator"),

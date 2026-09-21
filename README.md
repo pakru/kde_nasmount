@@ -189,6 +189,15 @@ Autofill runs only in the Dolphin service-menu dialog, where the share is
 known from the URL. The System Settings **Add** form is unchanged and always
 manual.
 
+If the fields arrive empty and you expected otherwise, run the dialog from a
+terminal to see why — a lookup that finds nothing says nothing by design:
+
+```bash
+NASMOUNT_DEBUG_LOOKUP=1 nasmount-dialog smb://host/share
+```
+
+It prints the reason, never any part of the credential.
+
 Adding or removing a share requires **administrator authentication**
 (`auth_admin`): it writes a persistent root-owned credential under `/etc` and a
 unit that mounts before anyone signs in, which is the same authority as editing

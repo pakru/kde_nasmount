@@ -9,7 +9,36 @@
 #include "store.h"
 
 #include <QGuiApplication>
+#include <QTextStream>
 #include <QWindow>
+
+namespace
+{
+
+/**
+ * Why a credential lookup produced nothing, on demand.
+ *
+ * A miss is the ordinary case and must never interrupt the user, so nothing
+ * about it is shown in the window — which also means that when autofill does
+ * not work, there is nothing at all to look at. This is the way to look:
+ * NASMOUNT_DEBUG_LOOKUP=1 in the environment makes the outcome appear on
+ * stderr.
+ *
+ * It prints reasons, never values. The rejection strings from
+ * CredentialLookup::acceptCandidate() are written to describe *why* a
+ * credential was unusable without quoting any part of it, and the success
+ * line says only that one was applied — a username is still an account name,
+ * and a length is still information about a password.
+ */
+void reportLookup(const QString &message)
+{
+    if (qEnvironmentVariableIsEmpty("NASMOUNT_DEBUG_LOOKUP")) {
+        return;
+    }
+    QTextStream(stderr) << "nasmount: credential lookup: " << message << '\n';
+}
+
+} // namespace
 
 DialogBackend::DialogBackend(const QString &unc, const QString &urlUser, const QString &loginUser,
                              QObject *parent)
@@ -55,6 +84,7 @@ void DialogBackend::startCredentialLookup()
 
     const QUrl target = Dialog::SmbUrl::authLookupTarget(m_unc);
     if (!target.isValid()) {
+        reportLookup(QStringLiteral("this share has no lookup target"));
         return;
     }
 
@@ -64,7 +94,13 @@ void DialogBackend::startCredentialLookup()
     // missed() is deliberately not connected to anything user-visible: a
     // lookup that found nothing is the ordinary case, the form was usable
     // throughout, and an error box here would turn a silent convenience into
-    // an interruption (plan §5).
+    // an interruption (plan §5). It is connected to the opt-in diagnostic
+    // above instead, because "nothing happened and nothing said why" is
+    // unfixable from a bug report.
+    connect(m_lookup, &Dialog::CredentialLookup::Controller::missed, this,
+            [](const QString &reason) { reportLookup(QStringLiteral("no credential applied — ") + reason); });
+    connect(m_lookup, &Dialog::CredentialLookup::Controller::candidateReady, this,
+            []() { reportLookup(QStringLiteral("a stored credential was applied")); });
 
     Dialog::CredentialLookup::Request request;
     request.target = target;

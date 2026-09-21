@@ -263,16 +263,33 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
         return false;
     }
 
-    // Identity sanity: the answer must be about the thing we asked about. It
-    // does not make KDE's matching more precise than it is — a host-level
-    // entry legitimately answers a share-level question — it only refuses an
-    // answer that contradicts the question outright.
-    if (!reply.resultUrl.isValid()
-        || reply.resultUrl.scheme().compare(requestedTarget.scheme(), Qt::CaseInsensitive) != 0
-        || reply.resultUrl.host().compare(requestedTarget.host(), Qt::CaseInsensitive) != 0
-        || shareOf(reply.resultUrl) != shareOf(requestedTarget)) {
-        *rejection = QStringLiteral("the reply describes a different location");
-        return false;
+    // Identity sanity: the answer must not *contradict* the question — which
+    // is a weaker test than "must repeat the question", and deliberately so.
+    //
+    // Measured against the real password service (plan §9.4): it answers a
+    // share-level question from whichever stored entry matched, and returns
+    // that entry's URL rather than the one asked about. A host-level entry
+    // for `smb://10.0.0.10/` answers for every share on that server and comes
+    // back with no share component at all, while a path-level entry for
+    // `smb://nas.local/DATA` comes back with one. Requiring the share
+    // components to be equal therefore threw away every credential saved at
+    // host level — which is what Dolphin writes by default.
+    //
+    // So: the scheme and host must match, because a credential for another
+    // server is never an answer about this one. The share must match only
+    // when the reply actually names one; an answer that names no share is
+    // less specific than the question, not a different answer to it. An
+    // absent or unparseable URL carries no identity at all and so cannot
+    // contradict anything either — it is a reply to the single request this
+    // process just made, not an unsolicited one.
+    if (reply.resultUrl.isValid() && !reply.resultUrl.isEmpty()) {
+        const QString answeredShare = shareOf(reply.resultUrl);
+        if (reply.resultUrl.scheme().compare(requestedTarget.scheme(), Qt::CaseInsensitive) != 0
+            || reply.resultUrl.host().compare(requestedTarget.host(), Qt::CaseInsensitive) != 0
+            || (!answeredShare.isEmpty() && answeredShare != shareOf(requestedTarget))) {
+            *rejection = QStringLiteral("the reply describes a different location");
+            return false;
+        }
     }
 
     if (!fieldAcceptable(reply.username) || !fieldAcceptable(reply.domain)
