@@ -6,9 +6,10 @@
  *
  * Replaces the old QWidgets MountDialog. The form itself is now
  * ShareForm.qml, shared verbatim with the KCM, so what is left here is only
- * the service-menu-specific context: the UNC the invocation was for, whether
- * that share is already saved (in which case the window offers removal
- * instead of an add form), and the outcome of the asynchronous action.
+ * the service-menu-specific context: the UNC, whether that share is already
+ * saved, the outcome of the asynchronous action, and the credential lookup —
+ * which lives here because the form is host-agnostic and the KCM has no
+ * smb:// URL to look anything up for.
  *
  * Unprivileged, like the dialog it replaces. Anything it decides is for the
  * user's benefit only — the KAuth helper re-checks everything.
@@ -23,6 +24,11 @@
 
 #include <QObject>
 #include <QString>
+
+namespace Dialog::CredentialLookup
+{
+class Controller;
+}
 
 class DialogBackend : public QObject
 {
@@ -39,7 +45,11 @@ class DialogBackend : public QObject
     Q_PROPERTY(Session::MountActions *actions READ actions CONSTANT)
 
 public:
-    DialogBackend(const QString &unc, const QString &suggestedUser, QObject *parent = nullptr);
+    /** `urlUser` is what the smb:// URL carried, `loginUser` the local
+     *  fallback. Separate on purpose (plan §3.1): only the first is evidence
+     *  of which SMB account is meant, so only it constrains the lookup. */
+    DialogBackend(const QString &unc, const QString &urlUser, const QString &loginUser,
+                  QObject *parent = nullptr);
 
     QString unc() const { return m_unc; }
     QString suggestedUser() const { return m_suggestedUser; }
@@ -51,12 +61,31 @@ public:
 
     Q_INVOKABLE void removeExisting();
 
+    /** Starts the one lookup for this window (plan §5). Called from QML once
+     *  the window exists, never from the constructor, or a fast result would
+     *  arrive before QML connected. Does nothing for a saved share. */
+    Q_INVOKABLE void startCredentialLookup();
+
+    /** Abandons any in-flight lookup, so a result already on its way can no
+     *  longer be applied. Called on submit, on a credential edit, and on
+     *  close. */
+    Q_INVOKABLE void cancelCredentialLookup();
+
+Q_SIGNALS:
+    /** One eligible credential, once. The password is a signal argument and
+     *  never a property (plan §4.2), which would keep it readable from QML
+     *  for the window's lifetime. */
+    void credentialSuggestion(const QString &username, const QString &domain,
+                              const QString &password);
+
 private:
     QString m_unc;
+    QString m_urlUser;
     QString m_suggestedUser;
     QString m_suggestedPath;
     QString m_existingId;
     QString m_existingMountPoint;
     QString m_existingStateText;
     Session::MountActions *m_actions = nullptr;
+    Dialog::CredentialLookup::Controller *m_lookup = nullptr;
 };

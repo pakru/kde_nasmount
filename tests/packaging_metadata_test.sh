@@ -118,6 +118,59 @@ for workflow in "$repo_root/.github/workflows/ci.yml" "$repo_root/.github/workfl
     fi
 done
 
+# --- credential autofill build dependencies ----------------------------------
+# Six hand-maintained lists have to agree, and a missing entry fails only in
+# the distribution it was forgotten in: without the KIO development package
+# nasmount-dialog does not compile, and without the QML runtime modules
+# shareform_qml_test cannot load the form (ctest runs in both package builds).
+deb_kio_lists=(
+    "$repo_root/packaging/debian/control"
+    "$repo_root/packaging/build-in-container.sh"
+)
+for list in "${deb_kio_lists[@]}"; do
+    grep -Fq 'libkf6kio-dev' "$list" || {
+        echo "ERROR: $(basename "$list") is missing libkf6kio-dev" >&2
+        exit 1
+    }
+done
+grep -Fq 'kf6-kio-devel' "$repo_root/packaging/rpm/nasmount.spec.in"
+grep -Fq 'kf6-kio-devel' "$repo_root/packaging/build-in-container.sh"
+
+# Counting the blocks is the point: a job added later without them would
+# otherwise fail only once someone reads the log.
+deb_blocks_ci=$(grep -Fc 'qt6-base-dev' "$repo_root/.github/workflows/ci.yml")
+deb_kio_ci=$(grep -Fc 'libkf6kio-dev' "$repo_root/.github/workflows/ci.yml")
+deb_qml_ci=$(grep -Fc 'qml6-module-qtquick-dialogs' "$repo_root/.github/workflows/ci.yml")
+[ "$deb_blocks_ci" -eq "$deb_kio_ci" ] && [ "$deb_blocks_ci" -eq "$deb_qml_ci" ] || {
+    echo "ERROR: ci.yml has $deb_blocks_ci Ubuntu build blocks but $deb_kio_ci with" >&2
+    echo "       libkf6kio-dev and $deb_qml_ci with the QML runtime modules" >&2
+    exit 1
+}
+rpm_blocks_ci=$(grep -Fc 'qt6-qtbase-devel' "$repo_root/.github/workflows/ci.yml")
+rpm_kio_ci=$(grep -Fc 'kf6-kio-devel' "$repo_root/.github/workflows/ci.yml")
+[ "$rpm_blocks_ci" -eq "$rpm_kio_ci" ] || {
+    echo "ERROR: ci.yml has $rpm_blocks_ci Fedora build blocks but only $rpm_kio_ci" >&2
+    echo "       with kf6-kio-devel" >&2
+    exit 1
+}
+for dependency in libkf6kio-dev qml6-module-qtquick-dialogs kf6-kio-devel; do
+    grep -Fq "$dependency" "$repo_root/.github/workflows/release.yml" || {
+        echo "ERROR: release.yml is missing $dependency" >&2
+        exit 1
+    }
+done
+
+# Weak in both families, never hard: a host without the service must still
+# install and still mount with a hand-typed credential. On Fedora it is what
+# installs the service; on Ubuntu, Debian's KIO symbols file already adds kio6
+# to ${shlibs:Depends}, so it restates that.
+grep -Eq '^Recommends:.*kio6' "$repo_root/packaging/debian/control"
+grep -Eq '^Recommends: +kf6-kio-core' "$repo_root/packaging/rpm/nasmount.spec.in"
+if grep -Eq '^Requires: +kf6-kio-core' "$repo_root/packaging/rpm/nasmount.spec.in"; then
+    echo "ERROR: the password service must not be a hard RPM requirement" >&2
+    exit 1
+fi
+
 # `make deb` / `make rpm` must use the exact images CI uses. A local build
 # against a different digest proves nothing about the CI result, and the pins
 # live in two files that nothing else keeps in step.

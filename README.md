@@ -91,7 +91,10 @@ A **Plasma 6+ / KF6+** desktop and **Linux 6.8+** (for `STATX_MNT_ID_UNIQUE`).
 | Qt 6 Core / Widgets / Concurrent / Quick / QuickControls2 | `qt6-base-dev`, `qt6-declarative-dev` |
 | Extra CMake Modules | `extra-cmake-modules` |
 | KF6 Auth / I18n / WidgetsAddons / Config / CoreAddons / KCMUtils | `libkf6auth-dev`, `libkf6i18n-dev`, `libkf6widgetsaddons-dev`, `libkf6config-dev`, `libkf6coreaddons-dev`, `kf6-kcmutils-dev` |
+| KF6 KIO, for the credential lookup described below | `libkf6kio-dev` |
+| QtQuick / Controls / Dialogs / Layouts QML modules, to run the tests | `qml6-module-qtquick`, `qml6-module-qtquick-controls`, `qml6-module-qtquick-dialogs`, `qml6-module-qtquick-layouts` |
 | `mount.cifs` at runtime | `cifs-utils` |
+| KDE's password service at runtime, for credential autofill | `kio6` (Fedora: `kf6-kio-core`) |
 
 
 ## Build and install from source
@@ -157,6 +160,44 @@ Package creation deliberately uses `dpkg-buildpackage`/debhelper and
 `rpmbuild`/Fedora RPM macros. The repository `make install` target is only for
 interactive source installation and is never invoked to assemble a package.
 
+## Credential autofill
+
+When you open **Mount as Network Drive** on a share you are already signed in
+to in Dolphin, the username and password fields arrive filled in. The
+credential comes from KDE's own password service — the same one Dolphin used —
+and never from reading a wallet file or storing anything new.
+
+It is a suggestion, not a decision. Every field stays editable and masked, and
+nothing is submitted for you: mounting still needs the same administrator
+authentication as a credential you typed. As soon as you type in any of the
+three credential fields, the whole suggestion is discarded rather than mixed
+with what you entered, and clearing the username still means guest access.
+
+Two things are worth knowing:
+
+- **KDE may ask you to unlock your wallet** to answer. That prompt is KDE's,
+  not this tool's. Declining it, having no wallet, or having no saved
+  credential all end the same way: the form stays exactly as it was and you
+  type the credential yourself.
+- **It cannot prove which account a Dolphin tab is using.** KDE answers from
+  what it has stored for the server and share, so on a server where you use
+  more than one account, check the username before you mount. If the `smb://`
+  URL names a user, a credential for any other account is refused rather than
+  filled in.
+
+Autofill runs only in the Dolphin service-menu dialog, where the share is
+known from the URL. The System Settings **Add** form is unchanged and always
+manual.
+
+If the fields arrive empty and you expected otherwise, run the dialog from a
+terminal to see why — a lookup that finds nothing says nothing by design:
+
+```bash
+NASMOUNT_DEBUG_LOOKUP=1 nasmount-dialog smb://host/share
+```
+
+It prints the reason, never any part of the credential.
+
 Adding or removing a share requires **administrator authentication**
 (`auth_admin`): it writes a persistent root-owned credential under `/etc` and a
 unit that mounts before anyone signs in, which is the same authority as editing
@@ -169,9 +210,9 @@ never while using a mounted share. Listing state is read-only and unauthenticate
 make test              # or: ctest --test-dir build --output-on-failure
 ```
 
-Sixteen test binaries plus shell, metadata, and AppStream gates; `install.sh`
+Eighteen test binaries plus shell, metadata, and AppStream gates; `install.sh`
 runs every one and refuses to install if any fail. Both native-package builds
-run the complete 22-test CTest suite. Privileged accept paths and real reboot /
+run the complete 24-test CTest suite. Privileged accept paths and real reboot /
 no-login behaviour must still be validated in disposable target VMs.
 
 ## Uninstall

@@ -13,7 +13,12 @@ Build-Depends:
  libkf6coreaddons-dev (>= 6.0),
  libkf6i18n-dev (>= 6.0),
  libkf6kcmutils-dev (>= 6.0),
+ libkf6kio-dev (>= 6.0),
  libkf6widgetsaddons-dev (>= 6.0),
+ qml6-module-qtquick,
+ qml6-module-qtquick-controls,
+ qml6-module-qtquick-dialogs,
+ qml6-module-qtquick-layouts,
  qt6-base-dev (>= 6.5),
  qt6-declarative-dev (>= 6.5),
  systemd
@@ -37,9 +42,16 @@ Depends:
  qml6-module-qtquick-layouts,
  sudo,
  systemd
-Recommends: dolphin, plasma-systemsettings
+# kio6 ships the kpasswdserver service autofill reads. Debian's KIO symbols
+# file already adds it to ${shlibs:Depends}, so this restates intent in case
+# that changes; weak because a host without the service must still install.
+Recommends: dolphin, kio6, plasma-systemsettings
 Description: KDE Plasma CIFS mounts backed by static systemd units
  nasmount adds and removes persistent CIFS shares through a KAuth helper.
  Shares use root-owned systemd mount and automatic-mount unit pairs. They are
  armed at boot and exposed through a System Settings KCM and a Dolphin
  service-menu dialog.
+ .
+ The service-menu dialog fills in a credential this session already has for
+ the share, through KDE's password service. Without that service running,
+ credentials are simply typed by hand as before.

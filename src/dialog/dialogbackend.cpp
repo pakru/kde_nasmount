@@ -3,14 +3,41 @@
  */
 
 #include "dialogbackend.h"
+#include "credentiallookup.h"
 #include "mountactions.h"
 #include "smburl.h"
 #include "store.h"
 
-DialogBackend::DialogBackend(const QString &unc, const QString &suggestedUser, QObject *parent)
+#include <QGuiApplication>
+#include <QTextStream>
+#include <QWindow>
+
+namespace
+{
+
+/**
+ * Why a lookup produced nothing, on demand: a miss shows nothing in the
+ * window, which also means there is nothing to look at when autofill does not
+ * work. NASMOUNT_DEBUG_LOOKUP=1 puts the outcome on stderr. It prints
+ * reasons, never values — a username and even a length say something about a
+ * credential.
+ */
+void reportLookup(const QString &message)
+{
+    if (qEnvironmentVariableIsEmpty("NASMOUNT_DEBUG_LOOKUP")) {
+        return;
+    }
+    QTextStream(stderr) << "nasmount: credential lookup: " << message << '\n';
+}
+
+} // namespace
+
+DialogBackend::DialogBackend(const QString &unc, const QString &urlUser, const QString &loginUser,
+                             QObject *parent)
     : QObject(parent)
     , m_unc(unc)
-    , m_suggestedUser(suggestedUser)
+    , m_urlUser(urlUser)
+    , m_suggestedUser(urlUser.isEmpty() ? loginUser : urlUser)
     , m_actions(new Session::MountActions(this))
 {
     // Prefer whatever was saved for this share last time; only fall back to a
@@ -35,5 +62,60 @@ void DialogBackend::removeExisting()
 {
     if (!m_existingId.isEmpty()) {
         m_actions->deleteShare(m_existingId);
+    }
+}
+
+void DialogBackend::startCredentialLookup()
+{
+    // A saved share opens the removal view: a lookup would be a wallet
+    // prompt with nowhere to put the answer (plan §5).
+    if (!m_existingId.isEmpty() || m_lookup) {
+        return;
+    }
+
+    const QUrl target = Dialog::SmbUrl::authLookupTarget(m_unc);
+    if (!target.isValid()) {
+        reportLookup(QStringLiteral("this share has no lookup target"));
+        return;
+    }
+
+    m_lookup = new Dialog::CredentialLookup::Controller(this);
+    connect(m_lookup, &Dialog::CredentialLookup::Controller::candidateReady, this,
+            &DialogBackend::credentialSuggestion);
+    // missed() reaches nothing user-visible: finding nothing is the ordinary
+    // case, and an error box would turn a silent convenience into an
+    // interruption (plan §5). The opt-in diagnostic above is the exception,
+    // because "nothing happened and nothing said why" cannot be debugged.
+    connect(m_lookup, &Dialog::CredentialLookup::Controller::missed, this,
+            [](const QString &reason) { reportLookup(QStringLiteral("no credential applied — ") + reason); });
+    connect(m_lookup, &Dialog::CredentialLookup::Controller::candidateReady, this,
+            []() { reportLookup(QStringLiteral("a stored credential was applied")); });
+
+    Dialog::CredentialLookup::Request request;
+    request.target = target;
+    // Only the URL's own username, never the local login (plan §3.1).
+    request.username = m_urlUser;
+    request.windowId = 0;
+
+    // kpasswdserver's windowId is an X11 XID, and under Wayland winId()
+    // returns something else entirely — passing that would name an unrelated
+    // window (plan §4.1). Under Wayland the prompt appears unparented.
+    if (QGuiApplication::platformName() == QLatin1String("xcb")) {
+        const QList<QWindow *> windows = QGuiApplication::topLevelWindows();
+        if (!windows.isEmpty()) {
+            request.windowId = static_cast<qulonglong>(windows.first()->winId());
+        }
+    }
+    // userTime stays 0, its documented "unknown" value: the supported source
+    // is KWindowSystem, and a framework dependency across both packages and
+    // both workflows is not worth a focus hint on a rare prompt.
+
+    m_lookup->start(request);
+}
+
+void DialogBackend::cancelCredentialLookup()
+{
+    if (m_lookup) {
+        m_lookup->cancel();
     }
 }

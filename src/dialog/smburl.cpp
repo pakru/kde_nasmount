@@ -113,6 +113,46 @@ QString suggestMountpoint(const QString &unc)
     return QDir::homePath() + QLatin1Char('/') + leaf;
 }
 
+QUrl authLookupTarget(const QString &unc)
+{
+    // Validated already, but reached from the command line: treat anything
+    // unexpected as "no target" rather than assuming the shape.
+    QString rest = unc;
+    while (rest.startsWith(QLatin1Char('/'))) {
+        rest.remove(0, 1);
+    }
+    const QString host = rest.section(QLatin1Char('/'), 0, 0);
+    const QString share = rest.section(QLatin1Char('/'), 1, 1);
+    if (host.isEmpty() || share.isEmpty()) {
+        return QUrl();
+    }
+
+    // The same three calls kio-extras' smbauthenticator.cpp makes. A
+    // concatenated string would re-parse the share name as URL syntax, so
+    // "Media Library" would reach the service under a different key.
+    QUrl url(QStringLiteral("smb:///"));
+    url.setHost(host);
+    url.setPath(QLatin1Char('/') + share);
+    if (!url.isValid() || url.host() != host) {
+        return QUrl();
+    }
+    return url;
+}
+
+Identity splitDomainUser(const QString &combined)
+{
+    const qsizetype slash = combined.indexOf(QLatin1Char('/'));
+    const qsizetype backslash = combined.indexOf(QLatin1Char('\\'));
+    // qMin only when both exist, since an absent one is -1. Upstream's own
+    // formulation, kept recognisable.
+    const qsizetype sep = (slash >= 0 && backslash >= 0) ? qMin(slash, backslash)
+                                                         : qMax(slash, backslash);
+    if (sep > 0) {
+        return Identity{combined.left(sep), combined.mid(sep + 1)};
+    }
+    return Identity{QString(), combined};
+}
+
 QString describeState(const QString &mountPoint)
 {
     UnitValue::UnitPaths paths;

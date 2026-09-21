@@ -71,8 +71,10 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             appstream binutils build-essential ca-certificates cmake debhelper devscripts \
             extra-cmake-modules file git jq libkf6auth-dev libkf6config-dev \
-            libkf6coreaddons-dev libkf6i18n-dev libkf6kcmutils-dev \
-            libkf6widgetsaddons-dev lintian qt6-base-dev qt6-declarative-dev systemd
+            libkf6coreaddons-dev libkf6i18n-dev libkf6kcmutils-dev libkf6kio-dev \
+            libkf6widgetsaddons-dev lintian qml6-module-qtquick \
+            qml6-module-qtquick-controls qml6-module-qtquick-dialogs \
+            qml6-module-qtquick-layouts qt6-base-dev qt6-declarative-dev systemd
           useradd --create-home --shell /bin/bash builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
       - name: Build, test, lint, and inspect DEB
@@ -105,8 +107,9 @@ jobs:
           dnf install -y --allowerasing --setopt=install_weak_deps=False \
             appstream binutils cmake cpio diffutils extra-cmake-modules file findutils \
             gcc-c++ git gzip jq kf6-kauth-devel kf6-kcmutils-devel \
-            kf6-kconfig-devel kf6-kcoreaddons-devel kf6-ki18n-devel \
-            kf6-kwidgetsaddons-devel qt6-qtbase-devel qt6-qtdeclarative-devel \
+            kf6-kconfig-devel kf6-kcoreaddons-devel kf6-ki18n-devel kf6-kio-devel \
+            kf6-kwidgetsaddons-devel qt6-qtbase-devel qt6-qtdeclarative \
+            qt6-qtdeclarative-devel \
             rpm-build rpmlint systemd systemd-rpm-macros tar
       - name: Check out validated tag
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

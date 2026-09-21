@@ -19,6 +19,7 @@
  * bundled dialog instead.
  */
 
+#include "credentiallookupworker.h"
 #include "dialogbackend.h"
 #include "nasmountversion.h"
 #include "smburl.h"
@@ -49,6 +50,14 @@ void reportStartupFailure(const QString &message)
 
 int main(int argc, char **argv)
 {
+    // Dispatched before anything else (plan §4.1): that invocation is a
+    // pipe-to-pipe transport with no interface, so it must not construct a
+    // QApplication or reach the QML engine below. It is absent from the
+    // parser because --help describes commands a user runs.
+    if (Dialog::CredentialLookupWorker::isInternalInvocation(argc, argv)) {
+        return Dialog::CredentialLookupWorker::run(argc, argv);
+    }
+
     QApplication app(argc, argv);
     KLocalizedString::setApplicationDomain(QByteArrayLiteral("nasmount"));
     QGuiApplication::setApplicationName(QStringLiteral("nasmount"));
@@ -78,13 +87,16 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    if (urlUser.isEmpty()) {
-        if (const struct passwd *pw = ::getpwuid(::getuid())) {
-            urlUser = QString::fromLocal8Bit(pw->pw_name);
-        }
+    // The two identities stay separate into the backend (plan §3.1): the
+    // Linux login is only what the field is pre-filled with, while the URL's
+    // username is evidence of which SMB account is meant. Merging them, as
+    // this used to, would exclude a NAS account named differently.
+    QString loginUser;
+    if (const struct passwd *pw = ::getpwuid(::getuid())) {
+        loginUser = QString::fromLocal8Bit(pw->pw_name);
     }
 
-    DialogBackend backend(unc, urlUser);
+    DialogBackend backend(unc, urlUser, loginUser);
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("backend"), &backend);

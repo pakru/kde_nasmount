@@ -60,8 +60,10 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
   appstream binutils build-essential ca-certificates cmake debhelper devscripts \
   extra-cmake-modules file git jq libkf6auth-dev libkf6config-dev \
-  libkf6coreaddons-dev libkf6i18n-dev libkf6kcmutils-dev \
-  libkf6widgetsaddons-dev lintian qt6-base-dev qt6-declarative-dev systemd'
+  libkf6coreaddons-dev libkf6i18n-dev libkf6kcmutils-dev libkf6kio-dev \
+  libkf6widgetsaddons-dev lintian qml6-module-qtquick qml6-module-qtquick-controls \
+  qml6-module-qtquick-dialogs qml6-module-qtquick-layouts \
+  qt6-base-dev qt6-declarative-dev systemd'
         lint='lintian --fail-on error /out/*.deb'
         ;;
     rpm)
@@ -69,9 +71,9 @@ apt-get install -y -qq --no-install-recommends \
         install_dependencies='dnf install -y -q --allowerasing --setopt=install_weak_deps=False \
   appstream binutils cmake cpio diffutils extra-cmake-modules file findutils \
   gcc-c++ git gzip jq kf6-kauth-devel kf6-kcmutils-devel kf6-kconfig-devel \
-  kf6-kcoreaddons-devel kf6-ki18n-devel kf6-kwidgetsaddons-devel \
-  qt6-qtbase-devel qt6-qtdeclarative-devel rpm-build rpmlint systemd \
-  systemd-rpm-macros tar
+  kf6-kcoreaddons-devel kf6-ki18n-devel kf6-kio-devel kf6-kwidgetsaddons-devel \
+  qt6-qtbase-devel qt6-qtdeclarative qt6-qtdeclarative-devel rpm-build rpmlint \
+  systemd systemd-rpm-macros tar
 useradd --create-home --shell /bin/bash builder 2>/dev/null || :'
         lint='rpmlint /out/*.rpm || echo "NOTE: rpmlint reported findings (not fatal, as in CI)."'
         ;;

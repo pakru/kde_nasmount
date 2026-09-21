@@ -36,6 +36,36 @@ QQC2.ApplicationWindow {
     minimumWidth: preferredWidth
     minimumHeight: preferredHeight
 
+    // --- credential autofill (plan §5) ---------------------------------------
+    // Host-specific by necessity: the KCM embeds the same form and has no
+    // smb:// URL, so the form only knows how to *receive* a suggestion.
+    Connections {
+        target: backend
+        function onCredentialSuggestion(username, domain, password) {
+            form.applyCredentialSuggestion(username, domain, password)
+        }
+    }
+
+    // The form seals itself on a credential edit or a submit, and the child
+    // should stop then rather than at its 30-second deadline. Anything that
+    // still arrives is refused twice: by the generation check and by the form.
+    Connections {
+        target: form
+        function onCredentialsSealedChanged() {
+            if (form.credentialsSealed) {
+                backend.cancelCredentialLookup()
+            }
+        }
+    }
+
+    // Started here, not in the backend's constructor: before this point QML
+    // has not connected, and a cached credential answers in milliseconds.
+    Component.onCompleted: backend.startCredentialLookup()
+
+    // Nothing outlives the window. A wallet prompt belongs to KDE, but the
+    // child we started is stopped here.
+    onClosing: backend.cancelCredentialLookup()
+
     Connections {
         target: backend.actions
         function onFinished(id, kind, success, message) {

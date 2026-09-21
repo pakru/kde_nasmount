@@ -18,6 +18,7 @@
 #pragma once
 
 #include <QString>
+#include <QUrl>
 
 namespace Dialog::SmbUrl
 {
@@ -38,5 +39,28 @@ QString suggestMountpoint(const QString &unc);
 
 /** Coarse state text for a saved share, without needing the full KCM model. */
 QString describeState(const QString &mountPoint);
+
+/**
+ * The credential-lookup target for a share (plan §3.2): the server and the
+ * *first* path component only, which is what KDE's SMB worker authenticates
+ * against and therefore what makes a lookup hit an entry Dolphin saved. Built
+ * with QUrl's setters, so a space or percent sign is encoded once. An invalid
+ * QUrl means "no lookup", never a reason to broaden the target.
+ */
+QUrl authLookupTarget(const QString &unc);
+
+/** A username split into its domain and bare-name halves. */
+struct Identity {
+    QString domain;
+    QString username;
+};
+
+/**
+ * Splits `DOMAIN\user` or `DOMAIN/user` exactly as KDE does
+ * (SMBUrl::splitDomainUser): the first separator wins, one at position 0 does
+ * not split, and a UPN is left whole. Both sides of an identity comparison go
+ * through it, so `DOMAIN\alice` and `alice` are not taken for two accounts.
+ */
+Identity splitDomainUser(const QString &combined);
 
 } // namespace Dialog::SmbUrl

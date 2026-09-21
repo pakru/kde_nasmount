@@ -47,6 +47,14 @@ ColumnLayout {
         ? "readonly"
         : (executableRadio.checked ? "readwrite-executable" : "readwrite")
 
+    /**
+     * True once no suggestion may be applied any more -- the user typed in a
+     * credential field, or the form was submitted (autofill plan §5). A host
+     * watches it to stop a lookup it started. Driven by textEdited and not
+     * textChanged, which also fires when the host fills a field in.
+     */
+    property bool credentialsSealed: false
+
     /** Emitted after a submit has been handed to `actions`; the host decides
      *  what closing means for it (a dialog closes, a window waits for the
      *  finished() signal so it can report the outcome). */
@@ -94,6 +102,10 @@ ColumnLayout {
     QQC2.Label { text: "Username (leave empty for guest access):" }
     QQC2.TextField {
         id: userField
+        // The three credential fields carry objectNames so
+        // shareform_qml_test can reach them: QML ids do not exist outside the
+        // component.
+        objectName: "userField"
         Layout.fillWidth: true
         // Guest selection clears the fields it disables below (design
         // §7.4.4), not just visually hides them -- otherwise stale text
@@ -105,21 +117,26 @@ ColumnLayout {
                 domainField.text = ""
             }
         }
+        onTextEdited: form.credentialsSealed = true
     }
 
     QQC2.Label { text: "Password:" }
     QQC2.TextField {
         id: passwordField
+        objectName: "passwordField"
         echoMode: TextInput.Password
         enabled: userField.text.length > 0
         Layout.fillWidth: true
+        onTextEdited: form.credentialsSealed = true
     }
 
     QQC2.Label { text: "Domain (optional):" }
     QQC2.TextField {
         id: domainField
+        objectName: "domainField"
         enabled: userField.text.length > 0
         Layout.fillWidth: true
+        onTextEdited: form.credentialsSealed = true
     }
 
     QQC2.Label {
@@ -172,6 +189,23 @@ ColumnLayout {
         Layout.topMargin: 6
     }
 
+    /**
+     * Applies one suggestion, or refuses to, returning whether it was applied.
+     * The whole tuple or none of it: a cached username beside a typed password
+     * is a credential that was never valid anywhere. Username is assigned
+     * first and only when non-empty, so the guest-clearing handler above
+     * cannot run between the three assignments.
+     */
+    function applyCredentialSuggestion(username, domain, password) {
+        if (form.credentialsSealed || !username || username.length === 0) {
+            return false
+        }
+        userField.text = username
+        domainField.text = domain ? domain : ""
+        passwordField.text = password ? password : ""
+        return true
+    }
+
     function reset() {
         uncField.text = "//"
         pathField.text = ""
@@ -181,6 +215,9 @@ ColumnLayout {
         // The KCM's Add dialog reuses one form instance, so without this the
         // previous share's access choice silently leaks into the next add.
         readWriteRadio.checked = true
+        // An assignment is not an edit, so the seal needs clearing here, or
+        // the KCM's reused instance carries one add's state into the next.
+        form.credentialsSealed = false
     }
 
     // One lifecycle, no per-share switches: saving a share means it is armed
@@ -193,6 +230,9 @@ ColumnLayout {
     // submit is the single moment the choice exists. It is recorded in the
     // root-owned unit marker, not here.
     function submit() {
+        // Sealed before the snapshot: a suggestion applied between the two
+        // would change the visible fields but not what was submitted.
+        form.credentialsSealed = true
         form.actions.addShare(effectiveUnc, pathField.text, userField.text, domainField.text,
                               passwordField.text, form.accessMode)
         form.submitted()
