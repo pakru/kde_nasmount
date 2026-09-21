@@ -37,10 +37,8 @@ QQC2.ApplicationWindow {
     minimumHeight: preferredHeight
 
     // --- credential autofill (plan §5) ---------------------------------------
-    // Everything host-specific about the lookup lives here rather than in the
-    // shared form: the KCM embeds that same form and has no smb:// URL to
-    // look anything up for, so the form only knows how to *receive* a
-    // suggestion.
+    // Host-specific by necessity: the KCM embeds the same form and has no
+    // smb:// URL, so the form only knows how to *receive* a suggestion.
     Connections {
         target: backend
         function onCredentialSuggestion(username, domain, password) {
@@ -48,12 +46,9 @@ QQC2.ApplicationWindow {
         }
     }
 
-    // The window is the only place that knows the lookup has become pointless:
-    // the form seals itself when the user types in a credential field or
-    // submits, and the child process should stop at that moment rather than
-    // at its 30-second deadline. A suggestion that arrives anyway is refused
-    // twice over -- the controller's generation check drops it, and the form
-    // would refuse it.
+    // The form seals itself on a credential edit or a submit, and the child
+    // should stop then rather than at its 30-second deadline. Anything that
+    // still arrives is refused twice: by the generation check and by the form.
     Connections {
         target: form
         function onCredentialsSealedChanged() {
@@ -64,15 +59,11 @@ QQC2.ApplicationWindow {
     }
 
     // Started here, not in the backend's constructor: before this point QML
-    // has not connected to credentialSuggestion() yet, so a fast answer --
-    // a cached credential comes back in milliseconds -- would be delivered to
-    // nobody.
+    // has not connected, and a cached credential answers in milliseconds.
     Component.onCompleted: backend.startCredentialLookup()
 
-    // Nothing may outlive the window. Closing while a wallet prompt is open
-    // leaves that prompt to KDE, which owns it, but the child we started is
-    // stopped here so no lookup is left running against a window that is
-    // gone.
+    // Nothing outlives the window. A wallet prompt belongs to KDE, but the
+    // child we started is stopped here.
     onClosing: backend.cancelCredentialLookup()
 
     Connections {

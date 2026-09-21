@@ -19,9 +19,7 @@ namespace Dialog::CredentialLookup
 namespace
 {
 
-// Key names are spelled once. The schema is closed — decode rejects any key
-// not in these lists — so a typo here would fail the round-trip test rather
-// than silently drop a field.
+// The schema is closed: decode rejects any key not in these lists.
 const QLatin1String KeyProtocol("protocol");
 const QLatin1String KeyTarget("target");
 const QLatin1String KeyUsername("username");
@@ -37,10 +35,9 @@ const QLatin1String OutcomeCandidate("candidate");
 const QLatin1String OutcomeMiss("miss");
 const QLatin1String OutcomeError("error");
 
-/** JSON numbers are doubles, so an integer field is only trustworthy below
- *  2^53. Window handles and X11 timestamps are 32-bit, so this ceiling is
- *  never reached in practice and exists to make a hostile value fail here
- *  rather than silently round. */
+/** JSON numbers are doubles, so an integer is only exact below 2^53. Window
+ *  handles are 32-bit, so this only makes a hostile value fail rather than
+ *  silently round. */
 constexpr double MaxExactInteger = 9007199254740992.0; // 2^53
 
 bool takeString(const QJsonObject &object, QLatin1String key, QString *out, QString *error)
@@ -78,8 +75,7 @@ bool takeUnsigned(const QJsonObject &object, QLatin1String key, qulonglong *out,
     return true;
 }
 
-/** Parses one message's outer envelope: size ceiling, valid JSON object,
- *  matching protocol version, and no key outside `allowed`. */
+/** Size ceiling, valid JSON object, matching version, no unknown key. */
 bool openEnvelope(const QByteArray &raw, const QList<QLatin1String> &allowed,
                   QJsonObject *object, QString *error)
 {
@@ -128,9 +124,8 @@ QByteArray serialise(const QJsonObject &object)
     return encoded;
 }
 
-/** The field checks a typed credential passes, applied to an imported one.
- *  Byte-counted, not character-counted: the limit the helper enforces is on
- *  the credentials file it writes. */
+/** The checks a typed credential passes, applied to an imported one. Byte-
+ *  counted, because the helper's limit is on the file it writes. */
 bool fieldAcceptable(const QString &value)
 {
     return !UnitSpec::hasControlChars(value)
@@ -152,10 +147,8 @@ QByteArray encodeRequest(const Request &request)
     QJsonObject object;
     object.insert(KeyProtocol, ProtocolVersion);
     // FullyEncoded, not the default PrettyDecoded: a share named "Media
-    // Library" would otherwise be serialised with a literal space, which the
-    // strict parse on the other side rejects outright. The two sides of this
-    // pipe must agree on one spelling, and the encoded one is the only one
-    // that survives a strict re-parse.
+    // Library" would otherwise carry a literal space, which the strict parse
+    // on the other side rejects.
     object.insert(KeyTarget, request.target.toString(QUrl::FullyEncoded));
     object.insert(KeyUsername, request.username);
     object.insert(KeyWindowId, static_cast<double>(request.windowId));
@@ -179,9 +172,8 @@ bool decodeRequest(const QByteArray &raw, Request *request, QString *error)
         return false;
     }
 
-    // The child re-derives the target's shape rather than trusting the parent
-    // to have sent a sane one: it is a separate process reading a pipe, and
-    // "the parent would never do that" is not a property this side can check.
+    // The child re-derives the target's shape rather than trusting the
+    // parent: it is a separate process reading a pipe.
     const QUrl url(target, QUrl::StrictMode);
     if (!url.isValid() || url.scheme() != QStringLiteral("smb") || url.host().isEmpty()
         || url.hasQuery() || url.hasFragment() || !url.userInfo().isEmpty() || url.port() != -1
@@ -263,25 +255,12 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
         return false;
     }
 
-    // Identity sanity: the answer must not *contradict* the question — which
-    // is a weaker test than "must repeat the question", and deliberately so.
-    //
-    // Measured against the real password service (plan §9.4): it answers a
-    // share-level question from whichever stored entry matched, and returns
-    // that entry's URL rather than the one asked about. A host-level entry
-    // for `smb://10.0.0.10/` answers for every share on that server and comes
-    // back with no share component at all, while a path-level entry for
-    // `smb://nas.local/DATA` comes back with one. Requiring the share
-    // components to be equal therefore threw away every credential saved at
-    // host level — which is what Dolphin writes by default.
-    //
-    // So: the scheme and host must match, because a credential for another
-    // server is never an answer about this one. The share must match only
-    // when the reply actually names one; an answer that names no share is
-    // less specific than the question, not a different answer to it. An
-    // absent or unparseable URL carries no identity at all and so cannot
-    // contradict anything either — it is a reply to the single request this
-    // process just made, not an unsolicited one.
+    // The answer must not *contradict* the question, which is weaker than
+    // repeating it: the service replies with the URL of whichever entry
+    // matched, and a host-level entry — what Dolphin writes by default —
+    // names no share at all (plan §9.4). So scheme and host must match, while
+    // the share must match only when the reply names one; an absent URL
+    // carries no identity and cannot contradict anything.
     if (reply.resultUrl.isValid() && !reply.resultUrl.isEmpty()) {
         const QString answeredShare = shareOf(reply.resultUrl);
         if (reply.resultUrl.scheme().compare(requestedTarget.scheme(), Qt::CaseInsensitive) != 0
@@ -294,17 +273,15 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
 
     if (!fieldAcceptable(reply.username) || !fieldAcceptable(reply.domain)
         || !fieldAcceptable(reply.password)) {
-        // Never says which field or why beyond this: the value itself is a
-        // credential, and a length or a character class is still information
-        // about it.
+        // Deliberately vague: which field failed, and why, is still
+        // information about a credential.
         *rejection = QStringLiteral("the stored credential is not usable here");
         return false;
     }
 
     const SmbUrl::Identity found = SmbUrl::splitDomainUser(reply.username);
     if (found.username.isEmpty()) {
-        // Includes the empty-username case, which must not become guest
-        // selection: that is the user's choice to make by clearing the field.
+        // Never guest selection: that is the user's choice to make.
         *rejection = QStringLiteral("no usable username in the stored credential");
         return false;
     }
@@ -316,10 +293,9 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
 
     if (!requestedUsername.isEmpty()) {
         const SmbUrl::Identity asked = SmbUrl::splitDomainUser(requestedUsername);
-        // Case-insensitively, because SMB account and domain names are:
-        // refusing "Pavel" for a URL that said "pavel" would reject the same
-        // account, while accepting "bob" for "alice" would pair one identity
-        // with another's secret. Only the second is a real risk.
+        // Case-insensitive, as SMB names are: refusing "Alice" for a URL
+        // that said "alice" rejects the same account, while accepting "bob"
+        // for "alice" would pair one identity with another's secret.
         if (found.username.compare(asked.username, Qt::CaseInsensitive) != 0) {
             *rejection = QStringLiteral("the stored credential is for a different account");
             return false;
@@ -332,11 +308,9 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
     }
 
     candidate->username = found.username;
-    // An explicit realm is used only for the contradiction check above, never
-    // imported as the domain: for SMB, kio-extras carries the domain inside
-    // the username and leaves realmValue alone, so a non-empty realm here is
-    // some other protocol's concept and not something to put in a CIFS
-    // `domain=` option.
+    // The realm is used only for the contradiction check above, never
+    // imported: kio-extras carries the SMB domain inside the username and
+    // leaves realmValue to other protocols' concepts.
     candidate->domain = found.domain;
     candidate->password = reply.password;
     return true;
@@ -353,8 +327,7 @@ Transport::Transport(QObject *parent)
 
 Transport::~Transport() = default;
 
-/** The private mode this executable re-invokes itself in. Matched exactly, as
- *  a whole argument, by both sides. */
+/** The private mode this executable re-invokes itself in. */
 static const QLatin1String InternalModeFlag("--internal-credential-lookup");
 
 QString internalModeFlag()
@@ -379,9 +352,8 @@ ProcessTransport::ProcessTransport(QObject *parent)
 
 ProcessTransport::~ProcessTransport()
 {
-    // The QProcess is deliberately not a child of this object: abandon()
-    // hands it to a self-owned cleanup path that outlives the transport, so
-    // that destroying the transport can never block on a dying child.
+    // abandon() hands the process to a self-owned cleanup path that outlives
+    // this object, so destruction can never block on a dying child.
     if (d->process && d->process->parent() == this) {
         abandon();
     }
@@ -391,9 +363,8 @@ ProcessTransport::~ProcessTransport()
 void ProcessTransport::send(const QByteArray &request)
 {
     d->process = new QProcess(this);
-    // Separate channels, and the child's diagnostics go nowhere: its stderr
-    // is not a protocol, and an unread pipe would eventually block a child we
-    // are no longer reading from.
+    // The child's stderr goes nowhere: it is not a protocol, and an unread
+    // pipe would eventually block a child we no longer read.
     d->process->setProcessChannelMode(QProcess::SeparateChannels);
     d->process->setStandardErrorFile(QProcess::nullDevice());
 
@@ -403,8 +374,7 @@ void ProcessTransport::send(const QByteArray &request)
         }
         d->buffer.append(d->process->readAllStandardOutput());
         if (d->buffer.size() > MaxMessageBytes) {
-            // Bound the buffer *before* parsing: a child that streams output
-            // must not be able to grow the parent's memory.
+            // Bounded before parsing: a child must not grow parent memory.
             d->settled = true;
             abandon();
             Q_EMIT failed(QStringLiteral("the lookup produced too much output"));
@@ -436,10 +406,8 @@ void ProcessTransport::send(const QByteArray &request)
         Q_EMIT replyReceived(d->buffer);
     });
 
-    // The absolute path of *this* executable, never a name resolved through
-    // PATH and never a shell: the child is this same program in its private
-    // mode, and nothing about which program runs may depend on the
-    // environment a service menu happened to inherit.
+    // The absolute path of *this* executable, never PATH and never a shell:
+    // which program runs must not depend on a service menu's environment.
     d->process->start(QCoreApplication::applicationFilePath(), {InternalModeFlag},
                       QIODevice::ReadWrite);
     d->process->write(request);
@@ -462,11 +430,9 @@ void ProcessTransport::abandon()
         return;
     }
 
-    // Reparent to nothing and let the process own its own end: this function
-    // runs on the GUI thread, from window close and from the deadline, and
-    // must not wait for anything. Terminate first, escalate to kill after a
-    // short grace period, and delete only once it has actually exited —
-    // destroying a running QProcess is what would block.
+    // The process owns its own end, because this runs on the GUI thread and
+    // must not wait: terminate, escalate to kill after a grace period, and
+    // delete only once it has exited — destroying a running QProcess blocks.
     process->setParent(nullptr);
     connect(process, &QProcess::finished, process, &QObject::deleteLater);
     process->terminate();
@@ -509,8 +475,7 @@ bool Controller::isRunning() const
 
 void Controller::start(const Request &request)
 {
-    // One attempt per window (plan §4.1): no retry button, and no second
-    // lookup after the user has seen the form.
+    // One attempt per window (plan §4.1): there is no retry.
     if (m_started || !request.target.isValid()) {
         return;
     }
@@ -525,10 +490,8 @@ void Controller::start(const Request &request)
 
     m_transport = m_factory(this);
     connect(m_transport, &Transport::replyReceived, this, [this, generation](const QByteArray &raw) {
-        // The generation check is the whole point: this slot can already be
-        // queued on the event loop when the user edits a field or closes the
-        // window, and cancel() must make that queued delivery inert rather
-        // than merely stopping future ones.
+        // This slot can already be queued when the user edits a field or
+        // closes the window, so cancel() must make it inert.
         if (generation != m_generation || m_delivered) {
             return;
         }
@@ -548,9 +511,8 @@ void Controller::start(const Request &request)
         const QString username = candidate.username;
         const QString domain = candidate.domain;
         const QString password = candidate.password;
-        // Stop the child and drop our copies before handing the tuple on, so
-        // nothing retains it here (plan §4.2). Qt gives no zeroisation
-        // guarantee; this is about not keeping it, not about erasing it.
+        // Drop our copies before handing the tuple on (plan §4.2). Qt gives
+        // no zeroisation guarantee; this is not keeping it, not erasing it.
         candidate = Candidate();
         reply = Reply();
         cancel();
@@ -570,9 +532,7 @@ void Controller::start(const Request &request)
         if (generation != m_generation || m_delivered) {
             return;
         }
-        // Covers a wallet prompt the user never answers as well as a child
-        // that hangs: both are "the window waited long enough", and neither is
-        // an error the user is told about.
+        // Covers an unanswered wallet prompt as well as a hung child.
         finishWith(QStringLiteral("the credential lookup took too long"));
     });
     m_deadline->start();
@@ -588,8 +548,7 @@ void Controller::finishWith(const QString &reason)
 
 void Controller::cancel()
 {
-    // Invalidate first: everything below can re-enter the event loop, and a
-    // queued delivery must already be inert by the time it does.
+    // Invalidate first: everything below can re-enter the event loop.
     ++m_generation;
     if (m_deadline) {
         m_deadline->stop();

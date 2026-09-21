@@ -1,27 +1,15 @@
 /*
- * Tests for the credential half of ShareForm.qml — the *real* file, loaded
- * from the source tree, not a C++ model of it.
+ * Tests for the credential half of ShareForm.qml — the *real* file from the
+ * source tree, not a C++ model of it.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * One rule here cannot be checked anywhere else: an imported credential must
- * never be paired with a manually entered one (SMB credential autofill plan
- * §§5, 8.1). Both halves of that rule live in QML — the seal set by
- * TextField.textEdited, and applyCredentialSuggestion()'s refusal to apply
- * anything once it is set — and QML resolves neither at compile time. A
- * duplicate model in C++ would keep passing this test while the form it
- * mirrors drifted, which is precisely the drift this project has already had
- * once between its two front ends.
- *
- * The user's edits are simulated by emitting the field's own textEdited
- * signal rather than by synthesising key events: it is the signal the form
- * actually binds to, and it is reachable without a window, a compositor or a
- * font. Programmatic assignment is used where the *host* would assign, so the
- * test also pins the distinction the whole feature rests on — an assignment
- * is not an edit.
- *
- * No real credential appears here; every value is synthetic, and none of it
- * is written anywhere.
+ * One rule cannot be checked anywhere else: an imported credential must never
+ * be paired with a manually entered one (plan §§5, 8.1). Both halves of it
+ * live in QML, which resolves nothing at compile time, so a C++ imitation
+ * would keep passing while the form drifted. Edits are simulated by emitting
+ * the field's own textEdited signal, and assignment is used where the host
+ * assigns, which pins the distinction the feature rests on.
  */
 
 #include <QFileInfo>
@@ -49,13 +37,9 @@ static void check(const QString &label, bool condition, const QString &detail = 
 namespace
 {
 
-/**
- * Stands in for Session::MountActions so submit() has something to call.
- *
- * Records the tuple the form hands over, which is the only way to check the
- * end of the chain: that an imported password is submitted as the user saw
- * it, through the same addShare() a typed one goes through.
- */
+/** Stands in for Session::MountActions, recording the tuple the form hands
+ *  over: that is how the end of the chain is checked, that an imported
+ *  password is submitted through the same call a typed one is. */
 class RecordingActions : public QObject
 {
     Q_OBJECT
@@ -124,10 +108,9 @@ void callMethod(QObject *form, const char *name)
 
 int main(int argc, char **argv)
 {
-    // No window is ever shown: the form is a ColumnLayout, and every rule
-    // under test is a property and two functions. Offscreen keeps this
-    // runnable in a package-build container, and the Basic style keeps it
-    // independent of whichever Plasma style happens to be installed.
+    // No window is shown: the form is a ColumnLayout and every rule under
+    // test is a property and two functions. Offscreen keeps this runnable in
+    // a package-build container, Basic keeps it style-independent.
     qputenv("QT_QPA_PLATFORM", "offscreen");
     qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
     QGuiApplication app(argc, argv);
@@ -162,11 +145,10 @@ int main(int argc, char **argv)
         if (!form) {
             return 1;
         }
-        // The host fills the form in first, exactly as the service-menu
-        // window does from backend.suggestedUser. This must not look like an
-        // edit, or a lookup would never be allowed to answer.
-        form->setProperty("username", QStringLiteral("pavel"));
-        form->setProperty("mountPoint", QStringLiteral("/home/pavel/DATA"));
+        // As the service-menu window does from backend.suggestedUser. This
+        // must not look like an edit, or no lookup could ever answer.
+        form->setProperty("username", QStringLiteral("alice"));
+        form->setProperty("mountPoint", QStringLiteral("/home/user/DATA"));
         check(QStringLiteral("host initialisation is not a user edit"),
               !form->property("credentialsSealed").toBool());
 
@@ -179,8 +161,7 @@ int main(int argc, char **argv)
                   && textOf(form, "passwordField") == QStringLiteral("synthetic-secret"),
               textOf(form, "userField"));
 
-        // End of the chain: what was imported is what is submitted, through
-        // the same call typed input goes through.
+        // What was imported is what is submitted.
         const int before = actions.calls;
         callMethod(form, "submit");
         check(QStringLiteral("an imported credential is submitted like a typed one"),
@@ -216,16 +197,15 @@ int main(int argc, char **argv)
             if (!form) {
                 return 1;
             }
-            form->setProperty("username", QStringLiteral("pavel"));
+            form->setProperty("username", QStringLiteral("alice"));
             simulateEdit(form, testCase.field, testCase.typed);
             check(QStringLiteral("%1 (sealed)").arg(testCase.label),
                   form->property("credentialsSealed").toBool());
             const bool applied = applySuggestion(form, QStringLiteral("nasuser"),
                                                  QStringLiteral("WORKGROUP"),
                                                  QStringLiteral("synthetic-secret"));
-            // The strong half of the rule: not only is the suggestion
-            // refused, nothing of it reaches any field. A password paired
-            // with a typed username is the failure this test exists for.
+            // The strong half: nothing of the suggestion reaches any field.
+            // A password beside a typed username is the failure in question.
             check(testCase.label,
                   !applied && textOf(form, testCase.field) == testCase.typed
                       && textOf(form, "passwordField") != QStringLiteral("synthetic-secret")
@@ -242,7 +222,7 @@ int main(int argc, char **argv)
         if (!form) {
             return 1;
         }
-        form->setProperty("username", QStringLiteral("pavel"));
+        form->setProperty("username", QStringLiteral("alice"));
         // Clearing the username is how a user asks for guest access.
         simulateEdit(form, "userField", QString());
         const bool applied = applySuggestion(form, QStringLiteral("nasuser"), QString(),
@@ -259,13 +239,12 @@ int main(int argc, char **argv)
         if (!form) {
             return 1;
         }
-        form->setProperty("username", QStringLiteral("pavel"));
-        // A candidate with no username must not empty the field and so
-        // silently switch the user to guest.
+        form->setProperty("username", QStringLiteral("alice"));
+        // A candidate with no username must not switch the user to guest.
         const bool applied = applySuggestion(form, QString(), QString(),
                                              QStringLiteral("synthetic-secret"));
         check(QStringLiteral("an empty-username candidate changes nothing"),
-              !applied && textOf(form, "userField") == QStringLiteral("pavel")
+              !applied && textOf(form, "userField") == QStringLiteral("alice")
                   && textOf(form, "passwordField").isEmpty());
         delete form;
     }
@@ -276,8 +255,8 @@ int main(int argc, char **argv)
         if (!form) {
             return 1;
         }
-        form->setProperty("username", QStringLiteral("pavel"));
-        form->setProperty("mountPoint", QStringLiteral("/home/pavel/Elsewhere"));
+        form->setProperty("username", QStringLiteral("alice"));
+        form->setProperty("mountPoint", QStringLiteral("/home/user/Elsewhere"));
         check(QStringLiteral("changing only the mount point still accepts a candidate"),
               applySuggestion(form, QStringLiteral("nasuser"), QString(),
                               QStringLiteral("synthetic-secret")));
@@ -285,18 +264,16 @@ int main(int argc, char **argv)
     }
 
     // --- the host's binding, not an assignment ------------------------------
-    // The service-menu window does not assign the initial username; it binds
-    // it (`username: backend.suggestedUser`). A binding that survived the
-    // suggestion would silently restore the local login over the imported
-    // account name, so instantiate the form the way its real host does and
-    // check that the suggestion wins.
+    // The window binds the initial username rather than assigning it. A
+    // binding that survived would restore the local login over the imported
+    // account, so instantiate the form the way its real host does.
     {
         const QString directory = QFileInfo(QStringLiteral(NASMOUNT_SHAREFORM_QML)).absolutePath();
         QQmlComponent host(&engine);
         host.setData(QByteArrayLiteral("import QtQuick\n"
                                        "import \".\"\n"
                                        "Item {\n"
-                                       "    property string suggestedUser: \"pavel\"\n"
+                                       "    property string suggestedUser: \"alice\"\n"
                                        "    ShareForm { objectName: \"form\"; username: parent.suggestedUser }\n"
                                        "}\n"),
                      QUrl::fromLocalFile(directory + QStringLiteral("/host_under_test.qml")));
@@ -307,7 +284,7 @@ int main(int argc, char **argv)
         }
         QObject *form = wrapper->findChild<QObject *>(QStringLiteral("form"));
         check(QStringLiteral("the bound initial username reaches the field"),
-              form && textOf(form, "userField") == QStringLiteral("pavel"),
+              form && textOf(form, "userField") == QStringLiteral("alice"),
               form ? textOf(form, "userField") : QStringLiteral("<no form>"));
         const bool applied = applySuggestion(form, QStringLiteral("nasuser"), QString(),
                                              QStringLiteral("synthetic-secret"));

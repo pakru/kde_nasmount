@@ -42,14 +42,9 @@ Depends:
  qml6-module-qtquick-layouts,
  sudo,
  systemd
-# kio6 ships the kpasswdserver D-Bus service that credential autofill reads.
-# Debian's libkf6kiocore6 symbols file already adds kio6 to ${shlibs:Depends}
-# for anything linking KIO, so this is a restatement of intent rather than the
-# thing that installs it -- kept so a change to that symbols file cannot
-# silently drop the service, and weak because a host without it must still
-# install and still mount with a hand-typed credential. Fedora, whose RPM
-# requires are soname-based and pull only kf6-kio-core-libs, needs its own
-# Recommends in the spec; there it is load-bearing.
+# kio6 ships the kpasswdserver service autofill reads. Debian's KIO symbols
+# file already adds it to ${shlibs:Depends}, so this restates intent in case
+# that changes; weak because a host without the service must still install.
 Recommends: dolphin, kio6, plasma-systemsettings
 Description: KDE Plasma CIFS mounts backed by static systemd units
  nasmount adds and removes persistent CIFS shares through a KAuth helper.

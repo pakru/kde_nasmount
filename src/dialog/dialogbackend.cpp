@@ -16,19 +16,11 @@ namespace
 {
 
 /**
- * Why a credential lookup produced nothing, on demand.
- *
- * A miss is the ordinary case and must never interrupt the user, so nothing
- * about it is shown in the window — which also means that when autofill does
- * not work, there is nothing at all to look at. This is the way to look:
- * NASMOUNT_DEBUG_LOOKUP=1 in the environment makes the outcome appear on
- * stderr.
- *
- * It prints reasons, never values. The rejection strings from
- * CredentialLookup::acceptCandidate() are written to describe *why* a
- * credential was unusable without quoting any part of it, and the success
- * line says only that one was applied — a username is still an account name,
- * and a length is still information about a password.
+ * Why a lookup produced nothing, on demand: a miss shows nothing in the
+ * window, which also means there is nothing to look at when autofill does not
+ * work. NASMOUNT_DEBUG_LOOKUP=1 puts the outcome on stderr. It prints
+ * reasons, never values — a username and even a length say something about a
+ * credential.
  */
 void reportLookup(const QString &message)
 {
@@ -75,9 +67,8 @@ void DialogBackend::removeExisting()
 
 void DialogBackend::startCredentialLookup()
 {
-    // An already-saved share opens the removal view, which has no credential
-    // fields at all; looking anything up for it would be a wallet prompt with
-    // nowhere to put the answer (plan §5).
+    // A saved share opens the removal view: a lookup would be a wallet
+    // prompt with nowhere to put the answer (plan §5).
     if (!m_existingId.isEmpty() || m_lookup) {
         return;
     }
@@ -91,12 +82,10 @@ void DialogBackend::startCredentialLookup()
     m_lookup = new Dialog::CredentialLookup::Controller(this);
     connect(m_lookup, &Dialog::CredentialLookup::Controller::candidateReady, this,
             &DialogBackend::credentialSuggestion);
-    // missed() is deliberately not connected to anything user-visible: a
-    // lookup that found nothing is the ordinary case, the form was usable
-    // throughout, and an error box here would turn a silent convenience into
-    // an interruption (plan §5). It is connected to the opt-in diagnostic
-    // above instead, because "nothing happened and nothing said why" is
-    // unfixable from a bug report.
+    // missed() reaches nothing user-visible: finding nothing is the ordinary
+    // case, and an error box would turn a silent convenience into an
+    // interruption (plan §5). The opt-in diagnostic above is the exception,
+    // because "nothing happened and nothing said why" cannot be debugged.
     connect(m_lookup, &Dialog::CredentialLookup::Controller::missed, this,
             [](const QString &reason) { reportLookup(QStringLiteral("no credential applied — ") + reason); });
     connect(m_lookup, &Dialog::CredentialLookup::Controller::candidateReady, this,
@@ -108,23 +97,18 @@ void DialogBackend::startCredentialLookup()
     request.username = m_urlUser;
     request.windowId = 0;
 
-    // Parenting metadata is passed only where it is actually a window handle
-    // of the kind KDE expects. kpasswdserver's windowId is an X11 XID; under
-    // Wayland winId() returns something else entirely, and handing that over
-    // as if it were an XID would be a lie that lands on an unrelated window
-    // id (plan §4.1). Under Wayland the prompt simply appears unparented,
-    // which is KDE's own behaviour for a caller that cannot provide one.
+    // kpasswdserver's windowId is an X11 XID, and under Wayland winId()
+    // returns something else entirely — passing that would name an unrelated
+    // window (plan §4.1). Under Wayland the prompt appears unparented.
     if (QGuiApplication::platformName() == QLatin1String("xcb")) {
         const QList<QWindow *> windows = QGuiApplication::topLevelWindows();
         if (!windows.isEmpty()) {
             request.windowId = static_cast<qulonglong>(windows.first()->winId());
         }
     }
-    // userTime stays 0: the supported way to obtain it is KWindowSystem's
-    // KUserTimestamp, and a whole framework dependency — in both packages,
-    // both container builds and both workflows — is not worth a focus hint on
-    // a prompt that usually does not appear at all. 0 is the documented
-    // "unknown" value.
+    // userTime stays 0, its documented "unknown" value: the supported source
+    // is KWindowSystem, and a framework dependency across both packages and
+    // both workflows is not worth a focus hint on a rare prompt.
 
     m_lookup->start(request);
 }

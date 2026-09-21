@@ -119,13 +119,10 @@ for workflow in "$repo_root/.github/workflows/ci.yml" "$repo_root/.github/workfl
 done
 
 # --- credential autofill build dependencies ----------------------------------
-# Six hand-maintained dependency lists have to agree, and a build that is
-# missing one of these fails only in the distribution it was forgotten in:
-# without the KIO development package nasmount-dialog does not compile at all,
-# and without the QML runtime modules shareform_qml_test cannot load the form
-# it exists to test (ctest runs inside both package builds). The deb upgrade
-# job builds too, so it needs them as well; the release workflow has no
-# upgrade job, which is why the counts differ.
+# Six hand-maintained lists have to agree, and a missing entry fails only in
+# the distribution it was forgotten in: without the KIO development package
+# nasmount-dialog does not compile, and without the QML runtime modules
+# shareform_qml_test cannot load the form (ctest runs in both package builds).
 deb_kio_lists=(
     "$repo_root/packaging/debian/control"
     "$repo_root/packaging/build-in-container.sh"
@@ -139,9 +136,8 @@ done
 grep -Fq 'kf6-kio-devel' "$repo_root/packaging/rpm/nasmount.spec.in"
 grep -Fq 'kf6-kio-devel' "$repo_root/packaging/build-in-container.sh"
 
-# Every apt/dnf dependency block in the workflows that builds the project must
-# carry them. Counting the blocks is the point: a job added later without them
-# would otherwise fail only once someone reads the log.
+# Counting the blocks is the point: a job added later without them would
+# otherwise fail only once someone reads the log.
 deb_blocks_ci=$(grep -Fc 'qt6-base-dev' "$repo_root/.github/workflows/ci.yml")
 deb_kio_ci=$(grep -Fc 'libkf6kio-dev' "$repo_root/.github/workflows/ci.yml")
 deb_qml_ci=$(grep -Fc 'qml6-module-qtquick-dialogs' "$repo_root/.github/workflows/ci.yml")
@@ -164,13 +160,10 @@ for dependency in libkf6kio-dev qml6-module-qtquick-dialogs kf6-kio-devel; do
     }
 done
 
-# The password service is a weak dependency in both families, never a hard
-# one: a host without it must still install nasmount and still mount shares
-# with a hand-typed credential. It carries different weight in each. On
-# Fedora it is the only thing that installs the service, since RPM's requires
-# are soname-based and pull kf6-kio-core-libs alone. On Ubuntu, Debian's
-# libkf6kiocore6 symbols file already adds kio6 to ${shlibs:Depends}, so this
-# is a restatement that survives a change to that file.
+# Weak in both families, never hard: a host without the service must still
+# install and still mount with a hand-typed credential. On Fedora it is what
+# installs the service; on Ubuntu, Debian's KIO symbols file already adds kio6
+# to ${shlibs:Depends}, so it restates that.
 grep -Eq '^Recommends:.*kio6' "$repo_root/packaging/debian/control"
 grep -Eq '^Recommends: +kf6-kio-core' "$repo_root/packaging/rpm/nasmount.spec.in"
 if grep -Eq '^Requires: +kf6-kio-core' "$repo_root/packaging/rpm/nasmount.spec.in"; then

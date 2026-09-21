@@ -265,7 +265,7 @@ int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QSt
         // /mnt/admin-storage/them/mountpoint and have root create — and hand them
         // — writable storage inside a tree they cannot write to themselves.
         if (!created && childStat.st_uid != uid) {
-            return bail(QStringLiteral("%1 exists and is owned by uid %2, not %3")
+            return bail(QStringLiteral("Path '%1' is owned by uid=%2 mismatched with current user uid=%3. Change owner of this dir.")
                             .arg(plan.path).arg(childStat.st_uid).arg(uid));
         }
 

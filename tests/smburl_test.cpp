@@ -132,11 +132,11 @@ int main(int argc, char **argv)
         // folder deep inside it: that is what KDE's own SMB worker
         // authenticates against, so anything narrower would miss the entry
         // Dolphin saved.
-        expectTarget(QStringLiteral("share root"), QStringLiteral("//10.0.0.10/DATA"),
-                     QStringLiteral("smb://10.0.0.10/DATA"));
+        expectTarget(QStringLiteral("share root"), QStringLiteral("//192.0.2.10/DATA"),
+                     QStringLiteral("smb://192.0.2.10/DATA"));
         expectTarget(QStringLiteral("subdirectories are dropped"),
-                     QStringLiteral("//10.0.0.10/DATA/Pavel/Docs"),
-                     QStringLiteral("smb://10.0.0.10/DATA"));
+                     QStringLiteral("//192.0.2.10/DATA/Documents/Docs"),
+                     QStringLiteral("smb://192.0.2.10/DATA"));
         expectTarget(QStringLiteral("a space in the share name is encoded once"),
                      QStringLiteral("//nas.local/Media Library"),
                      QStringLiteral("smb://nas.local/Media%20Library"));
@@ -165,24 +165,24 @@ int main(int argc, char **argv)
             check(label, identity.domain == domain && identity.username == username,
                   QStringLiteral("domain=%1 user=%2").arg(identity.domain, identity.username));
         };
-        expectSplit(QStringLiteral("plain username"), QStringLiteral("pavel"), QString(),
-                    QStringLiteral("pavel"));
-        expectSplit(QStringLiteral("backslash-qualified"), QStringLiteral("WORKGROUP\\pavel"),
-                    QStringLiteral("WORKGROUP"), QStringLiteral("pavel"));
-        expectSplit(QStringLiteral("slash-qualified"), QStringLiteral("WORKGROUP/pavel"),
-                    QStringLiteral("WORKGROUP"), QStringLiteral("pavel"));
+        expectSplit(QStringLiteral("plain username"), QStringLiteral("alice"), QString(),
+                    QStringLiteral("alice"));
+        expectSplit(QStringLiteral("backslash-qualified"), QStringLiteral("WORKGROUP\\alice"),
+                    QStringLiteral("WORKGROUP"), QStringLiteral("alice"));
+        expectSplit(QStringLiteral("slash-qualified"), QStringLiteral("WORKGROUP/alice"),
+                    QStringLiteral("WORKGROUP"), QStringLiteral("alice"));
         // A UPN is one name, not a qualified pair: splitting it at the @
-        // would submit "example.com" as a CIFS domain and "pavel" as a user
+        // would submit "example.com" as a CIFS domain and "alice" as a user
         // that the server has never heard of.
-        expectSplit(QStringLiteral("a UPN is left whole"), QStringLiteral("pavel@example.com"),
-                    QString(), QStringLiteral("pavel@example.com"));
+        expectSplit(QStringLiteral("a UPN is left whole"), QStringLiteral("alice@example.com"),
+                    QString(), QStringLiteral("alice@example.com"));
         // Upstream's rule, kept exactly: the first separator wins, whichever
         // it is.
         expectSplit(QStringLiteral("the first separator wins"),
-                    QStringLiteral("WORKGROUP/sub\\pavel"), QStringLiteral("WORKGROUP"),
-                    QStringLiteral("sub\\pavel"));
+                    QStringLiteral("WORKGROUP/sub\\alice"), QStringLiteral("WORKGROUP"),
+                    QStringLiteral("sub\\alice"));
         expectSplit(QStringLiteral("a leading separator does not split"),
-                    QStringLiteral("\\pavel"), QString(), QStringLiteral("\\pavel"));
+                    QStringLiteral("\\alice"), QString(), QStringLiteral("\\alice"));
         expectSplit(QStringLiteral("an empty name stays empty"), QString(), QString(), QString());
     }
 

@@ -20,15 +20,12 @@ namespace Dialog::CredentialLookupWorker
 namespace
 {
 
-/** Exit codes. The parent ignores them — a reply on stdout is the only thing
- *  it reads — but they keep a hand-run invocation honest. */
+/** The parent reads only stdout; these keep a hand-run invocation honest. */
 constexpr int ExitOk = 0;
 constexpr int ExitRefused = 2;
 
-/** A pipe or a socket, and nothing else. A terminal means someone ran this by
- *  hand; a regular file means output would be left on disk. Both are refused
- *  before the request is even read, so neither can end up holding a
- *  credential. */
+/** A pipe or socket only: a terminal means a hand-run invocation, a regular
+ *  file means output left on disk. Refused before the request is read. */
 bool isPipeLike(int fd)
 {
     struct stat info;
@@ -38,8 +35,8 @@ bool isPipeLike(int fd)
     return S_ISFIFO(info.st_mode) || S_ISSOCK(info.st_mode);
 }
 
-/** Reads at most one byte more than the ceiling, so "too big" is detectable
- *  without ever holding an unbounded amount of it. */
+/** One byte past the ceiling, so "too big" is detectable without holding
+ *  an unbounded amount. */
 bool readRequest(QByteArray *raw)
 {
     QFile input;
@@ -77,18 +74,16 @@ CredentialLookup::Reply barrenReply(CredentialLookup::Reply::Outcome outcome, co
 
 bool isInternalInvocation(int argc, char **argv)
 {
-    // Exactly one argument, matched whole. Not a prefix, not one flag among
-    // others: a mode that hands back a credential must be impossible to enter
-    // by accident while passing something else.
+    // Matched whole, not as a prefix: a mode that returns a credential must
+    // be impossible to enter by accident.
     return argc == 2 && argv[1] != nullptr
         && QString::fromLocal8Bit(argv[1]) == CredentialLookup::internalModeFlag();
 }
 
 int run(int argc, char **argv)
 {
-    // QCoreApplication, never QApplication: this process has no window, no
-    // display connection and no QML engine. It does need an event loop type,
-    // because the password-service client answers through D-Bus.
+    // QCoreApplication, never QApplication: no window, no display, no QML —
+    // but an event loop is needed, since the client answers over D-Bus.
     QCoreApplication app(argc, argv);
 
     if (!isPipeLike(STDIN_FILENO) || !isPipeLike(STDOUT_FILENO)) {
@@ -109,31 +104,25 @@ int run(int argc, char **argv)
         return ExitRefused;
     }
 
-    // The exact shape kio-extras' SMB authenticator uses (plan §3.2): the
-    // already-narrowed share URL with no user-info component, the username
-    // supplied separately, an empty password, and verifyPath set. Nothing
-    // here invents a realm, and nothing asks for anything to be *stored* —
-    // keepPassword stays false, because this is a read of what the session
-    // already knows.
+    // The exact shape kio-extras' SMB authenticator uses (plan §3.2): share
+    // URL with no user-info, username supplied separately, empty password,
+    // verifyPath set. No realm is invented and keepPassword stays false.
     KIO::AuthInfo info;
     info.url = request.target;
     info.username = request.username;
     info.verifyPath = true;
 
     KPasswdServerClient client;
-    // checkAuthInfo() only ever reports what is already known; queryAuthInfo()
-    // — the call that would put a password dialog on screen and ask — is
-    // deliberately never used. Autofill must never become a second
-    // authentication prompt (plan §1). The service may still ask the user to
-    // unlock a wallet to answer, which is KDE's own behaviour and the reason
-    // this runs where it can be abandoned.
+    // checkAuthInfo() only reports what is known; queryAuthInfo(), which
+    // would prompt, is never used — autofill must not become a second
+    // password dialog (plan §1). The service may still ask to unlock a
+    // wallet, which is why this runs where it can be abandoned.
     const bool answered = client.checkAuthInfo(&info, request.windowId, request.userTime);
 
     CredentialLookup::Reply reply;
     if (!answered || !info.isModified()) {
-        // Both halves matter: a successful call that did not modify the info
-        // means "nothing known", which is the ordinary case for a share the
-        // user has never opened.
+        // Both halves matter: a successful call that modified nothing means
+        // "nothing known".
         reply = barrenReply(CredentialLookup::Reply::Outcome::Miss,
                             QStringLiteral("no stored credential"));
     } else {
@@ -145,9 +134,8 @@ int run(int argc, char **argv)
     }
 
     writeReply(reply);
-    // Drop the copies this process holds. Qt offers no zeroisation guarantee
-    // for QString, so this is "do not keep it", not "erase it from memory" —
-    // the real bound on exposure is that this process exits immediately.
+    // Qt offers no zeroisation guarantee, so this is "do not keep it", not
+    // "erase it"; the real bound is that this process exits immediately.
     info.password.clear();
     reply.password.clear();
     return ExitOk;

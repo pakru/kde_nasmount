@@ -1,21 +1,15 @@
 /*
- * Tests for Dialog::CredentialLookup — the SMB credential autofill protocol,
- * its acceptance policy, and the controller's lifetime.
+ * Tests for Dialog::CredentialLookup — the autofill protocol, its acceptance
+ * policy, and the controller's lifetime.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Nothing here contacts a wallet, a password service or a NAS: every
- * credential in this file is synthetic, and the only real child process
- * started is this very test binary, re-invoked in a fake lookup mode so the
- * QProcess transport can be exercised against a process that really starts,
- * really exits, and really answers (or deliberately does not).
- *
- * The two things worth being strict about are the ones a wrong answer would
- * quietly produce rather than fail on: pairing one account's username with
- * another account's password, and applying a result that was invalidated
- * while it was in flight. Both are covered here rather than left to the
- * desktop acceptance run, because neither is visible to someone clicking
- * through the dialog once.
+ * No wallet, password service or NAS is contacted, and every credential here
+ * is synthetic; the only child started is this binary, re-invoked in a fake
+ * lookup mode so the QProcess transport meets a process that really starts
+ * and exits. The two cases worth strictness are the ones that would go wrong
+ * quietly: pairing one account's username with another's password, and
+ * applying a result invalidated while in flight.
  */
 
 #include "credentiallookup.h"
@@ -49,8 +43,7 @@ using namespace Dialog::CredentialLookup;
 namespace
 {
 
-/** Selects what the re-invoked child does. Set in the parent's environment
- *  before each ProcessTransport case; read by childMain() below. */
+/** Selects what the re-invoked child does, read by childMain() below. */
 const char *ChildModeVariable = "NASMOUNT_TEST_CHILD_MODE";
 
 QUrl target(const QString &text)
@@ -71,8 +64,7 @@ Reply candidateReply(const QString &username, const QString &password,
     return reply;
 }
 
-/** Runs one acceptance decision and reports both the verdict and, on
- *  acceptance, the three fields that would reach the form. */
+/** One acceptance decision, reporting the fields that would reach the form. */
 void expectAccepted(const QString &label, const Reply &reply, const QString &requested,
                     const QString &expectedUser, const QString &expectedDomain,
                     const QString &expectedPassword)
@@ -124,8 +116,8 @@ public:
         abandoned = true;
     }
 
-    /** Answers the way a real child would: asynchronously, through the event
-     *  loop, which is what makes the generation race reachable at all. */
+    /** Answers asynchronously, as a real child does: that is what makes the
+     *  generation race reachable. */
     void answerLater(const QByteArray &reply)
     {
         QTimer::singleShot(0, this, [this, reply]() { Q_EMIT replyReceived(reply); });
@@ -140,8 +132,7 @@ public:
     bool abandoned = false;
 };
 
-/** Spins the event loop until `done` or `budgetMs` elapses. Never sleeps for
- *  the sake of it: every case here settles on the first pass or two. */
+/** Spins the event loop until `done` or `budgetMs` elapses. */
 void pump(const std::function<bool()> &done, int budgetMs = 5000)
 {
     QElapsedTimer clock;
@@ -212,12 +203,10 @@ int childMain()
     if (mode == "garbage") {
         output.write("this is not JSON");
     } else if (mode == "flood") {
-        // Deliberately past the ceiling, to prove the parent bounds what it
-        // buffers instead of growing to fit whatever a child produces.
+        // Past the ceiling, to prove the parent bounds what it buffers.
         output.write(QByteArray(MaxMessageBytes + 4096, 'x'));
     } else if (mode == "echo-target") {
-        // Proves the request really crossed the pipe: answer with a candidate
-        // whose URL is whatever the parent asked about.
+        // Proves the request crossed the pipe: echo the asked-about URL.
         Request decoded;
         QString error;
         Reply reply;
@@ -254,14 +243,12 @@ int main(int argc, char **argv)
 
     // --- protocol: round trips ---------------------------------------------
     {
-        // Built the way the product builds it, from a UNC whose share name
-        // contains a space: the round trip has to survive QUrl's encoding of
-        // it, or a "Media Library" share would reach the password service
-        // under a different name than Dolphin used.
+        // Built as the product builds it, from a share name with a space:
+        // the round trip must survive QUrl's encoding of it.
         Request request;
         request.target = Dialog::SmbUrl::authLookupTarget(
             QStringLiteral("//nas.example/Media Library/Films"));
-        request.username = QStringLiteral("WORKGROUP\\pavel");
+        request.username = QStringLiteral("WORKGROUP\\alice");
         request.windowId = 123456;
         request.userTime = 42;
         Request decoded;
@@ -275,7 +262,7 @@ int main(int argc, char **argv)
               ok ? decoded.target.toString() : error);
     }
     {
-        Reply reply = candidateReply(QStringLiteral("pavel"), QStringLiteral("p@ss w0rd"),
+        Reply reply = candidateReply(QStringLiteral("alice"), QStringLiteral("p@ss w0rd"),
                                      QStringLiteral("WORKGROUP"));
         Reply decoded;
         QString error;
@@ -325,8 +312,7 @@ int main(int argc, char **argv)
         rejects(QStringLiteral("request: username with a control character"),
                 QByteArrayLiteral("{\"protocol\":1,\"target\":\"smb://h/s\",\"username\":\"a\\nb\"}"));
 
-        // The ceiling is enforced before parsing, so an oversized message is
-        // refused even when it is perfectly well-formed JSON.
+        // Enforced before parsing, so well-formed JSON is refused too.
         QByteArray oversized = QByteArrayLiteral(R"({"protocol":1,"target":"smb://h/s","username":")");
         oversized.append(QByteArray(MaxMessageBytes, 'u'));
         oversized.append(QByteArrayLiteral(R"("})"));
@@ -347,8 +333,8 @@ int main(int argc, char **argv)
               error);
     }
     {
-        // An encoder that would exceed the ceiling produces nothing rather
-        // than a message the other side must then refuse.
+        // An oversized encode produces nothing, rather than a message the
+        // other side must refuse.
         Reply huge;
         huge.outcome = Reply::Outcome::Candidate;
         huge.password = QString(MaxMessageBytes, QLatin1Char('x'));
@@ -357,61 +343,58 @@ int main(int argc, char **argv)
 
     // --- policy: what may be applied ---------------------------------------
     expectAccepted(QStringLiteral("plain username and password"),
-                   candidateReply(QStringLiteral("pavel"), QStringLiteral("secret")), QString(),
-                   QStringLiteral("pavel"), QString(), QStringLiteral("secret"));
+                   candidateReply(QStringLiteral("alice"), QStringLiteral("secret")), QString(),
+                   QStringLiteral("alice"), QString(), QStringLiteral("secret"));
     expectAccepted(QStringLiteral("DOMAIN\\user splits"),
-                   candidateReply(QStringLiteral("WORKGROUP\\pavel"), QStringLiteral("secret")),
-                   QString(), QStringLiteral("pavel"), QStringLiteral("WORKGROUP"),
+                   candidateReply(QStringLiteral("WORKGROUP\\alice"), QStringLiteral("secret")),
+                   QString(), QStringLiteral("alice"), QStringLiteral("WORKGROUP"),
                    QStringLiteral("secret"));
     expectAccepted(QStringLiteral("DOMAIN/user splits"),
-                   candidateReply(QStringLiteral("WORKGROUP/pavel"), QStringLiteral("secret")),
-                   QString(), QStringLiteral("pavel"), QStringLiteral("WORKGROUP"),
+                   candidateReply(QStringLiteral("WORKGROUP/alice"), QStringLiteral("secret")),
+                   QString(), QStringLiteral("alice"), QStringLiteral("WORKGROUP"),
                    QStringLiteral("secret"));
     expectAccepted(QStringLiteral("a UPN stays one username"),
-                   candidateReply(QStringLiteral("pavel@example.com"), QStringLiteral("secret")),
-                   QString(), QStringLiteral("pavel@example.com"), QString(),
+                   candidateReply(QStringLiteral("alice@example.com"), QStringLiteral("secret")),
+                   QString(), QStringLiteral("alice@example.com"), QString(),
                    QStringLiteral("secret"));
     expectAccepted(QStringLiteral("empty password is still usable"),
-                   candidateReply(QStringLiteral("pavel"), QString()), QString(),
-                   QStringLiteral("pavel"), QString(), QString());
+                   candidateReply(QStringLiteral("alice"), QString()), QString(),
+                   QStringLiteral("alice"), QString(), QString());
     expectAccepted(QStringLiteral("explicit URL identity matches"),
-                   candidateReply(QStringLiteral("pavel"), QStringLiteral("secret")),
-                   QStringLiteral("pavel"), QStringLiteral("pavel"), QString(),
+                   candidateReply(QStringLiteral("alice"), QStringLiteral("secret")),
+                   QStringLiteral("alice"), QStringLiteral("alice"), QString(),
                    QStringLiteral("secret"));
     expectAccepted(QStringLiteral("explicit URL identity matches case-insensitively"),
-                   candidateReply(QStringLiteral("Pavel"), QStringLiteral("secret")),
-                   QStringLiteral("pavel"), QStringLiteral("Pavel"), QString(),
+                   candidateReply(QStringLiteral("Alice"), QStringLiteral("secret")),
+                   QStringLiteral("alice"), QStringLiteral("Alice"), QString(),
                    QStringLiteral("secret"));
     expectAccepted(QStringLiteral("qualified candidate matches a bare URL identity"),
-                   candidateReply(QStringLiteral("WORKGROUP\\pavel"), QStringLiteral("secret")),
-                   QStringLiteral("pavel"), QStringLiteral("pavel"), QStringLiteral("WORKGROUP"),
+                   candidateReply(QStringLiteral("WORKGROUP\\alice"), QStringLiteral("secret")),
+                   QStringLiteral("alice"), QStringLiteral("alice"), QStringLiteral("WORKGROUP"),
                    QStringLiteral("secret"));
     expectAccepted(QStringLiteral("a realm agreeing with the qualified domain is fine"),
-                   candidateReply(QStringLiteral("WORKGROUP\\pavel"), QStringLiteral("secret"),
+                   candidateReply(QStringLiteral("WORKGROUP\\alice"), QStringLiteral("secret"),
                                   QStringLiteral("workgroup")),
-                   QString(), QStringLiteral("pavel"), QStringLiteral("WORKGROUP"),
+                   QString(), QStringLiteral("alice"), QStringLiteral("WORKGROUP"),
                    QStringLiteral("secret"));
 
-    // The shape the real password service actually returns (plan §9.4): a
-    // host-level entry answers a share-level question and comes back with no
-    // share component. Rejecting this threw away every credential Dolphin
-    // saves by default, which is the bug that made autofill appear not to
-    // work at all on a real NAS.
+    // The shape the real service returns (plan §9.4): a host-level entry
+    // answers a share-level question with no share component. Rejecting it
+    // threw away every credential Dolphin saves by default.
     expectAccepted(QStringLiteral("a host-level entry answers for the share"),
-                   candidateReply(QStringLiteral("pa_kru"), QStringLiteral("secret"), QString(),
+                   candidateReply(QStringLiteral("storeduser"), QStringLiteral("secret"), QString(),
                                   QStringLiteral("smb://nas.example/")),
-                   QString(), QStringLiteral("pa_kru"), QString(), QStringLiteral("secret"));
+                   QString(), QStringLiteral("storeduser"), QString(), QStringLiteral("secret"));
     expectAccepted(QStringLiteral("a path-level entry answers for its own share"),
-                   candidateReply(QStringLiteral("pa_kru"), QStringLiteral("secret"), QString(),
+                   candidateReply(QStringLiteral("storeduser"), QStringLiteral("secret"), QString(),
                                   QStringLiteral("smb://nas.example/DATA")),
-                   QString(), QStringLiteral("pa_kru"), QString(), QStringLiteral("secret"));
+                   QString(), QStringLiteral("storeduser"), QString(), QStringLiteral("secret"));
     {
-        // No identity at all is not a contradiction either: the reply answers
-        // the single request this process made.
-        Reply anonymous = candidateReply(QStringLiteral("pa_kru"), QStringLiteral("secret"));
+        // No identity is not a contradiction either.
+        Reply anonymous = candidateReply(QStringLiteral("storeduser"), QStringLiteral("secret"));
         anonymous.resultUrl = QUrl();
         expectAccepted(QStringLiteral("a reply with no URL is not a contradiction"), anonymous,
-                       QString(), QStringLiteral("pa_kru"), QString(), QStringLiteral("secret"));
+                       QString(), QStringLiteral("storeduser"), QString(), QStringLiteral("secret"));
     }
     {
         Reply miss;
@@ -422,28 +405,28 @@ int main(int argc, char **argv)
         expectRejected(QStringLiteral("an error is not a candidate"), error);
     }
     expectRejected(QStringLiteral("a reply about another host"),
-                   candidateReply(QStringLiteral("pavel"), QStringLiteral("secret"), QString(),
+                   candidateReply(QStringLiteral("alice"), QStringLiteral("secret"), QString(),
                                   QStringLiteral("smb://other.example/DATA")));
     expectRejected(QStringLiteral("a host-level reply about another host"),
-                   candidateReply(QStringLiteral("pavel"), QStringLiteral("secret"), QString(),
+                   candidateReply(QStringLiteral("alice"), QStringLiteral("secret"), QString(),
                                   QStringLiteral("smb://other.example/")));
     expectRejected(QStringLiteral("a reply about another share"),
-                   candidateReply(QStringLiteral("pavel"), QStringLiteral("secret"), QString(),
+                   candidateReply(QStringLiteral("alice"), QStringLiteral("secret"), QString(),
                                   QStringLiteral("smb://nas.example/BACKUP")));
     expectRejected(QStringLiteral("empty username is not guest selection"),
                    candidateReply(QString(), QStringLiteral("secret")));
     expectRejected(QStringLiteral("a username that is only a separator"),
                    candidateReply(QStringLiteral("WORKGROUP\\"), QStringLiteral("secret")));
     expectRejected(QStringLiteral("a newline in the password"),
-                   candidateReply(QStringLiteral("pavel"), QStringLiteral("sec\nret")));
+                   candidateReply(QStringLiteral("alice"), QStringLiteral("sec\nret")));
     expectRejected(QStringLiteral("a newline in the username"),
                    candidateReply(QStringLiteral("pa\nvel"), QStringLiteral("secret")));
     expectRejected(QStringLiteral("a password past the credential field limit"),
-                   candidateReply(QStringLiteral("pavel"),
+                   candidateReply(QStringLiteral("alice"),
                                   QString(UnitSpec::MaxCredentialFieldBytes + 1,
                                           QLatin1Char('x'))));
     expectRejected(QStringLiteral("two different domains in one reply"),
-                   candidateReply(QStringLiteral("WORKGROUP\\pavel"), QStringLiteral("secret"),
+                   candidateReply(QStringLiteral("WORKGROUP\\alice"), QStringLiteral("secret"),
                                   QStringLiteral("OTHERDOM")));
     expectRejected(QStringLiteral("another account's credential"),
                    candidateReply(QStringLiteral("bob"), QStringLiteral("secret")),
@@ -465,11 +448,11 @@ int main(int argc, char **argv)
         controller.start(sampleRequest());
         check(QStringLiteral("controller: the request reached the transport"),
               transport != nullptr && !transport->sent.isEmpty());
-        transport->answerLater(encodeReply(candidateReply(QStringLiteral("pavel"),
+        transport->answerLater(encodeReply(candidateReply(QStringLiteral("alice"),
                                                           QStringLiteral("secret"))));
         pump([&run]() { return run.gotCandidate || run.gotMiss; });
         check(QStringLiteral("controller: delivers an eligible candidate"),
-              run.gotCandidate && run.username == QStringLiteral("pavel")
+              run.gotCandidate && run.username == QStringLiteral("alice")
                   && run.password == QStringLiteral("secret"),
               run.missReason);
         check(QStringLiteral("controller: stops the child after delivering"),
@@ -485,10 +468,9 @@ int main(int argc, char **argv)
             return transport;
         });
         controller.start(sampleRequest());
-        // The queued completion and the cancellation race here exactly as
-        // they do when a reply arrives in the same event-loop turn as the
-        // user pressing Mount.
-        transport->answerLater(encodeReply(candidateReply(QStringLiteral("pavel"),
+        // Completion and cancellation race as they do when a reply lands in
+        // the same event-loop turn as the user pressing Mount.
+        transport->answerLater(encodeReply(candidateReply(QStringLiteral("alice"),
                                                           QStringLiteral("secret"))));
         const bool abandonedOnCancel = (controller.cancel(), transport->abandoned);
         pump([]() { return false; }, 200);
@@ -552,8 +534,7 @@ int main(int argc, char **argv)
               run.gotMiss && !run.gotCandidate, run.missReason);
     }
     {
-        // A candidate for the wrong account must not reach the form even
-        // though the transport delivered it successfully.
+        // Delivered successfully by the transport, refused by the policy.
         Controller controller;
         Run run;
         connectRun(&controller, &run);
@@ -573,8 +554,7 @@ int main(int argc, char **argv)
     }
 
     // --- the real process transport ----------------------------------------
-    // These re-invoke this binary, so they exercise QProcess startup, the
-    // pipes, and child exit for real.
+    // Re-invoking this binary exercises startup, pipes and exit for real.
     {
         struct ChildCase {
             const char *mode;

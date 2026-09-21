@@ -150,8 +150,8 @@ void MountActions::addShare(const QString &unc, const QString &rawMountPoint, co
 
         r.success = true;
         r.message = defineResult.activated
-            ? QStringLiteral("Share added and armed")
-            : QStringLiteral("Share added, but could not be armed — check the boot coordinator");
+            ? QStringLiteral("Share successfuly added and mounted")
+            : QStringLiteral("Share added, but could not be mounted — check setting for more info"); // TODO improve this message
         return r;
     });
 

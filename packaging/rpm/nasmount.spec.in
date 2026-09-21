@@ -27,8 +27,8 @@ BuildRequires:  kf6-kio-devel >= 6.0
 BuildRequires:  kf6-kwidgetsaddons-devel >= 6.0
 BuildRequires:  qt6-qtbase-devel >= 6.5
 BuildRequires:  qt6-qtdeclarative-devel >= 6.5
-# The QML runtime modules, not only the development files: %check loads the
-# real ShareForm.qml, which imports QtQuick.Controls and QtQuick.Dialogs.
+# Runtime modules, not only development files: %check loads the real
+# ShareForm.qml, which imports QtQuick.Controls and QtQuick.Dialogs.
 BuildRequires:  qt6-qtdeclarative
 BuildRequires:  systemd
 BuildRequires:  systemd-rpm-macros
@@ -39,10 +39,9 @@ Requires:       polkit
 Requires:       qt6-qtdeclarative
 Requires:       sudo
 Requires:       systemd
-# The password service behind credential autofill. It is a weak dependency on
-# purpose: the RPM's automatic requires pull kf6-kio-core-libs, which carries
-# the library but not the D-Bus service, and a host without the service simply
-# types credentials by hand as before.
+# The password service autofill reads. Weak on purpose: the automatic requires
+# pull kf6-kio-core-libs, which carries the library but not the D-Bus service,
+# and a host without it simply types credentials by hand.
 Recommends:     kf6-kio-core
 Recommends:     dolphin
 Recommends:     plasma-systemsettings

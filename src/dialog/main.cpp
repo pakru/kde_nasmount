@@ -50,12 +50,10 @@ void reportStartupFailure(const QString &message)
 
 int main(int argc, char **argv)
 {
-    // The private credential-lookup mode is dispatched before anything else
-    // (autofill plan §4.1): that invocation is a pipe-to-pipe transport with
-    // no user interface at all, so it must not construct a QApplication,
-    // connect to a display, or reach the QML engine below. It is deliberately
-    // absent from the parser: --help describes the command a user runs, and
-    // this is not one.
+    // Dispatched before anything else (plan §4.1): that invocation is a
+    // pipe-to-pipe transport with no interface, so it must not construct a
+    // QApplication or reach the QML engine below. It is absent from the
+    // parser because --help describes commands a user runs.
     if (Dialog::CredentialLookupWorker::isInternalInvocation(argc, argv)) {
         return Dialog::CredentialLookupWorker::run(argc, argv);
     }
@@ -89,13 +87,10 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    // The two identities stay separate all the way into the backend (autofill
-    // plan §3.1). The Linux login is a *guess* — it is what the field is
-    // pre-filled with when the URL says nothing — while only a username the
-    // URL actually carried is evidence of which SMB account is meant. Merging
-    // them here, as this used to, would mean constraining the credential
-    // lookup to the local account name and so excluding a saved NAS account
-    // that happens to be called something else.
+    // The two identities stay separate into the backend (plan §3.1): the
+    // Linux login is only what the field is pre-filled with, while the URL's
+    // username is evidence of which SMB account is meant. Merging them, as
+    // this used to, would exclude a NAS account named differently.
     QString loginUser;
     if (const struct passwd *pw = ::getpwuid(::getuid())) {
         loginUser = QString::fromLocal8Bit(pw->pw_name);
