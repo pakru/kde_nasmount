@@ -318,7 +318,7 @@ boundary**, not a style preference:
 | Library | Contents | Linked into |
 |---------|----------|-------------|
 | `kde_nasmount-core` | validation, unit-value encoding, read-only state model (`src/core`) | everything, helper included |
-| `kde_nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model (`src/session`) | dialog, KCM, cleanup — **never the helper** |
+| `kde_nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model, `smb://` address conversion (`src/session`) | dialog, KCM, cleanup — **never the helper** |
 | `kde_nasmount-root` | durable fd-based filesystem ops, root lock, systemd execution, credential/runtime stores (`src/root`) | `nasmount-helper`, `nasmount-boot` **only** |
 
 - Everything is **STATIC** on purpose: the privileged helper must not depend on
@@ -362,6 +362,56 @@ reaches C++ by name at runtime, so a C++ rename compiles cleanly and breaks on
 the first click; [`qml_invokable_gate.sh`](tests/qml_invokable_gate.sh)
 requires every `actions.<name>(` to be a `Q_INVOKABLE` on
 `Session::MountActions` and every `kcm.`/`backend.` name to exist on its host.
+
+ShareForm also has a **read-only mode**, which is the KCM's Details view of a
+saved share
+([`ShareDetailsDialog.qml`](src/kcm/ui/ShareDetailsDialog.qml)). It is
+presentation, not an edit path: a read-only form cannot submit and is sealed
+against credential suggestions, and the password is never shown because
+nothing returns it. **ShareForm must never import Kirigami**:
+`shareform_qml_test` loads it in both native package builds, whose containers
+have no Kirigami, while a workstation does, so the import would pass every
+local test. `removed_api_gates.sh` enforces this. The KCM's own page
+(`main.qml`) does import Kirigami, which is therefore a **runtime-only**
+dependency in both families (`qml6-module-org-kde-kirigami` / `kf6-kirigami`),
+and in none of the six build lists; if a test ever loads `main.qml`, it
+becomes a build dependency in all six.
+
+The KCM list's per-row meaning (state text, severity, access, the single
+removal a row offers and why none) is decided in pure functions beside
+`classifyRow()` in [`mountmodel.h`](src/session/mountmodel.h), which
+`mountmodel_test` covers: `presentRow()` and `rowRemoval()`. QML only renders
+those values. Access and authentication are shown only for a validated
+marker, and are blank otherwise, never a defaulted read-write.
+
+The KCM's **Open** asks the file manager over D-Bus
+(`org.freedesktop.FileManager1`) rather than using Qt's own URL opening. Under
+Plasma, Qt hands the URL to KIO's `OpenUrlJob` inside System Settings, which
+examines the path, and examining an automount point triggers the mount, so
+the GUI thread would block until it completed or timed out.
+`removed_api_gates.sh` bans Qt's URL-opening calls in `src/kcm`.
+
+### `smb://` addresses
+
+Users see and type `smb://host/share`. `//host/share` is still accepted as
+input. `smb://` is **only a spelling for display and input**: the unit's
+`What=` and `Description=`, the golden units, Store's `unc`, and the
+`definesystem` helper's `unc` argument all stay `//host/share`, because
+`mount.cifs` requires that form, the unit body is frozen (upgrade rule 4), and
+old and new front ends and helpers must interoperate (upgrade rule 5).
+`MountActions::addShare()` converts before the helper call *and* the Store
+commit: Store's UNC is re-validated as `//` by the drift comparison.
+
+The conversion is
+[`Session::ShareAddress`](src/session/shareaddress.h), in the **session
+library, never core**. Core is linked into the helper, so keeping the parser
+out of every library the helper links guarantees, structurally, that the
+helper can never be handed an `smb://` value and accept it.
+`removed_api_gates.sh` enforces that placement, and also stops the
+service-menu dialog from growing its own parser again.
+`displayUrl()` keeps `%`, `#` and `?` percent-encoded, as Dolphin does, so an
+address copied from the list pastes back into Add unchanged;
+`shareaddress_test` holds that round trip.
 
 ### Credential autofill (service-menu dialog only)
 
@@ -435,7 +485,7 @@ not a second credential source, and these rules keep it that way:
 
 ## Tests
 
-The suite is 24 CTest entries: 18 C++ test binaries, four shell gates
+The suite is 25 CTest entries: 19 C++ test binaries, four shell gates
 (`removed_api_gates.sh`, `qml_invokable_gate.sh`, `package_scripts_test.sh`,
 `packaging_metadata_test.sh`), `version_metadata` (a CMake script checking
 `VERSION` against every generated version string), and ECM's `appstreamtest`.
@@ -446,7 +496,9 @@ passed/failed` plus a `check(label, condition, detail)` helper, `return failed
 == 0 ? 0 : 1`) — **not** QTest. Copy the pattern from an existing test. Code
 that lives in no library (the dialog's `smburl.cpp`, `credentiallookup.cpp`)
 is tested by compiling its translation units straight into the test, without
-`KF6::KIOCore`, so nothing needs a wallet or a NAS. Tests that read the source
+`KF6::KIOCore`, so nothing needs a wallet or a NAS. Those tests also link
+`kde_nasmount-session`, where the `smb://` parser and the domain/user split
+they share with the KCM live. Tests that read the source
 tree (`goldenunits_test`, `shareform_qml_test`) get the path as a compile
 definition rather than a staged copy, which could go stale.
 
@@ -472,9 +524,15 @@ that fails the suite if deleted APIs return — the transaction/recovery engine,
 tombstones/Forget, automatic partial repair, in-place Edit/Replace, pending-
 transaction presentation roles, runtime coupling in the privileged inventory,
 and stale transaction-storage prose in `README.md`, `src` and the install
-scripts. If a build fails
-there, the fix is to stop using the forbidden identifier, not to loosen the
-pattern.
+scripts. It also holds four placement rules:
+- the `smb://` parser stays out of core, the helper and the root library;
+- the service-menu dialog does not regain its own parser;
+- ShareForm never imports Kirigami;
+- the KCM never uses Qt's own URL opening.
+
+The gate greps comments too, so word explanations around a forbidden name
+rather than spelling it out. If a build fails there, the fix is to stop using
+the forbidden identifier, not to loosen the pattern.
 
 Privileged accept paths and real reboot / no-login behaviour are **not** covered
 locally and must be validated in a disposable VM.

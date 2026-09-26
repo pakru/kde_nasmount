@@ -170,6 +170,19 @@ if grep -Eq '^Requires: +kf6-kio-core' "$repo_root/packaging/rpm/nasmount.spec.i
     exit 1
 fi
 
+# The KCM page imports org.kde.kirigami. KCMUtils happens to pull it in today,
+# but a direct import deserves a direct runtime dependency in both families.
+# Runtime only: ShareForm.qml, the one QML file a test loads, must stay free
+# of Kirigami (removed_api_gates.sh), so no build list needs it.
+grep -Eq '^ qml6-module-org-kde-kirigami,?$' "$repo_root/packaging/debian/control" || {
+    echo "ERROR: debian/control does not depend on qml6-module-org-kde-kirigami" >&2
+    exit 1
+}
+grep -Eq '^Requires: +kf6-kirigami$' "$repo_root/packaging/rpm/nasmount.spec.in" || {
+    echo "ERROR: the RPM spec does not require kf6-kirigami" >&2
+    exit 1
+}
+
 # `make deb` / `make rpm` must use the exact images CI uses. A local build
 # against a different digest proves nothing about the CI result, and the pins
 # live in two files that nothing else keeps in step.

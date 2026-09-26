@@ -83,6 +83,16 @@ Network Mounts** to list, add and remove shares with live state for each, or
 the **Dolphin service menu** (right-click an `smb://` share → **Mount as
 Network Drive…**). Both render the same `ShareForm.qml`.
 
+The settings page lists each share as its mount point over its `smb://`
+address, with its access mode and live state beside it, and three buttons:
+**Open** shows the mount point in the file manager (which mounts it), **Details**
+shows the saved share in the same form that created it, read-only, and
+**Remove** asks before removing anything. The **Add** form takes a share as
+`smb://host/share` — or `//host/share` — and a user written into the address
+(`smb://alice@host/share`) fills in the username. On disk nothing changes: the
+units still use the `//host/share` form `mount.cifs` requires, so
+`systemctl status` shows that spelling.
+
 
 ## Source-build requirements
 
@@ -91,12 +101,13 @@ A **Plasma 6+ / KF6+** desktop and **Linux 6.8+** (for `STATX_MNT_ID_UNIQUE`).
 | Need | Debian/Ubuntu package |
 |------|-----------------------|
 | CMake ≥ 3.20, C++20 compiler | `cmake`, `g++` |
-| Qt 6 Core / Widgets / Concurrent / Quick / QuickControls2 | `qt6-base-dev`, `qt6-declarative-dev` |
+| Qt 6 Core / Widgets / Concurrent / Quick / QuickControls2 / DBus | `qt6-base-dev`, `qt6-declarative-dev` |
 | Extra CMake Modules | `extra-cmake-modules` |
 | KF6 Auth / I18n / WidgetsAddons / Config / CoreAddons / KCMUtils | `libkf6auth-dev`, `libkf6i18n-dev`, `libkf6widgetsaddons-dev`, `libkf6config-dev`, `libkf6coreaddons-dev`, `kf6-kcmutils-dev` |
 | KF6 KIO, for the credential lookup described below | `libkf6kio-dev` |
 | QtQuick / Controls / Dialogs / Layouts QML modules, to run the tests | `qml6-module-qtquick`, `qml6-module-qtquick-controls`, `qml6-module-qtquick-dialogs`, `qml6-module-qtquick-layouts` |
 | `mount.cifs` at runtime | `cifs-utils` |
+| Kirigami QML module at runtime, for the settings page | `qml6-module-org-kde-kirigami` (Fedora: `kf6-kirigami`) |
 | KDE's password service at runtime, for credential autofill | `kio6` (Fedora: `kf6-kio-core`) |
 
 
@@ -189,8 +200,9 @@ Two things are worth knowing:
   filled in.
 
 Autofill runs only in the Dolphin service-menu dialog, where the share is
-known from the URL. The System Settings **Add** form is unchanged and always
-manual.
+known from the URL. The System Settings **Add** form never asks the password
+service: the only thing it takes from anywhere but your typing is a username
+written into the `smb://` address itself.
 
 If the fields arrive empty and you expected otherwise, run the dialog from a
 terminal to see why — a lookup that finds nothing says nothing by design:

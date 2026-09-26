@@ -50,8 +50,8 @@ int main(int argc, char **argv)
         // scanning rather than assuming a fixed field count.
         const QString sample = QStringLiteral(
             "36 35 98:0 / /mnt/plain rw,noatime - ext4 /dev/root rw,errors=continue\n"
-            "48 33 0:38 / /home/pavel/NAS/BACKUPS rw,relatime shared:21 - autofs systemd-1 rw,fd=52\n"
-            "98 49 0:56 / /home/pavel/NAS/DOCS rw,relatime shared:882 - cifs //10.0.0.10/DATA rw,vers=2.1\n");
+            "48 33 0:38 / /home/user/NAS/BACKUPS rw,relatime shared:21 - autofs systemd-1 rw,fd=52\n"
+            "98 49 0:56 / /home/user/NAS/DOCS rw,relatime shared:882 - cifs //192.0.2.10/DATA rw,vers=2.1\n");
         const QList<Verify::MountEntry> entries = Verify::parseMountinfo(sample);
         check(QStringLiteral("three lines parsed"), entries.size() == 3, QString::number(entries.size()));
         if (entries.size() == 3) {
@@ -60,7 +60,7 @@ int main(int argc, char **argv)
             check(QStringLiteral("one optional field: fstype is autofs"),
                   entries.at(1).filesystemType == QStringLiteral("autofs"));
             check(QStringLiteral("cifs entry: mountSource"),
-                  entries.at(2).mountSource == QStringLiteral("//10.0.0.10/DATA"), entries.at(2).mountSource);
+                  entries.at(2).mountSource == QStringLiteral("//192.0.2.10/DATA"), entries.at(2).mountSource);
         }
     }
     {

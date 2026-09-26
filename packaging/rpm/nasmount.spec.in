@@ -35,6 +35,9 @@ BuildRequires:  systemd-rpm-macros
 
 Requires:       cifs-utils
 Requires:       kf6-kcmutils
+# The KCM page imports org.kde.kirigami directly. Runtime only: no test loads
+# a Kirigami-importing file, so it is not a BuildRequires.
+Requires:       kf6-kirigami
 Requires:       polkit
 Requires:       qt6-qtdeclarative
 Requires:       sudo

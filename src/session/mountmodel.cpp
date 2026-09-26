@@ -4,6 +4,7 @@
 
 #include "mountmodel.h"
 #include "helperinvoke.h"
+#include "shareaddress.h"
 #include "store.h"
 #include "unitspec.h"
 #include "unitvalue.h"
@@ -163,6 +164,108 @@ RowClassification classifyRow(const RowClassifyInput &in)
     return out;
 }
 
+QString accessModeLabel(UnitValue::AccessMode mode)
+{
+    switch (mode) {
+    case UnitValue::AccessMode::ReadOnly:
+        return QStringLiteral("Read only");
+    case UnitValue::AccessMode::ReadWrite:
+        return QStringLiteral("Read & Write");
+    case UnitValue::AccessMode::ReadWriteExecutable:
+        return QStringLiteral("Read & Write & Execute");
+    }
+    return QString();
+}
+
+QString stateSeverity(DisplayState state)
+{
+    switch (state) {
+    case DisplayState::Inactive:
+    case DisplayState::Armed:
+    case DisplayState::Mounted:
+    case DisplayState::Foreign:
+        return QStringLiteral("normal");
+    case DisplayState::Busy:
+        return QStringLiteral("warning");
+    case DisplayState::MissingCredentials:
+    case DisplayState::Broken:
+        return QStringLiteral("error");
+    }
+    return QStringLiteral("error");
+}
+
+RowRemoval rowRemoval(const RowRemovalInput &in)
+{
+    RowRemoval out;
+    if (in.hasStoreRecord && in.hasUnitFiles && in.canRemoveDefinition) {
+        out.kind = QStringLiteral("delete");
+    } else if (!in.hasStoreRecord && in.hasUnitFiles && in.canRemoveDefinition) {
+        out.kind = QStringLiteral("removeOrphan");
+    } else if (in.hasStoreRecord && in.canRemoveLocalRecord) {
+        out.kind = QStringLiteral("removeRecord");
+    } else if (in.requiresAdministrator) {
+        out.blockedReason = QStringLiteral("Requires administrator repair");
+    } else if (in.state == DisplayState::Foreign) {
+        out.blockedReason = QStringLiteral("Mounted by another tool — unmount it with that tool");
+    } else if (!in.detail.isEmpty()) {
+        out.blockedReason = QStringLiteral("Can't be removed right now: %1").arg(in.detail);
+    } else {
+        out.blockedReason = QStringLiteral("Can't be removed right now");
+    }
+    return out;
+}
+
+RowPresentation presentRow(const RowPresentInput &in)
+{
+    RowPresentation out;
+    out.remoteUrl = ShareAddress::displayUrl(in.unc);
+    out.severity = stateSeverity(in.state);
+    out.detail = in.detail;
+    out.section = QStringLiteral("managed");
+
+    switch (in.state) {
+    case DisplayState::Inactive:
+        out.stateText = QStringLiteral("Inactive");
+        break;
+    case DisplayState::Armed:
+        out.stateText = QStringLiteral("Armed");
+        break;
+    case DisplayState::Mounted:
+        out.stateText = QStringLiteral("Mounted");
+        break;
+    case DisplayState::MissingCredentials:
+        out.stateText = QStringLiteral("Missing credentials");
+        break;
+    case DisplayState::Broken:
+        out.stateText = QStringLiteral("Broken");
+        break;
+    case DisplayState::Busy:
+        out.stateText = QStringLiteral("Busy");
+        break;
+    case DisplayState::Foreign:
+        out.stateText = QStringLiteral("Mounted");
+        out.detail.clear();
+        out.section = QStringLiteral("foreign");
+        break;
+    }
+
+    const bool markerKnown =
+        in.definitionState == QStringLiteral("pair") || in.definitionState == QStringLiteral("partial");
+    if (markerKnown) {
+        out.access = UnitValue::accessModeToString(in.access);
+        out.accessText = accessModeLabel(in.access);
+        out.authentication = in.authentication == UnitValue::AuthenticationKind::Guest
+            ? QStringLiteral("guest")
+            : QStringLiteral("credentials");
+    }
+
+    if (in.hasStoreRecord && !in.storeCorrupt) {
+        out.username = in.storeUsername;
+        out.domain = in.storeDomain;
+    }
+    return out;
+}
+
 bool storeDefinitionDrift(const StoreDefinitionDriftInput &input)
 {
     QString normalisedStoreUnc;
@@ -199,7 +302,7 @@ void queryBootHealth(QString *text, bool *healthy)
               {QStringLiteral("show"), QStringLiteral("nasmount-boot.service"),
                QStringLiteral("--property=UnitFileState,ActiveState,Result,ExecMainStatus")});
     if (!proc.waitForFinished(10000) || proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
-        *text = QStringLiteral("boot coordinator status could not be determined");
+        *text = QStringLiteral("service status undefined");
         *healthy = false;
         return;
     }
@@ -217,7 +320,7 @@ void queryBootHealth(QString *text, bool *healthy)
     }
     if (!properties.contains(QStringLiteral("UnitFileState")) || !properties.contains(QStringLiteral("ActiveState"))
         || !properties.contains(QStringLiteral("Result")) || !properties.contains(QStringLiteral("ExecMainStatus"))) {
-        *text = QStringLiteral("boot coordinator status could not be determined");
+        *text = QStringLiteral("service status undefined");
         *healthy = false;
         return;
     }
@@ -227,19 +330,18 @@ void queryBootHealth(QString *text, bool *healthy)
     const QString execMainStatus = properties.value(QStringLiteral("ExecMainStatus")).trimmed();
 
     if (unitFileState != QStringLiteral("enabled")) {
-        *text = QStringLiteral("boot coordinator is not enabled — shares will not be armed at boot");
+        *text = QStringLiteral("service disabled - shares will not be armed at boot");
         *healthy = false;
         return;
     }
     if (activeState == QStringLiteral("failed") || (result != QStringLiteral("success") && !result.isEmpty())
         || (execMainStatus != QStringLiteral("0") && !execMainStatus.isEmpty())) {
         *text = QStringLiteral(
-            "boot coordinator's last run failed — shares may not be armed (check journalctl -u "
-            "nasmount-boot)");
+            "service failed to start - shares may not be armed (check journalctl -u nasmount-boot)");
         *healthy = false;
         return;
     }
-    *text = QStringLiteral("boot coordinator is enabled and its last run succeeded");
+    *text = QStringLiteral("service enabled");
     *healthy = true;
 }
 
@@ -270,47 +372,36 @@ QVariant MountModel::data(const QModelIndex &index, int role) const
         return {};
     }
     const Row &row = m_rows.at(index.row());
+    const RowPresentation &p = row.presentation;
     switch (role) {
     case IdRole:
         return row.id;
-    case UncRole:
-        return row.unc;
     case MountPointRole:
         return row.mountPoint;
+    case RemoteUrlRole:
+        return p.remoteUrl;
     case StateTextRole:
-        switch (row.state) {
-        case DisplayState::Inactive:
-            return QStringLiteral("Inactive");
-        case DisplayState::Armed:
-            return QStringLiteral("Armed");
-        case DisplayState::Mounted:
-            return QStringLiteral("Mounted");
-        case DisplayState::MissingCredentials:
-            return QStringLiteral("Missing credentials");
-        case DisplayState::Broken:
-            return QStringLiteral("Broken");
-        case DisplayState::Busy:
-            return QStringLiteral("Busy");
-        case DisplayState::Foreign:
-            return QStringLiteral("Foreign");
-        }
-        return {};
+        return p.stateText;
+    case SeverityRole:
+        return p.severity;
     case DetailRole:
-        return row.detail;
-    case HasUnitFilesRole:
-        return row.hasUnitFiles;
-    case HasStoreRecordRole:
-        return row.hasStoreRecord;
-    case DriftRole:
-        return row.drift;
-    case CanRemoveDefinitionRole:
-        return row.canRemoveDefinition;
-    case CanRemoveLocalRecordRole:
-        return row.canRemoveLocalRecord;
-    case RequiresAdministratorRole:
-        return row.requiresAdministrator;
+        return p.detail;
     case AccessRole:
-        return UnitValue::accessModeToString(row.access);
+        return p.access;
+    case AccessTextRole:
+        return p.accessText;
+    case AuthenticationRole:
+        return p.authentication;
+    case UsernameRole:
+        return p.username;
+    case DomainRole:
+        return p.domain;
+    case RemovalRole:
+        return row.removal.kind;
+    case RemovalBlockedReasonRole:
+        return row.removal.blockedReason;
+    case SectionRole:
+        return p.section;
     default:
         return {};
     }
@@ -320,28 +411,20 @@ QHash<int, QByteArray> MountModel::roleNames() const
 {
     return {
         {IdRole, "shareId"},
-        {UncRole, "unc"},
         {MountPointRole, "mountPoint"},
+        {RemoteUrlRole, "remoteUrl"},
         {StateTextRole, "stateText"},
+        {SeverityRole, "severity"},
         {DetailRole, "detail"},
-        {HasUnitFilesRole, "hasUnitFiles"},
-        {HasStoreRecordRole, "hasStoreRecord"},
-        {DriftRole, "drift"},
-        {CanRemoveDefinitionRole, "canRemoveDefinition"},
-        {CanRemoveLocalRecordRole, "canRemoveLocalRecord"},
-        {RequiresAdministratorRole, "requiresAdministrator"},
         {AccessRole, "access"},
+        {AccessTextRole, "accessText"},
+        {AuthenticationRole, "authentication"},
+        {UsernameRole, "username"},
+        {DomainRole, "domain"},
+        {RemovalRole, "removal"},
+        {RemovalBlockedReasonRole, "removalBlockedReason"},
+        {SectionRole, "section"},
     };
-}
-
-bool MountModel::hasShares() const
-{
-    for (const Row &row : m_rows) {
-        if (row.hasUnitFiles) {
-            return true;
-        }
-    }
-    return false;
 }
 
 QString MountModel::bootHealthText() const
@@ -428,6 +511,8 @@ MountModel::RefreshResult MountModel::computeRefresh()
             // changes the outcome to Broken/local-record-only.
             Row &row = rows[*it];
             row.hasStoreRecord = true;
+            row.storeUsername = share.username;
+            row.storeDomain = share.domain;
             if (snap.corrupt) {
                 row.storeCorrupt = true;
             } else {
@@ -474,6 +559,8 @@ MountModel::RefreshResult MountModel::computeRefresh()
             row.mountPoint = share.mountPoint;
             row.hasStoreRecord = true;
             row.storeCorrupt = snap.corrupt;
+            row.storeUsername = share.username;
+            row.storeDomain = share.domain;
             row.definitionState = QStringLiteral("none");
             row.hasUnitFiles = false;
 
@@ -571,10 +658,13 @@ MountModel::RefreshResult MountModel::computeRefresh()
         }
     }
 
-    // ---- source 4: unclaimed live CIFS mounts. A mountinfo read failure
-    // here just means foreign mounts cannot be discovered this refresh — it
-    // must not be mistaken for "there are none", so the
-    // augmentation is skipped rather than asserting an empty result. --------
+    // ---- source 4: unclaimed live CIFS mounts. Appended after every
+    // managed row on purpose: the KCM groups rows into ListView sections by
+    // presentRow()'s `section`, and a section is one block only while its rows
+    // are adjacent. A mountinfo read failure here just means foreign mounts
+    // cannot be discovered this refresh — it must not be mistaken for "there
+    // are none", so the augmentation is skipped rather than asserting an
+    // empty result. ----------------------------------------------------------
     QList<Verify::MountEntry> mounts;
     if (Verify::currentMounts(&mounts)) {
         for (const Verify::MountEntry &entry : mounts) {
@@ -588,6 +678,33 @@ MountModel::RefreshResult MountModel::computeRefresh()
             row.detail = QStringLiteral("mounted by another tool");
             rows.append(row);
         }
+    }
+
+    // Presentation and removal last, after the inventory pass has had its
+    // chance to re-classify, so they describe each row's final state.
+    for (Row &row : rows) {
+        RowPresentInput present;
+        present.definitionState = row.definitionState;
+        present.state = row.state;
+        present.detail = row.detail;
+        present.unc = row.unc;
+        present.authentication = row.authentication;
+        present.access = row.access;
+        present.hasStoreRecord = row.hasStoreRecord;
+        present.storeCorrupt = row.storeCorrupt;
+        present.storeUsername = row.storeUsername;
+        present.storeDomain = row.storeDomain;
+        row.presentation = presentRow(present);
+
+        RowRemovalInput removal;
+        removal.hasStoreRecord = row.hasStoreRecord;
+        removal.hasUnitFiles = row.hasUnitFiles;
+        removal.canRemoveDefinition = row.canRemoveDefinition;
+        removal.canRemoveLocalRecord = row.canRemoveLocalRecord;
+        removal.requiresAdministrator = row.requiresAdministrator;
+        removal.state = row.state;
+        removal.detail = row.detail;
+        row.removal = rowRemoval(removal);
     }
 
     queryBootHealth(&result.bootHealthText, &result.bootHealthy);

@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# Prevent the removed transaction/Edit/Forget surface from silently returning.
+# Prevent the removed transaction/Edit/Forget surface from silently returning,
+# and hold the placement rules that would otherwise rest only on review: which
+# libraries may carry the smb:// address parser, which QML may import
+# Kirigami, and which calls the KCM may use to open a folder. Every check
+# greps comments too, so no comment may spell out a forbidden name -- word
+# explanations around it.
 # Run from CTest and install.sh.
 
 set -euo pipefail
@@ -50,6 +55,36 @@ check_no_matches "pending presentation roles" \
 check_no_matches "privileged inventory runtime coupling" \
     'runtimeCorrelation|verificationStr|inspectRuntime|\bwhat\b' \
     src/root/inventory.h src/root/inventory.cpp
+
+# The smb:// address parser belongs to the session library. Core is linked
+# into the privileged helper, so the parser appearing in core, the helper or
+# the root library would let the helper be handed an smb:// value and accept
+# it; the helper's contract is //host/share only.
+check_no_matches "smb:// parser placement" \
+    'ShareAddress|parseSmbUrl|shareaddress\.h' \
+    src/core src/helper src/root
+
+# The service-menu dialog used to carry its own copy of that parser and of the
+# domain/user split. They moved into the session library; a second copy in
+# the dialog would let the two front ends parse addresses differently.
+check_no_matches "removed dialog parser" \
+    'SmbUrl::(parse|splitDomainUser|Identity)\b' \
+    src tests
+
+# The KCM opens a mount point by asking the file manager over D-Bus. Qt's own
+# URL-opening paths examine a local path inside this process to choose an
+# application, and examining an automount point triggers the mount, blocking
+# System Settings until it completes or times out.
+check_no_matches "non-blocking Open" \
+    'openUrlExternally|QDesktopServices' \
+    src/kcm
+
+# shareform_qml_test loads ShareForm.qml in the native package builds, whose
+# containers have no Kirigami. A workstation does have it, so a Kirigami import
+# in the form would pass every local test and fail only in a package build.
+check_no_matches "Kirigami-free ShareForm" \
+    'org\.kde\.kirigami' \
+    src/kcm/ui/ShareForm.qml
 
 set +e
 documentation_output=$(grep -rn -E \

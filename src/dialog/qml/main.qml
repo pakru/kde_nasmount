@@ -131,7 +131,7 @@ QQC2.ApplicationWindow {
             visible: root.existing
             wrapMode: Text.WordWrap
             font.bold: true
-            text: backend.unc
+            text: backend.actions.displayUrl(backend.unc)
             Layout.fillWidth: true
         }
         QQC2.Label {

@@ -1,17 +1,14 @@
 /*
- * smburl — the service menu's pure input handling: turning the smb:// URL
- * Dolphin substitutes into a validated CIFS UNC, and the small presentation
- * helpers that go with it.
+ * smburl — the service menu's small presentation helpers for the share it
+ * was invoked on: a suggested mount point, a coarse state line, and the
+ * credential-lookup target.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Split out of the dialog itself so it is testable without a GUI
- * (smburl_test). None of it is a
- * security boundary — the KAuth helper re-validates every field regardless,
- * because a hostile process can invoke the action directly and never come
- * through this code at all — but it is the parsing most likely to meet
- * genuinely odd input, since Dolphin substitutes %u with the URL *as
- * displayed*, spaces and all.
+ * (smburl_test). Turning the smb:// URL Dolphin substitutes into a UNC is not
+ * here: the KCM's Add field accepts smb:// addresses too, so that parser lives
+ * in the session library as Session::ShareAddress, shared by both front ends.
  */
 
 #pragma once
@@ -21,11 +18,6 @@
 
 namespace Dialog::SmbUrl
 {
-
-/** Turns an smb:// URL into a CIFS UNC path, or reports why it cannot.
- *  Rejects ports, passwords, queries, fragments, IPv6 hosts, server-only
- *  URLs and control characters. */
-bool parse(const QString &raw, QString *unc, QString *user, QString *error);
 
 /**
  * Suggests ~/<ShareName> for the share being mounted.
@@ -47,19 +39,5 @@ QString describeState(const QString &mountPoint);
  * QUrl means "no lookup", never a reason to broaden the target.
  */
 QUrl authLookupTarget(const QString &unc);
-
-/** A username split into its domain and bare-name halves. */
-struct Identity {
-    QString domain;
-    QString username;
-};
-
-/**
- * Splits `DOMAIN\user` or `DOMAIN/user` exactly as KDE does
- * (SMBUrl::splitDomainUser): the first separator wins, one at position 0 does
- * not split, and a UPN is left whole. Both sides of an identity comparison go
- * through it, so `DOMAIN\alice` and `alice` are not taken for two accounts.
- */
-Identity splitDomainUser(const QString &combined);
 
 } // namespace Dialog::SmbUrl

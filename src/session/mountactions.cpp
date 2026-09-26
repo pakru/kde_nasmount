@@ -4,6 +4,7 @@
 
 #include "mountactions.h"
 #include "helperinvoke.h"
+#include "shareaddress.h"
 #include "store.h"
 #include "userlock.h"
 #include "verify.h"
@@ -86,12 +87,22 @@ bool guestFieldsConsistent(const QString &username, const QString &domain, const
 
 MountActions::MountActions(QObject *parent) : QObject(parent) { }
 
-void MountActions::addShare(const QString &unc, const QString &rawMountPoint, const QString &username,
+void MountActions::addShare(const QString &shareInput, const QString &rawMountPoint, const QString &username,
                             const QString &domain, const QString &password, const QString &access)
 {
     const QString kind = QStringLiteral("add");
     const QString mountPoint = canonicalMountPoint(rawMountPoint);
     Q_EMIT started(QString(), kind);
+
+    // First, before the helper call *and* the Store commit: Store's UNC is
+    // re-validated as //host/share by the drift comparison, so an smb://
+    // value reaching it would make every new share look like drift.
+    QString unc;
+    QString addressError;
+    if (!ShareAddress::resolveShareInput(shareInput, username, &unc, &addressError)) {
+        Q_EMIT finished(QString(), kind, false, addressError);
+        return;
+    }
 
     if (!guestFieldsConsistent(username, domain, password)) {
         Q_EMIT finished(QString(), kind, false,
@@ -282,5 +293,14 @@ void MountActions::removeOrphanByPath(const QString &mountPoint)
     watcher->setFuture(future);
 }
 
+QString MountActions::displayUrl(const QString &unc) const
+{
+    return ShareAddress::displayUrl(unc);
+}
+
+QString MountActions::userInShareInput(const QString &text) const
+{
+    return ShareAddress::userInShareInput(text);
+}
 
 } // namespace Session

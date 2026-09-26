@@ -22,6 +22,7 @@ target_link_libraries(kcm_nasmount PRIVATE
     kde_nasmount-core
     kde_nasmount-session
     Qt6::Core
+    Qt6::DBus
     Qt6::Quick
     KF6::KCMUtilsQuick
     KF6::CoreAddons

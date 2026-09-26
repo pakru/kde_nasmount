@@ -44,7 +44,7 @@ include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 include(FeatureSummary)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent Quick QuickControls2)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent Quick QuickControls2 DBus)
 # KIO is required for KPasswdServerClient alone, the public way to ask the
 # session whether it knows a password for a share. It is
 # linked into nasmount-dialog only, never into core and so never into the
@@ -91,6 +91,7 @@ add_library(kde_nasmount-session STATIC
     src/session/helperinvoke.cpp
     src/session/mountactions.cpp
     src/session/mountmodel.cpp
+    src/session/shareaddress.cpp
 )
 target_include_directories(kde_nasmount-session PUBLIC src/session)
 target_link_libraries(kde_nasmount-session PUBLIC
@@ -98,6 +99,8 @@ target_link_libraries(kde_nasmount-session PUBLIC
     Qt6::Core Qt6::Concurrent
     KF6::AuthCore KF6::ConfigCore
 )
+# i18n() is used only by the smb:// parser's user-facing errors.
+target_link_libraries(kde_nasmount-session PRIVATE KF6::I18n)
 
 # ---------------------------------------------------------------------------
 # root — the private, privileged library: descriptor-based durable filesystem
@@ -293,14 +296,21 @@ target_link_libraries(unitspec_test PRIVATE kde_nasmount-core)
 add_test(NAME unitspec COMMAND unitspec_test)
 
 # smburl links the dialog's own translation unit directly rather than a
-# library: it is the only non-GUI part of nasmount-dialog, and pulling it into
-# a library purely for the test would be more structure than it earns.
+# library: what is left in it is dialog-only presentation. The smb:// parser
+# that used to live beside it moved into the session library because the KCM's
+# Add field needs it too -- not for the test's sake -- and is covered by
+# shareaddress_test.
 add_executable(smburl_test tests/smburl_test.cpp src/dialog/smburl.cpp)
 target_include_directories(smburl_test PRIVATE src/dialog)
-target_link_libraries(smburl_test PRIVATE kde_nasmount-core KF6::I18n)
+target_link_libraries(smburl_test PRIVATE kde_nasmount-core)
 add_test(NAME smburl COMMAND smburl_test)
 
-# Links the dialog translation units the way smburl_test does, and
+add_executable(shareaddress_test tests/shareaddress_test.cpp)
+target_link_libraries(shareaddress_test PRIVATE kde_nasmount-session)
+add_test(NAME shareaddress COMMAND shareaddress_test)
+
+# Links the dialog translation units the way smburl_test does, plus the
+# session library for the identity split it shares with the Add form, and
 # deliberately not KF6::KIOCore: everything tested here is pure, so the suite
 # never needs a wallet, a password service or a NAS.
 add_executable(credentiallookup_test
@@ -309,7 +319,7 @@ add_executable(credentiallookup_test
     src/dialog/smburl.cpp
 )
 target_include_directories(credentiallookup_test PRIVATE src/dialog)
-target_link_libraries(credentiallookup_test PRIVATE kde_nasmount-core KF6::I18n)
+target_link_libraries(credentiallookup_test PRIVATE kde_nasmount-session)
 add_test(NAME credentiallookup COMMAND credentiallookup_test)
 
 # Loads the *real* ShareForm.qml for the one rule no C++ model can stand in
