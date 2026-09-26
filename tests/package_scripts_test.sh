@@ -7,9 +7,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 uninstaller="$repo_root/packaging/nasmount-uninstall.sh"
 release_tagger="$repo_root/packaging/tag-release.sh"
+release_next="$repo_root/packaging/release-next.sh"
 
 bash -n "$uninstaller"
 bash -n "$release_tagger"
+bash -n "$release_next"
 # Sourcing exposes only pure command selection; main is guarded and therefore
 # cannot request authorization during CTest.
 source "$uninstaller"
@@ -331,21 +333,25 @@ for root in /etc/nasmount /run/nasmount /run/nasmount-ids; do
     grep -Fq "$root" "$postrm_script"
 done
 
-# Exercise the release helper against a local bare origin. No network access,
-# credentials, tag push, or modification of the source repository is involved.
+# Exercise the release helpers against a local bare origin. No external network
+# access, credentials, or modification of the source repository is involved.
 tag_test_root="$(mktemp -d)"
 tag_test_repo="$tag_test_root/repository"
 tag_test_origin="$tag_test_root/origin.git"
 git init --bare --quiet "$tag_test_origin"
 git init --quiet --initial-branch=master "$tag_test_repo"
 mkdir "$tag_test_repo/packaging"
+mkdir -p "$tag_test_repo/.github/workflows"
 cp "$release_tagger" "$tag_test_repo/packaging/tag-release.sh"
+cp "$release_next" "$tag_test_repo/packaging/release-next.sh"
+cp "$repo_root/.github/workflows/ci.yml" "$tag_test_repo/.github/workflows/ci.yml"
+cp "$repo_root/.github/workflows/release.yml" "$tag_test_repo/.github/workflows/release.yml"
 cp "$repo_root/VERSION" "$tag_test_repo/VERSION"
 cp "$repo_root/packaging/RELEASE" "$tag_test_repo/packaging/RELEASE"
 git -C "$tag_test_repo" config user.name 'nasmount release test'
 git -C "$tag_test_repo" config user.email 'release-test@nasmount.invalid'
 git -C "$tag_test_repo" config tag.gpgSign false
-git -C "$tag_test_repo" add VERSION packaging
+git -C "$tag_test_repo" add VERSION packaging .github
 git -C "$tag_test_repo" commit --quiet -m 'Test release state'
 git -C "$tag_test_repo" remote add origin "$tag_test_origin"
 git -C "$tag_test_repo" push --quiet --set-upstream origin master
@@ -355,9 +361,16 @@ if "$tag_test_repo/packaging/tag-release.sh" >"$tag_test_root/dirty.out" 2>&1; t
     echo "ERROR: release helper accepted a dirty worktree" >&2
     exit 1
 fi
+if "$tag_test_repo/packaging/release-next.sh" >"$tag_test_root/next-dirty.out" 2>&1; then
+    echo "ERROR: automatic release accepted a dirty worktree" >&2
+    exit 1
+fi
 rm -- "$tag_test_repo/untracked-change"
 
 expected_tag="v$(tr -d '\n' < "$tag_test_repo/VERSION")"
+IFS=. read -r expected_major expected_minor expected_patch < "$tag_test_repo/VERSION"
+next_version="$expected_major.$expected_minor.$((10#$expected_patch + 1))"
+next_tag="v$next_version"
 tag_output="$("$tag_test_repo/packaging/tag-release.sh")"
 [ "$(git -C "$tag_test_repo" cat-file -t "refs/tags/$expected_tag")" = tag ]
 grep -Fq "git push origin refs/tags/$expected_tag" <<<"$tag_output"
@@ -376,5 +389,76 @@ if "$tag_test_repo/packaging/tag-release.sh" >"$tag_test_root/remote-duplicate.o
     echo "ERROR: release helper accepted an existing remote tag" >&2
     exit 1
 fi
+
+# The automatic path uses a local origin and a fake gh executable, so these
+# checks exercise commit/tag ordering and the CI gate without starting a run.
+cat > "$tag_test_root/gh" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+case "$1 $2" in
+    'repo view')
+        printf 'test/nasmount\n'
+        ;;
+    'workflow run')
+        [ "$(git branch --show-current)" != master ] || {
+            echo 'master CI should start from the branch push' >&2
+            exit 1
+        }
+        printf 'CI dispatched\n'
+        ;;
+    'run list')
+        sha="$(git rev-parse HEAD)"
+        if [[ " $* " == *' --workflow ci.yml '* ]]; then
+            id=101
+            if [ "$(git branch --show-current)" = master ]; then
+                [[ " $* " == *' --event push '* ]]
+            else
+                [[ " $* " == *' --event workflow_dispatch '* ]]
+            fi
+        else
+            id=102
+            [[ " $* " == *' --event push '* ]]
+        fi
+        printf '[{"databaseId":%s,"createdAt":"9999-01-01T00:00:00Z","headSha":"%s"}]\n' "$id" "$sha"
+        ;;
+    'run view')
+        if [ "${TEST_CI_FAIL:-0}" = 1 ] && [ "$3" = 101 ]; then
+            printf '{"status":"completed","conclusion":"failure"}\n'
+        else
+            printf '{"status":"completed","conclusion":"success"}\n'
+        fi
+        ;;
+    'release view')
+        printf '{"isDraft":false,"url":"https://github.com/test/nasmount/releases/tag/%s"}\n' "$3"
+        ;;
+    *)
+        printf 'unexpected gh call: %s\n' "$*" >&2
+        exit 1
+        ;;
+esac
+EOF
+chmod +x "$tag_test_root/gh"
+
+failure_repo="$tag_test_root/ci-failure"
+git clone --quiet --branch master "$tag_test_origin" "$failure_repo"
+git -C "$failure_repo" config user.name 'nasmount release test'
+git -C "$failure_repo" config user.email 'release-test@nasmount.invalid'
+git -C "$failure_repo" switch --quiet -c ci-failure
+if PATH="$tag_test_root:$PATH" TEST_CI_FAIL=1 \
+    "$failure_repo/packaging/release-next.sh" >"$tag_test_root/ci-failure.out" 2>&1; then
+    echo "ERROR: automatic release continued after CI failed" >&2
+    exit 1
+fi
+[ -z "$(git --git-dir="$tag_test_origin" tag --list "$next_tag")" ] || {
+    echo "ERROR: automatic release tagged an untested commit" >&2
+    exit 1
+}
+
+next_output="$(PATH="$tag_test_root:$PATH" "$tag_test_repo/packaging/release-next.sh")"
+[ "$(<"$tag_test_repo/VERSION")" = "$next_version" ]
+[ "$(git --git-dir="$tag_test_origin" show master:VERSION)" = "$next_version" ]
+[ "$(git --git-dir="$tag_test_origin" rev-parse "$next_tag^{commit}")" = \
+    "$(git --git-dir="$tag_test_origin" rev-parse master)" ]
+grep -Fq "Published https://github.com/test/nasmount/releases/tag/$next_tag" <<<"$next_output"
 
 echo "Native package shell checks passed."
