@@ -1,13 +1,12 @@
 /*
- * systemdops — privileged systemd command execution for kde_nasmount-root
- * (plan §2.1.5).
+ * systemdops — privileged systemd command execution for kde_nasmount-root.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Every call is bounded (output capped, a timeout that kills a runaway
- * process rather than leaking it) and exit-status checked — the unchecked
- * `systemctl` invocations plan §2.6.6 lists as a phase-2 defect all funnel
- * through here now, so there is exactly one place that can drift.
+ * process rather than leaking it) and exit-status checked. Every privileged
+ * `systemctl` invocation funnels through here, so there is exactly one place
+ * that can drift.
  */
 
 #pragma once
@@ -33,7 +32,7 @@ int runCommand(const QString &program, const QStringList &args, QString *output)
 
 /**
  * Overrides the runner every function below dispatches through — for tests
- * only (plan §2.1.5's "injectable runners"). Not thread-safe to change
+ * only. Not thread-safe to change
  * concurrently with use; set once before any call, e.g. at the top of a
  * test's main(). Pass an empty std::function to restore runCommand().
  */

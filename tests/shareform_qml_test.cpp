@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * One rule cannot be checked anywhere else: an imported credential must never
- * be paired with a manually entered one (plan §§5, 8.1). Both halves of it
+ * be paired with a manually entered one. Both halves of it
  * live in QML, which resolves nothing at compile time, so a C++ imitation
  * would keep passing while the form drifted. Edits are simulated by emitting
  * the field's own textEdited signal, and assignment is used where the host

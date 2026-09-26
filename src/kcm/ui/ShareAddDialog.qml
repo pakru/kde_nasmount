@@ -7,8 +7,8 @@
  * nasmount-dialog embeds verbatim. This file supplies only what is specific
  * to being a modal dialog inside the KCM page: the window chrome, the Add
  * button, and the `kcm.actions` binding. Do not reintroduce form fields here
- * — a field added on one side and not the other is how the two front ends
- * drifted apart before.
+ * — a field added on one side and not the other makes the two front ends
+ * drift apart.
  */
 
 import QtQuick

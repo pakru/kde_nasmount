@@ -4,15 +4,14 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Replaces the old QWidgets MountDialog. The form itself is now
- * ShareForm.qml, shared verbatim with the KCM, so what is left here is only
- * the service-menu-specific context: the UNC, whether that share is already
- * saved, the outcome of the asynchronous action, and the credential lookup —
- * which lives here because the form is host-agnostic and the KCM has no
- * smb:// URL to look anything up for.
+ * The form itself is ShareForm.qml, shared verbatim with the KCM, so this
+ * holds only the service-menu-specific context: the UNC, whether that share
+ * is already saved, the outcome of the asynchronous action, and the
+ * credential lookup — which lives here because the form is host-agnostic and
+ * the KCM has no smb:// URL to look anything up for.
  *
- * Unprivileged, like the dialog it replaces. Anything it decides is for the
- * user's benefit only — the KAuth helper re-checks everything.
+ * Unprivileged. Anything it decides is for the user's benefit only — the
+ * KAuth helper re-checks everything.
  */
 
 #pragma once
@@ -46,7 +45,7 @@ class DialogBackend : public QObject
 
 public:
     /** `urlUser` is what the smb:// URL carried, `loginUser` the local
-     *  fallback. Separate on purpose (plan §3.1): only the first is evidence
+     *  fallback. Separate on purpose: only the first is evidence
      *  of which SMB account is meant, so only it constrains the lookup. */
     DialogBackend(const QString &unc, const QString &urlUser, const QString &loginUser,
                   QObject *parent = nullptr);
@@ -61,7 +60,7 @@ public:
 
     Q_INVOKABLE void removeExisting();
 
-    /** Starts the one lookup for this window (plan §5). Called from QML once
+    /** Starts the one lookup for this window. Called from QML once
      *  the window exists, never from the constructor, or a fast result would
      *  arrive before QML connected. Does nothing for a saved share. */
     Q_INVOKABLE void startCredentialLookup();
@@ -73,7 +72,7 @@ public:
 
 Q_SIGNALS:
     /** One eligible credential, once. The password is a signal argument and
-     *  never a property (plan §4.2), which would keep it readable from QML
+     *  never a property, which would keep it readable from QML
      *  for the window's lifetime. */
     void credentialSuggestion(const QString &username, const QString &domain,
                               const QString &password);

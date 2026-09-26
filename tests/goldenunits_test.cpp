@@ -10,7 +10,7 @@
  * Generation and validation share the same fixed-value functions, so changing
  * one changes both in lockstep and the existing suite stays green while every
  * pre-existing share on every user's disk silently becomes Tampered — which
- * unarms it at the next boot (deb plan §1.3).
+ * unarms it at the next boot.
  *
  * This gate is the only thing that catches that. The corpus under
  * tests/golden/units/<version>/ is a byte-for-byte record of what a released

@@ -1,12 +1,12 @@
 /*
  * rootlock — the single root-owned advisory lock shared by every privileged
- * nasmount executable (plan §2.1.3, design §6.4-6.5).
+ * nasmount executable.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Covers authorisation, credential writes/deletes, unit-file changes,
  * start/stop and the completed reload for one privileged operation.
- * nasmount-helper and nasmount-boot (phase 4) both take this same lock, so a
+ * nasmount-helper and nasmount-boot both take this same lock, so a
  * boot arming pass and a helper call can never interleave — otherwise
  * `undefinesystem` could remove a pair that boot has already enumerated,
  * after which boot starts the still-loaded unit and records an id for an

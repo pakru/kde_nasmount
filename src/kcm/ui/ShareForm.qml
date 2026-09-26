@@ -8,9 +8,7 @@
  * host context object) — the MountActions instance arrives through the
  * `actions` property, and every other host difference is a property too. That
  * is what lets one definition serve both entry points; a single `kcm.` here
- * would silently make it KCM-only again, which is exactly how the two forms
- * drifted apart before (the service menu could not create System shares at
- * all, because its separate copy predated the mode selector).
+ * would silently make it KCM-only, and the two front ends would drift apart.
  *
  * Validation here is convenience only. UnitSpec re-validates every field in
  * the privileged helper, which is the boundary that actually matters.
@@ -49,7 +47,7 @@ ColumnLayout {
 
     /**
      * True once no suggestion may be applied any more -- the user typed in a
-     * credential field, or the form was submitted (autofill plan §5). A host
+     * credential field, or the form was submitted. A host
      * watches it to stop a lookup it started. Driven by textEdited and not
      * textChanged, which also fires when the host fills a field in.
      */
@@ -107,8 +105,8 @@ ColumnLayout {
         // component.
         objectName: "userField"
         Layout.fillWidth: true
-        // Guest selection clears the fields it disables below (design
-        // §7.4.4), not just visually hides them -- otherwise stale text
+        // Guest selection clears the fields it disables below, not just
+        // visually hides them -- otherwise stale text
         // left in a disabled field is silently sent as guest-inconsistent
         // input and the save is confusingly rejected.
         onTextChanged: {
@@ -221,9 +219,8 @@ ColumnLayout {
     }
 
     // One lifecycle, no per-share switches: saving a share means it is armed
-    // at boot and mounts on first access. There is deliberately no "arm at
-    // sign-in" or mode choice to make -- asking to mount a share *is* asking
-    // for it to be there after a reboot.
+    // at boot and mounts on first access -- asking to mount a share *is*
+    // asking for it to be there after a reboot.
     //
     // Access is the one exception, and only because it cannot be changed
     // later: there is no in-place Edit anywhere in this codebase, so this

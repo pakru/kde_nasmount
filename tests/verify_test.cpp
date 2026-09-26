@@ -1,6 +1,6 @@
 /*
  * Tests for Verify: mountinfo parsing and the parts of the runtime state model
- * that do not require root (docs/credential-modes-design.md §4.2).
+ * that do not require root.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
         }
     }
 
-    out << "=== classifyMountEntries: pure classification (plan §1.4.2) ===" << Qt::endl;
+    out << "=== classifyMountEntries: pure classification ===" << Qt::endl;
     {
         auto entry = [](const QString &mountPoint, const QString &fsType, const QString &source) {
             Verify::MountEntry e;
@@ -185,8 +185,8 @@ int main(int argc, char **argv)
         {
             const auto def = Verify::inspectDefinition(paths, ::getuid(), QStringLiteral("/some/path"));
             check(QStringLiteral("neither file exists -> None"), def.state == Verify::Definition::None);
-            // Path/unit-name identity is populated regardless of state (plan
-            // §1.3.1), not only once a definition is found.
+            // Path/unit-name identity is populated regardless of state, not
+            // only once a definition is found.
             check(QStringLiteral("canonicalMountPoint populated even for None"),
                   def.canonicalMountPoint == QStringLiteral("/some/path"), def.canonicalMountPoint);
             check(QStringLiteral("mountUnitName populated even for None"),
@@ -263,9 +263,9 @@ int main(int argc, char **argv)
                 check(QStringLiteral("mountPoint from the pair"), result.at(0).mountPoint == QStringLiteral("/mnt/a"));
                 check(QStringLiteral("id from the pair"), result.at(0).id == id1);
                 check(QStringLiteral("unitName is the base name"), result.at(0).unitName == QStringLiteral("share-a"));
-                check(QStringLiteral("what from the .mount half (plan §3.3 inventory needs this)"),
+                check(QStringLiteral("what from the .mount half (the inventory needs this)"),
                       result.at(0).what == QStringLiteral("//host/a"));
-                check(QStringLiteral("ownerUid from the marker (plan §4.2.3 boot needs this)"),
+                check(QStringLiteral("ownerUid from the marker (boot needs this)"),
                       result.at(0).ownerUid == ::getuid());
                 check(QStringLiteral("ownerGid from the marker"), result.at(0).ownerGid == ::getgid());
             }
@@ -286,9 +286,8 @@ int main(int argc, char **argv)
                   result.size() == 1 && result.at(0).what == QStringLiteral("//host/b"));
         }
         {
-            // Automount half only -> Partial. This is exactly the case the old
-            // .mount-only scan made invisible. No .mount half survives, so
-            // there is no What= to report.
+            // Automount half only -> Partial, which a .mount-only scan would
+            // miss. No .mount half survives, so there is no What= to report.
             Verify::ScannedHalf automountHalf;
             automountHalf.baseName = QStringLiteral("share-c");
             automountHalf.isMount = false;
@@ -296,7 +295,7 @@ int main(int argc, char **argv)
             automountHalf.where = QStringLiteral("/mnt/c");
 
             const auto result = Verify::pairScannedHalves({automountHalf});
-            check(QStringLiteral("automount-only -> Partial (was invisible before plan §1.3)"),
+            check(QStringLiteral("automount-only -> Partial, not invisible"),
                   result.size() == 1 && result.at(0).state == Verify::Definition::Partial);
             check(QStringLiteral("automount-only Partial has no What="),
                   result.size() == 1 && result.at(0).what.isEmpty());
@@ -387,7 +386,7 @@ int main(int argc, char **argv)
         }
         {
             // Two different base names claiming the same id -> both Tampered,
-            // never silently picking one (plan §1.3.5).
+            // never silently picking one.
             Verify::ScannedHalf mountHalf1;
             mountHalf1.baseName = QStringLiteral("share-f1");
             mountHalf1.isMount = true;
@@ -427,7 +426,7 @@ int main(int argc, char **argv)
                 // The collision pass populates an entry and only then demotes
                 // it, so access has to be reset explicitly along with the
                 // other marker-derived fields -- otherwise a demoted row
-                // keeps and displays a mode nothing vouches for any more.
+                // keeps and displays an access mode nothing vouches for.
                 check(QStringLiteral("Tampered entry resets access to the default too"),
                       u.access == UnitValue::AccessMode::ReadWrite);
             }

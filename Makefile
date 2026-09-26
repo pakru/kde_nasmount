@@ -1,10 +1,11 @@
 # nasmount — conventional `make` / `make install` front end for the CMake build.
 #
 # `install`/`uninstall` delegate to install.sh/uninstall.sh rather than
-# reimplementing them: those scripts gate installation on the test suite
-# passing, detect and remove a previous org.kde.nasmount (transient-design)
-# install, refresh Dolphin's and System Settings' KCM cache, and enable the
-# session supervisor. A bare `cmake --install` would skip all of that.
+# reimplementing them. install.sh gates installation on the full test suite
+# passing, enables nasmount-boot.service, and refreshes Dolphin's and System
+# Settings' service cache; uninstall.sh runs the authenticated purge through
+# nasmount-cleanup before it removes the installed files. A bare
+# `cmake --install` would skip all of that.
 
 BUILD_DIR := build
 DIST_DIR ?= dist

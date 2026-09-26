@@ -46,7 +46,7 @@ include(FeatureSummary)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent Quick QuickControls2)
 # KIO is required for KPasswdServerClient alone, the public way to ask the
-# session whether it knows a password for a share (autofill plan §2.2). It is
+# session whether it knows a password for a share. It is
 # linked into nasmount-dialog only, never into core and so never into the
 # privileged helper.
 find_package(KF6 6.0 REQUIRED COMPONENTS Auth I18n WidgetsAddons Config CoreAddons KCMUtils KIO)
@@ -60,8 +60,8 @@ configure_file(src/core/nasmountversion.h.in
                @ONLY)
 
 # ---------------------------------------------------------------------------
-# core — validation, unit-value encoding, and the read-only state model
-# (docs/credential-modes-design.md §§4-6). Linked into every binary,
+# core — validation, unit-value encoding, and the read-only state model.
+# Linked into every binary,
 # including the privileged helper, which is exactly why it stays a STATIC
 # library rather than a shared one: the helper must have no runtime
 # dependency on a .so a non-root user could replace.
@@ -80,9 +80,9 @@ target_link_libraries(kde_nasmount-core PUBLIC Qt6::Core)
 
 # ---------------------------------------------------------------------------
 # session — Store (KConfig), the per-user lock, the KAuth call
-# wrapper, the async operation controller, and the display model. Never
-# linked into the helper (plan §8: "session -> dialog, kcm --
-# never the helper").
+# wrapper, the async operation controller, and the display model. Linked
+# into the dialog, the KCM and the cleanup tool -- never the helper, which
+# must not act on anything read from a user's own configuration.
 # ---------------------------------------------------------------------------
 add_library(kde_nasmount-session STATIC
     src/session/cleanupvalidation.cpp
@@ -102,7 +102,7 @@ target_link_libraries(kde_nasmount-session PUBLIC
 # ---------------------------------------------------------------------------
 # root — the private, privileged library: descriptor-based durable filesystem
 # primitives, the root lock, systemd command execution, and credential/
-# runtime artifact stores (plan §2.1). Linked ONLY into privileged
+# runtime artifact stores. Linked ONLY into privileged
 # executables (nasmount-helper, nasmount-boot). NEVER linked into
 # kde_nasmount-session, the KCM, or the dialog — those are
 # reachable by an unprivileged, potentially hostile local process, and must
@@ -139,12 +139,11 @@ kauth_install_helper_files(nasmount-helper ${NASMOUNT_HELPER_ID} root)
 # Turns the .actions file into a polkit .policy via kauth-policy-gen.
 kauth_install_actions(${NASMOUNT_HELPER_ID} ${CMAKE_CURRENT_SOURCE_DIR}/${NASMOUNT_HELPER_ID}.actions)
 
-# --- privileged boot coordinator (phase 4) ----------------------------------
+# --- privileged boot coordinator --------------------------------------------
 # Started directly by systemd as root (nasmount-boot.service) -- never D-Bus/
 # KAuth activated, so no .actions entry and no polkit policy: there is no
-# caller to authorize, only root arming triggers it already owns (design
-# §6.3). Installed into the KDE libexec dir, matching the service template's
-# ExecStart=.
+# caller to authorize, only root arming triggers it already owns. Installed
+# into the KDE libexec dir, matching the service template's ExecStart=.
 add_executable(nasmount-boot src/boot/main.cpp)
 target_link_libraries(nasmount-boot PRIVATE kde_nasmount-core kde_nasmount-root Qt6::Core)
 install(TARGETS nasmount-boot DESTINATION ${KDE_INSTALL_LIBEXECDIR})
@@ -160,7 +159,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/nasmount-boot.service
 qt_add_resources(NASMOUNT_DIALOG_QRC src/dialog/dialog.qrc)
 # credentiallookupworker.cpp is a private mode of this same binary rather than
 # an executable of its own, which leaves the installed file set -- and so the
-# cleanup manifest and both package payload lists -- untouched (plan §6).
+# cleanup manifest and both package payload lists -- untouched.
 add_executable(nasmount-dialog
     src/dialog/main.cpp
     src/dialog/credentiallookup.cpp
@@ -265,14 +264,14 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cleanup-manifest.txt
         DESTINATION ${KDE_INSTALL_DATADIR}/nasmount)
 
 # --- linkage invariant: kde_nasmount-root reaches only privileged executables ---
-# (plan §2.1.2). Structural placement (never adding it to these
+# Structural placement (never adding it to these
 # target_link_libraries calls) is the primary defence; this is the check that
 # catches a future accidental addition instead of relying on that forever.
 function(kde_nasmount_assert_no_root_link target)
     get_target_property(_nasmount_libs ${target} LINK_LIBRARIES)
     if(_nasmount_libs AND "kde_nasmount-root" IN_LIST _nasmount_libs)
         message(FATAL_ERROR
-            "${target} must never link kde_nasmount-root (plan 2.1.2): privileged "
+            "${target} must never link kde_nasmount-root: privileged "
             "filesystem/systemd mutation code must not be reachable from an "
             "unprivileged, potentially hostile local process.")
     endif()
@@ -314,8 +313,8 @@ target_link_libraries(credentiallookup_test PRIVATE kde_nasmount-core KF6::I18n)
 add_test(NAME credentiallookup COMMAND credentiallookup_test)
 
 # Loads the *real* ShareForm.qml for the one rule no C++ model can stand in
-# for: that an imported credential is never paired with a typed one (plan
-# §8.1). Read from the source tree, since a staged copy can go stale.
+# for: that an imported credential is never paired with a typed one. Read
+# from the source tree, since a staged copy can go stale.
 add_executable(shareform_qml_test tests/shareform_qml_test.cpp)
 target_link_libraries(shareform_qml_test PRIVATE Qt6::Gui Qt6::Qml Qt6::Quick)
 target_compile_definitions(shareform_qml_test

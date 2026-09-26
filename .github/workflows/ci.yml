@@ -301,7 +301,7 @@ jobs:
           [ "$(dpkg-query -W -f='${Version}' nasmount)" = "${version}-2" ] || {
             echo 'ERROR: in-place upgrade did not complete' >&2; exit 1; }
 
-          # Rule §2.2: the upgrade preserved every piece of managed state.
+          # The upgrade preserved every piece of managed state.
           [ "$(stat -c '%a' /etc/nasmount)" = 700 ]
           cmp "$corpus/credentials.mount" /etc/systemd/system/home-tester-mnt-media.mount
           cmp "$corpus/credentials.automount" /etc/systemd/system/home-tester-mnt-media.automount
@@ -312,7 +312,7 @@ jobs:
             echo 'Exit 2 means Unsafe/Indeterminate, i.e. a broken corpus.' >&2
             exit 1; }
 
-          # Rule §2.3: downgrades are refused by the new preinst.
+          # Downgrades are refused by the new preinst.
           if dpkg -i "./$old"; then
             echo 'ERROR: downgrade was accepted' >&2; exit 1
           fi

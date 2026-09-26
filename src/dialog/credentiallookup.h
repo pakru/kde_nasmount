@@ -10,7 +10,7 @@
  * wallet prompt on screen: a process can be abandoned, a thread stuck inside
  * a KDE call cannot. Nothing here is privileged or mutating, so no lock is
  * needed; the protocol and policy halves are pure so they are testable
- * without a wallet or a NAS (autofill plan §§3-4).
+ * without a wallet or a NAS.
  */
 
 #pragma once
@@ -91,7 +91,7 @@ QByteArray encodeReply(const Reply &reply);
 bool decodeReply(const QByteArray &raw, Reply *reply, QString *error);
 
 /**
- * The acceptance policy (plan §3.3), in one pure function.
+ * The acceptance policy, in one pure function.
  *
  * Rejects — meaning "leave the form alone" — unless the reply is a candidate
  * whose URL does not contradict the request, whose fields pass the limits a
@@ -181,7 +181,8 @@ public:
 
 Q_SIGNALS:
     /** The one delivery of an eligible candidate. The password is a transient
-     *  argument, never a property of this object (plan §4.2). */
+     *  argument, never a property of this object, so nothing keeps it
+     *  readable after delivery. */
     void candidateReady(const QString &username, const QString &domain, const QString &password);
 
     /** Everything else. Not an error to show the user: finding nothing is the

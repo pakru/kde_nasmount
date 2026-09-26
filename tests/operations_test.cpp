@@ -1,5 +1,5 @@
 /*
- * Tests for Root::Operations (plan §2.5-2.6, §3.2).
+ * Tests for Root::Operations.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -7,8 +7,8 @@
  * exactly like durablefs_test.cpp before it — a
  * real accept path needs root and belongs to VM integration testing. What
  * this file checks, as an unprivileged process, is that both fail closed
- * rather than silently succeeding or crashing regardless of which mode is
- * requested (Session and System go through the same permission wall).
+ * rather than silently succeeding or crashing, whether or not a password
+ * is supplied.
  *
  * purge() has no equivalent fail-closed case here: with no managed units on
  * disk (this sandbox's actual state) it has nothing to validate or stop, so
@@ -18,8 +18,7 @@
  * 0700 credential directory is for define()/remove(). A meaningful test
  * needs a real fabricated managed unit, which requires root to create in the
  * first place -- purge()'s validation and two-pass ordering are exercised by
- * the privileged VM integration suite instead (simplification-
- * implementation-plan.md §6).
+ * the privileged VM integration suite instead.
  */
 
 #include "operations.h"
@@ -56,7 +55,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    out << "=== define(): fails closed without root, in every mode ===" << Qt::endl;
+    out << "=== define(): fails closed without root ===" << Qt::endl;
     {
         Root::Operations::DefineInput input;
         input.ownerUid = ::getuid();
@@ -67,8 +66,8 @@ int main(int argc, char **argv)
         input.username = QStringLiteral("alice");
 
         const auto result = Root::Operations::define(input);
-        check(QStringLiteral("Session define() does not report ok without root"), !result.ok);
-        check(QStringLiteral("Session define() sets an error"), !result.error.isEmpty());
+        check(QStringLiteral("define() without a password does not report ok without root"), !result.ok);
+        check(QStringLiteral("define() without a password sets an error"), !result.error.isEmpty());
     }
     {
         Root::Operations::DefineInput input;
@@ -82,8 +81,8 @@ int main(int argc, char **argv)
         input.password = QStringLiteral("hunter2");
 
         const auto result = Root::Operations::define(input);
-        check(QStringLiteral("System define() does not report ok without root"), !result.ok);
-        check(QStringLiteral("System define() sets an error"), !result.error.isEmpty());
+        check(QStringLiteral("define() with a full credential does not report ok without root"), !result.ok);
+        check(QStringLiteral("define() with a full credential sets an error"), !result.error.isEmpty());
     }
 
     out << "=== remove(): fails closed without root ===" << Qt::endl;

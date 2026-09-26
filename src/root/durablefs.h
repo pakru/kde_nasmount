@@ -1,6 +1,6 @@
 /*
  * durablefs — descriptor-based, crash-durable filesystem primitives for the
- * privileged kde_nasmount-root library (plan §2.2).
+ * privileged kde_nasmount-root library.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -13,7 +13,7 @@
  * tricked into following.
  *
  * Every artifact this library writes has exactly one fixed owner/mode for
- * its kind (plan §2.2.8) — callers name *what* they are writing
+ * its kind — callers name *what* they are writing
  * (ArtifactKind), never a mode or uid, so a call site cannot accidentally
  * loosen a permission.
  */
@@ -32,7 +32,7 @@ enum class FileKind { Regular, Directory };
 
 /**
  * The fixed artifact kinds this library ever writes, each with exactly one
- * root-owned mode (plan §2.2.8):
+ * root-owned mode:
  *
  *   Directory       — nasmount's own private root/subdirectories, holding
  *                     SensitiveFile content (credentials, the root lock):
@@ -110,7 +110,7 @@ bool readFileBounded(int dirFd, const QString &name, qint64 maxBytes, ArtifactKi
                      QString *error);
 
 /**
- * Durable create-or-replace (plan §2.2.5): writes `content` to an
+ * Durable create-or-replace: writes `content` to an
  * unpredictable O_CREAT|O_EXCL|O_NOFOLLOW temp file in the same directory
  * (so the later rename is atomic and same-filesystem), fchown/fchmod per
  * `kind`, fsyncs the temp file, renames it over `name`, then fsyncs the
@@ -121,8 +121,8 @@ bool durableReplace(int dirFd, const QString &name, const QByteArray &content, A
 
 /**
  * Checked unlink: unlinkat() then fsync the directory. `allowMissing`
- * decides whether ENOENT is itself success — an idempotent, phase-authorised
- * absence (plan §2.2.7) — or a reported failure; callers must be explicit
+ * decides whether ENOENT is itself success — an idempotent, expected
+ * absence — or a reported failure; callers must be explicit
  * about which is expected rather than treating every ENOENT as fine.
  */
 bool durableUnlink(int dirFd, const QString &name, bool allowMissing, QString *error);
@@ -135,8 +135,7 @@ bool durableUnlink(int dirFd, const QString &name, bool allowMissing, QString *e
  * owner, or drifted mode instead of turning a cleanup operation into an
  * unreviewed deletion primitive), fsyncing the directory after its contents
  * are gone, then removes `name` itself — verified as `dirKind` — from
- * `parentFd` and fsyncs `parentFd`. Used for full uninstall purge (design
- * §14/plan phase 8).
+ * `parentFd` and fsyncs `parentFd`. Used for full uninstall purge.
  */
 bool durableRemoveTree(int parentFd, const QString &name, ArtifactKind dirKind, ArtifactKind entryKind,
                        QString *error);

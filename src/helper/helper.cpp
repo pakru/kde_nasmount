@@ -12,12 +12,12 @@
  * the argument map, so the mount-point allowlist, the uid=/gid= options and
  * the owner-uid marker are scoped to who really called.
  *
- * This file is deliberately thin (plan §2.1.6): caller validation, typed
+ * This file is deliberately thin: caller validation, typed
  * argument decoding, root-lock acquisition, dispatch into kde_nasmount-root, and
  * structured reply conversion. Every privileged filesystem/systemd mutation
  * lives in kde_nasmount-root (durablefs, credentialstore, runtimefiles,
  * systemdops, arming, operations) — nothing here writes a file, starts/stops
- * a unit, or touches a credential directly any more.
+ * a unit, or touches a credential directly.
  */
 
 #include "arming.h"
@@ -45,8 +45,8 @@ namespace
 
 /**
  * Control-character and per-field size checks shared by every call site that
- * accepts credential fields (design §8.1: "cap every credential field ...
- * apply the same validation in arm and both define paths"). The same limits
+ * accepts credential fields, so no path can apply a looser bound than another.
+ * The same limits
  * are enforced again inside Root::CredentialStore::write() — this is the
  * fast, early rejection; that is the one no call path can skip.
  */
@@ -68,10 +68,10 @@ bool validateCredentialFields(const QString &username, const QString &domain, co
 }
 
 /**
- * Design §8.1: "an empty username means guest ... domain and password must
- * also be empty or the helper rejects the request instead of silently
- * discarding them." Shared by every action that accepts credential fields
- * alongside a username (arm, definesystem).
+ * An empty username means guest, so domain and password must also be empty:
+ * the helper rejects the request rather than silently discarding them, which
+ * would mount a share as guest that the user believed was authenticated.
+ * Shared by every action that accepts credential fields alongside a username.
  */
 bool guestFieldsConsistent(const QString &username, const QString &domain, const QString &password)
 {
@@ -151,12 +151,11 @@ namespace
 {
 
 /**
- * The body of `definesystem` (plan §3.1). A fresh create only — an existing
- * Partial half is never repaired; it must be removed first
- * (simplification-implementation-plan.md §4.1/§4.3).
+ * The body of `definesystem`. A fresh create only — an existing Partial half
+ * is never repaired; it must be removed first.
  *
  * There is one lifecycle, so the share's mode is fixed by the action itself
- * and never read from `args` (design §7.1). `access` is the one exception:
+ * and never read from `args`. `access` is the one exception:
  * it is a genuine user choice with no second action to encode it in, so it
  * arrives as an argument and is validated here like every other untrusted
  * input.
@@ -196,8 +195,8 @@ ActionReply doDefine(const QVariantMap &args)
             return fail(QStringLiteral("unrecognised access mode"));
         }
     }
-    // Define takes domain/password and writes the credential itself (design
-    // §8.1): there is no later step that could supply them, so both are
+    // Define takes domain/password and writes the credential itself: there is
+    // no later step that could supply them, so both are
     // validated here. validateCredentialFields() covers the username's own
     // control characters too.
     if (!validateCredentialFields(username, domain, password, &error)) {
@@ -243,16 +242,14 @@ ActionReply doDefine(const QVariantMap &args)
     input.access = access;
     input.domain = domain;
     input.password = password;
-    input.mountPlan = plan; // needed for the immediate-arm path walk (design §6.3a)
+    input.mountPlan = plan; // needed for the immediate-arm path walk
 
     const Root::Operations::DefineOutput result = Root::Operations::define(input);
     if (!result.ok) {
         return fail(result.error);
     }
-    // The client indexes its Store record by this id (plan §1.6.2, §5.1) --
-    // it is never allowed to invent its own. `activated` reflects a real
-    // System immediate-arm result (design §6.3a); always false for Session,
-    // where activation is a separate, later `arm` call.
+    // The client indexes its Store record by this id -- it is never allowed
+    // to invent its own. `activated` reflects the real immediate-arm result.
     return ok(QStringLiteral("Defined %1 -> %2").arg(unc, plan.path),
              {{QStringLiteral("id"), result.shareId}, {QStringLiteral("activated"), result.activated}});
 }
@@ -268,20 +265,10 @@ namespace
 {
 
 /**
- * Removal is mode-agnostic on purpose. There is one removal action now, and
- * it is auth_admin -- strictly more authenticated than the passwordless
- * `undefine` that used to remove sign-in-scoped shares. The old
- * `def.mode != mode` gate existed to stop one tier's action acting on the
- * other tier's definition while the two carried *different* authorization
- * levels; with a single, stricter action that distinction is gone, and
- * enforcing it would instead make a definition left over from the previous
- * mode impossible to remove through the UI at all -- forcing a hand `rm` of
- * root-owned unit files, which is exactly what this tool exists to avoid.
- *
- * `def.mode` is still what drives the work: Operations::remove() uses it to
- * delete the credential from wherever that definition actually put it
- * (/run for a sign-in-scoped leftover, /etc otherwise), so either kind is
- * cleaned up correctly rather than leaving an orphaned credential file.
+ * The body of `undefinesystem`. Accepts a complete pair or an owned one-sided
+ * Partial, so a half left by an interrupted Add can still be removed through
+ * the UI rather than by hand. Owner, id and authentication kind come from the
+ * validated marker, never from `args`.
  */
 ActionReply doUndefine(const QVariantMap &args)
 {
@@ -329,7 +316,7 @@ ActionReply NasMountHelper::undefinesystem(const QVariantMap &args)
 
 ActionReply NasMountHelper::inventory(const QVariantMap &args)
 {
-    // Read-only, caller-scoped (design §7.1/§3.3.1): no argument is ever
+    // Read-only, caller-scoped: no argument is ever
     // read from `args` -- every record is derived from what is actually on
     // disk for the resolved caller uid, never from anything the caller
     // claims.

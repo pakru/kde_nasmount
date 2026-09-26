@@ -53,7 +53,8 @@ FileProbe probeUnitFile(const QString &path, QString *content)
     return FileProbe::Ok;
 }
 
-/** Presence of anything at all here is refused — drop-ins are out of scope (§4.1). */
+/** Presence of anything at all here is refused: a drop-in can override any
+ *  directive the restricted template validated, so none is ever accepted. */
 bool dropInExists(const QString &unitPath)
 {
     struct stat st {};
@@ -326,7 +327,7 @@ QList<OwnedUnit> pairScannedHalves(const QList<ScannedHalf> &halves)
     }
 
     // Second pass: two different base names must never claim the same id or
-    // the same mount point (plan §1.3.5) -- surface it, never pick one.
+    // the same mount point -- surface it, never pick one.
     QMap<QString, QList<int>> byId;
     QMap<QString, QList<int>> byMountPoint;
     for (int i = 0; i < result.size(); ++i) {
@@ -472,7 +473,7 @@ MountClassification classifyMountEntries(const QList<MountEntry> &entries, const
             return {MountState::Absent, VerificationState::NotApplicable};
         }
         // Some other filesystem entirely occupies the path: a present
-        // foreign mount, not "our" CIFS mount absent (plan §1.4.2).
+        // foreign mount, not "our" CIFS mount absent.
         return {MountState::Present, VerificationState::Mismatch};
     }
     return {MountState::Absent, VerificationState::NotApplicable};
@@ -512,7 +513,7 @@ RuntimeSnapshot inspectRuntime(const QString &unitName, const QString &mountPoin
         // namespace — and that must fail closed rather than silently trust
         // whichever side happened to say "nothing mounted". Failure of this
         // cross-check itself is equally Indeterminate, never a silently
-        // omitted check (plan §1.4.3).
+        // omitted check.
         QString mountActiveState;
         if (!systemctlShow(mountUnitName, QStringLiteral("ActiveState"), &mountActiveState)) {
             snap.mount = MountState::Indeterminate;

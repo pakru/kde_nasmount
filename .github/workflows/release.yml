@@ -353,7 +353,7 @@ jobs:
           [ -f "release/$RPM_ASSET" ]
           printf '%s\n' \
             "Supported systems: Kubuntu/Ubuntu 26.04 LTS amd64 with Plasma 6, and Fedora KDE Plasma 44 x86_64." \
-            "Requires Linux 6.8 or newer. This release supports clean installation only." \
+            "Requires Linux 6.8 or newer. Installing over an earlier release upgrades in place and keeps existing shares." \
             "" \
             "Ubuntu/Kubuntu download:" \
             "wget https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${DEB_ASSET}" \

@@ -1,17 +1,14 @@
 /*
- * nasmount-boot — the root systemd oneshot that arms System-mode shares at
- * boot (design §6.3, plan §4.2).
+ * nasmount-boot — the root systemd oneshot that arms every share at boot.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Started directly by systemd as root (nasmount-boot.service); there is no
  * D-Bus/KAuth caller to authorize here, since this was always going to run
  * as root the moment the unit is enabled. Installs autofs triggers only —
- * it never mounts anything itself, so an unreachable NAS costs nothing here
- * (design §6.3's "the coordinator only arms triggers"). Exits non-zero only
- * if the root lock cannot be acquired; a single share's own failure is
- * logged and skipped, never fatal to the rest (design §6.3's "per-share
- * validation/start failures do not fail the whole oneshot").
+ * it never mounts anything itself, so an unreachable NAS costs nothing here.
+ * Exits non-zero only if the root lock cannot be acquired; a single share's
+ * own failure is logged and skipped, never fatal to the rest.
  */
 
 #include "arming.h"
@@ -38,8 +35,8 @@ void logLine(const QString &message)
 }
 
 /**
- * One System pair's boot-time arm attempt. Every failure is logged and
- * swallowed here -- never fatal to the rest of the run (design §6.3.6).
+ * One pair's boot-time arm attempt. Every failure is logged and swallowed
+ * here -- never fatal to the rest of the run.
  */
 void armOneShare(const Verify::OwnedUnit &unit)
 {
@@ -53,10 +50,10 @@ void armOneShare(const Verify::OwnedUnit &unit)
     const QString homeDir = QString::fromLocal8Bit(pw->pw_dir);
 
     // Re-run the full parent authorization, not just trust the marker's
-    // recorded Where= (plan §4.2.3's "resolve the recorded uid to a live
-    // account" -- for its home directory here -- "while retaining marker
-    // uid/gid for ownership checks", which openMountpointNoCreate() below
-    // does via unit.ownerUid/ownerGid, never pw->pw_uid/pw_gid).
+    // recorded Where=: the recorded uid is resolved to a live account only
+    // for its home directory, while ownership checks keep the marker's own
+    // uid/gid -- openMountpointNoCreate() below uses unit.ownerUid/ownerGid,
+    // never pw->pw_uid/pw_gid.
     UnitSpec::MountpointPlan plan;
     QString planError;
     if (!UnitSpec::validateMountpoint(unit.mountPoint, homeDir, &plan, &planError)) {
@@ -72,9 +69,8 @@ void armOneShare(const Verify::OwnedUnit &unit)
         return;
     }
 
-    // The full structural/ownership check (design §6.3.2's "re-running
-    // every parent §4.1 ownership and §6.1 structural check on both
-    // halves"), not only the lighter pairing check enumerateManagedUnits()
+    // The full structural/ownership check on both halves, not only the
+    // lighter pairing check enumerateManagedUnits()
     // already did.
     const Verify::DefinitionCheck def = Verify::inspectDefinition(paths, unit.ownerUid, plan.path);
     if (def.state != Verify::Definition::Pair) {
@@ -120,7 +116,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Enumerate every validated System pair, across every owner, and arm
+    // Enumerate every validated pair, across every owner, and arm
     // each safe inactive one.
     const QList<Verify::OwnedUnit> units = Verify::enumerateManagedUnits();
     int attempted = 0;
@@ -138,7 +134,7 @@ int main(int argc, char **argv)
         ++attempted;
     }
 
-    logLine(QStringLiteral("processed %1 System share(s), %2 skipped (not a valid pair)")
+    logLine(QStringLiteral("processed %1 share(s), %2 skipped (not a valid pair)")
                 .arg(attempted)
                 .arg(skipped));
     return 0;

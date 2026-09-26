@@ -1,6 +1,5 @@
 /*
- * Table-driven tests for Session::classifyRow() (simplification-
- * implementation-plan.md §4 actions 5/6/8, §6.3).
+ * Table-driven tests for Session::classifyRow().
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -162,10 +161,6 @@ int main(int argc, char **argv)
             in.storeUnc = QStringLiteral("//host/other");
             check(QStringLiteral("UNC mismatch is drift"), storeDefinitionDrift(in));
         }
-        // There is no "mode mismatch is drift" case any more: Store records
-        // no mode, because a share has only one lifecycle. Mode remains
-        // authoritative from the marker, but there is nothing local left for
-        // it to disagree with.
         {
             StoreDefinitionDriftInput in = agreeing();
             in.storeSaysGuest = true;
@@ -336,8 +331,8 @@ int main(int argc, char **argv)
     }
     {
         // Guest rows never have credentialApplicable set, but even if a
-        // caller mistakenly passed unhealthy data, rule 4 (design §4.4)
-        // makes it inert for a guest row.
+        // caller mistakenly passed unhealthy data, the credential rule
+        // ignores it for a guest row.
         const auto c = classifyRow(pairInput(UnitValue::AuthenticationKind::Guest,
                                              armedTrustedSnapshot(), /*credApplicable=*/false,
                                              /*credHealthy=*/false));
@@ -345,13 +340,10 @@ int main(int argc, char **argv)
               c.state == DisplayState::Armed);
     }
 
-    out << "=== Pair: the credential rule (design §4.4) ===" << Qt::endl;
+    out << "=== Pair: the credential rule ===" << Qt::endl;
     {
         // The credential is persistent and root-owned, so its absence is an
-        // error whether or not the trigger is currently armed. The old
-        // mode-dependent rule -- absence tolerated while inactive, because a
-        // sign-in-scoped credential legitimately only existed while armed --
-        // went away with that mode.
+        // error whether or not the trigger is currently armed.
         const auto c = classifyRow(pairInput(UnitValue::AuthenticationKind::Credentials, inactiveSnapshot(),
                                              /*credApplicable=*/true, /*credHealthy=*/false));
         check(QStringLiteral("inactive + missing credential -> MissingCredentials"),
@@ -366,25 +358,13 @@ int main(int argc, char **argv)
     {
         const auto c = classifyRow(pairInput(UnitValue::AuthenticationKind::Credentials, mountedMatchSnapshot(),
                                              /*credApplicable=*/true, /*credHealthy=*/false));
-        check(QStringLiteral("mounted Session + missing credential -> MissingCredentials"),
-              c.state == DisplayState::MissingCredentials);
-    }
-    {
-        const auto c = classifyRow(pairInput(UnitValue::AuthenticationKind::Credentials, inactiveSnapshot(),
-                                             /*credApplicable=*/true, /*credHealthy=*/false));
-        check(QStringLiteral("inactive System + missing credential -> MissingCredentials (persistent, always expected)"),
-              c.state == DisplayState::MissingCredentials);
-    }
-    {
-        const auto c = classifyRow(pairInput(UnitValue::AuthenticationKind::Credentials, armedTrustedSnapshot(),
-                                             /*credApplicable=*/true, /*credHealthy=*/false));
-        check(QStringLiteral("active System + missing credential -> MissingCredentials"),
+        check(QStringLiteral("mounted + missing credential -> MissingCredentials"),
               c.state == DisplayState::MissingCredentials);
     }
     {
         const auto c = classifyRow(pairInput(UnitValue::AuthenticationKind::Credentials, inactiveSnapshot(),
                                              /*credApplicable=*/true, /*credHealthy=*/true));
-        check(QStringLiteral("inactive System + healthy credential -> Inactive"), c.state == DisplayState::Inactive);
+        check(QStringLiteral("inactive + healthy credential -> Inactive"), c.state == DisplayState::Inactive);
     }
     {
         // No fresh inventory data this refresh (credentialApplicable still

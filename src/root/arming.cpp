@@ -139,7 +139,8 @@ ArmShareResult armShare(const ArmShareRequest &req)
         return result;
     };
 
-    // Design §6.4/§6.3a: inspect runtime *before* touching the path at all.
+    // Inspect runtime *before* touching the path at all: a live mount or an
+    // untrusted trigger there must block arming, not be walked into.
     const Verify::RuntimeSnapshot snapshot = Verify::inspectRuntime(req.unitName, req.plan.path, req.what);
     QString precheckError;
     const ArmPrecheck pre = evaluateArmPrecheck(snapshot, &precheckError);
@@ -151,7 +152,7 @@ ArmShareResult armShare(const ArmShareRequest &req)
         return result;
     }
 
-    // Credential health, never a write (System's credential was already
+    // Credential health, never a write (the credential was already
     // durably written by define(), after both unit files were created and
     // before systemd was reloaded).
     QString credError;

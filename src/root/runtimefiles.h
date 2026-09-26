@@ -1,6 +1,6 @@
 /*
  * runtimefiles — root-owned runtime records under /run/nasmount-ids: the
- * automount instance id recorded at arm time (plan §2.1.4, §2.3.5-6).
+ * automount instance id recorded at arm time.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -32,7 +32,8 @@ namespace Root::RuntimeFiles
 
 /**
  * Durably records `id` as the trusted automount instance for `unitName`
- * (design §6.4's "where identity still applies"). Overwrites any previous
+ * — the only proof, later, that an active trigger is the one this tool
+ * started. Overwrites any previous
  * record for the same unit.
  */
 bool writeAutomountId(const QString &unitName, uint64_t id, QString *error);

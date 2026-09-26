@@ -43,12 +43,10 @@ QString definitionStateText(Verify::Definition state)
     return QStringLiteral("none");
 }
 
-/** Rule 2/3/4 of the mode-dependent credential rule (design/simplification
- *  plan §4.4): applicable at all only for an authenticated row with fresh
- *  health data; then blocks an Active/Mounted row in either mode, but an
- *  Inactive row only for System, whose credential is persistent and always
- *  expected present -- a Session row's `/run` credential is legitimately
- *  absent while inactive. */
+/** The credential rule: applicable at all only for an authenticated row with
+ *  fresh health data; then an unhealthy credential blocks the row whatever
+ *  its runtime state, because the credential is persistent and always
+ *  expected present -- an Inactive share needs it at the next boot. */
 bool credentialUnhealthy(const RowClassifyInput &in)
 {
     return in.authentication == UnitValue::AuthenticationKind::Credentials && in.credentialApplicable
@@ -80,7 +78,7 @@ RowClassification classifyRow(const RowClassifyInput &in)
     // Store drift/corruption is a definition-level problem, decided before
     // any runtime check, for both a Pair and a Partial: fix the local record
     // first, and only then does the owned definition naturally appear as a
-    // plain removable orphan on the next refresh (design §7.3.4).
+    // plain removable orphan on the next refresh.
     if (in.drift || in.storeCorrupt) {
         out.state = DisplayState::Broken;
         out.detail = in.drift
@@ -187,7 +185,7 @@ bool storeDefinitionDrift(const StoreDefinitionDriftInput &input)
 namespace
 {
 
-/** Queries nasmount-boot.service's own health (design §7.1.8): enabled
+/** Queries nasmount-boot.service's own health: enabled
  *  state plus ActiveState/Result/ExecMainStatus from its last run. A system
  *  unit's read-only properties are queryable by any local user, no
  *  capability needed -- this never touches kde_nasmount-root, which
@@ -229,14 +227,14 @@ void queryBootHealth(QString *text, bool *healthy)
     const QString execMainStatus = properties.value(QStringLiteral("ExecMainStatus")).trimmed();
 
     if (unitFileState != QStringLiteral("enabled")) {
-        *text = QStringLiteral("boot coordinator is not enabled — System-mode shares will not be armed at boot");
+        *text = QStringLiteral("boot coordinator is not enabled — shares will not be armed at boot");
         *healthy = false;
         return;
     }
     if (activeState == QStringLiteral("failed") || (result != QStringLiteral("success") && !result.isEmpty())
         || (execMainStatus != QStringLiteral("0") && !execMainStatus.isEmpty())) {
         *text = QStringLiteral(
-            "boot coordinator's last run failed — System-mode shares may not be armed (check journalctl -u "
+            "boot coordinator's last run failed — shares may not be armed (check journalctl -u "
             "nasmount-boot)");
         *healthy = false;
         return;
@@ -371,10 +369,9 @@ MountModel::RefreshResult MountModel::computeRefresh()
     QSet<QString> coveredMountPoints;
 
     // ---- source 2: both managed unit halves -- authoritative for mode,
-    // authentication and definition state (design §7.1.2), including
-    // either-half Partial, Tampered, and orphan pairs with no Store record
-    // at all (design §7.1 gate: "orphan full pairs and either-half
-    // Partials are visible"). ----------------------------------------------
+    // authentication and definition state, including either-half Partial,
+    // Tampered, and orphan pairs with no Store record at all -- every one
+    // of them must be visible. ---------------------------------------------
     for (const Verify::OwnedUnit &unit : Verify::enumerateOwnedUnits(uid)) {
         Row row;
         row.mountPoint = unit.mountPoint;
@@ -412,14 +409,13 @@ MountModel::RefreshResult MountModel::computeRefresh()
         rows.append(row);
     }
 
-    // ---- source 1: Store records, including corrupt groups (design
-    // §7.1 gate: "corrupt Store rows are visible"). A corrupt record whose
+    // ---- source 1: Store records, including corrupt groups, which must be
+    // visible rather than silently skipped. A corrupt record whose
     // id nonetheless matches a real definition is not a separate "orphaned
     // record" -- it is that definition, with unreliable convenience
     // metadata; only a corrupt/None record proven to match nothing real is
-    // offered "Remove record" (design §7.3.4). Merged only by exact stable
-    // ID -- never a path-based adoption rule (simplification plan §4.4
-    // action 4). ------------------------------------------------------------
+    // offered "Remove record". Merged only by exact stable ID -- never a
+    // path-based adoption rule. ---------------------------------------------
     for (const Store::Snapshot &snap : Store::shareSnapshots()) {
         const Store::Share &share = snap.share;
         const auto it = share.id.isEmpty() ? indexById.constEnd() : indexById.constFind(share.id);
@@ -427,8 +423,8 @@ MountModel::RefreshResult MountModel::computeRefresh()
             // A real definition already covers this id -- merge Store's
             // convenience fields onto it, and flag Drift if Store's own
             // idea of mode/authentication disagrees with the marker
-            // (design §7.1.2: the marker always wins; Store is never
-            // consulted for that decision). Re-classify: drift/corruption
+            // (the marker always wins; Store is never consulted for that
+            // decision). Re-classify: drift/corruption
             // changes the outcome to Broken/local-record-only.
             Row &row = rows[*it];
             row.hasStoreRecord = true;
@@ -535,10 +531,10 @@ MountModel::RefreshResult MountModel::computeRefresh()
     }
 
     // ---- source 3: caller-scoped privileged inventory -- raw credential
-    // health that neither of the above two, unprivileged, sources can see
-    // (design §7.1.3). A failure here just means health data is unavailable
-    // this refresh; the definitions themselves, from sources 1-2 above, are
-    // entirely unaffected. Re-classifies each matched row with the fresh
+    // health that neither of the above two, unprivileged, sources can see.
+    // A failure here just means health data is unavailable this refresh; the
+    // definitions themselves, from sources 1-2 above, are entirely
+    // unaffected. Re-classifies each matched row with the fresh
     // credential facts folded in. ------------------------------------------
     const HelperResult inventoryResult = invokeHelperAction(QStringLiteral("inventory"), {});
     if (inventoryResult.outcome == HelperOutcome::ConfirmedSuccess) {
@@ -577,7 +573,7 @@ MountModel::RefreshResult MountModel::computeRefresh()
 
     // ---- source 4: unclaimed live CIFS mounts. A mountinfo read failure
     // here just means foreign mounts cannot be discovered this refresh — it
-    // must not be mistaken for "there are none" (plan §1.4.1), so the
+    // must not be mistaken for "there are none", so the
     // augmentation is skipped rather than asserting an empty result. --------
     QList<Verify::MountEntry> mounts;
     if (Verify::currentMounts(&mounts)) {

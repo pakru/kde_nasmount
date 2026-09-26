@@ -85,7 +85,7 @@ fi
 if [ "$1" -eq 0 ]; then
     # Managed share units are root-owned files the KAuth helper wrote into
     # /etc/systemd/system. They are identified only by the exact marker line
-    # the helper emits (the marker-v2 block in src/core/unitvalue.h) -- never
+    # the helper emits (the marker block in src/core/unitvalue.h) -- never
     # by filename, which a user chooses via their mount point.
     #
     # The name is then checked against the alphabet systemd-escape can produce:

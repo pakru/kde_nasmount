@@ -1,6 +1,5 @@
 /*
- * mountmodel — the merged view for the KCM (plan §7.1, simplification-
- * implementation-plan.md §4).
+ * mountmodel — the merged view for the KCM.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -9,17 +8,15 @@
  * (no Store record) pairs; the caller-scoped privileged `inventory` raw
  * credential health; and unclaimed live CIFS mounts nobody here defined at
  * all. The root-owned marker's mode/authentication are always authoritative;
- * a Store row that disagrees is flagged Broken drift, never silently trusted
- * (plan §7.1.2).
+ * a Store row that disagrees is flagged Broken drift, never silently trusted.
  *
- * The mode-dependent credential rule (design/simplification plan §4.4) is
- * applied only here, in classifyRow() — never by the privileged helper,
- * which returns only raw {id, credentialApplicable, credentialHealthy}
- * facts. Everything here is read-only. Three of the four sources need no
+ * Whether a credential problem makes a row unusable is decided only here, in
+ * classifyRow() — never by the privileged helper, which returns only raw
+ * {id, credentialApplicable, credentialHealthy} facts. Everything here is read-only. Three of the four sources need no
  * capability at all (unit files are world-readable; mountinfo/statx need no
  * capability); the fourth, `inventory`, is a passwordless KAuth round trip.
  * All of it, including that KAuth call, runs on a QtConcurrent worker
- * thread, never the GUI thread (plan §1.4.6).
+ * thread, never the GUI thread.
  */
 
 #pragma once
@@ -36,10 +33,9 @@ namespace Session
 {
 
 /**
- * The seven practical presentation states (simplification-implementation-
- * plan.md §4 action 6). Uniform across Session and System -- there is no
- * mode-aware exception any more; the separate boot-coordinator health
- * banner is what explains an Inactive System share.
+ * The seven practical presentation states, uniform for every share; the
+ * separate boot-coordinator health banner is what explains an Inactive
+ * share.
  */
 enum class DisplayState { Inactive, Armed, Mounted, MissingCredentials, Broken, Busy, Foreign };
 
@@ -63,8 +59,7 @@ struct RowClassifyInput {
 };
 
 /** Pure output of classifyRow(): the display state, its explanatory detail,
- *  and the complete actionability mapping (simplification-implementation-
- *  plan.md §4 action 8's table) -- QML trusts these three booleans directly
+ *  and the complete actionability mapping -- QML trusts these three booleans directly
  *  rather than reproducing backend safety rules from raw role combinations. */
 struct RowClassification {
     DisplayState state = DisplayState::Broken;
@@ -75,8 +70,7 @@ struct RowClassification {
 };
 
 /**
- * The pure row classifier (simplification-implementation-plan.md §4.4,
- * action 6/8). Priority order: an unsafe definition (Tampered/NotOurs/Store
+ * The pure row classifier. Priority order: an unsafe definition (Tampered/NotOurs/Store
  * drift or corruption/Partial) or an unsafe runtime correlation
  * (Indeterminate, a non-correlating live mount, an untrusted active trigger)
  * is decided first and always wins over credential health; only once the
@@ -112,8 +106,7 @@ struct StoreDefinitionDriftInput {
 /** Pure comparison used by the exact-ID Store/definition merge. The root
  *  definition remains authoritative; any differing canonical mount point,
  *  normalised UNC, authentication kind, or access mode is local-record drift.
- *  Mode is no longer compared: Store does not record one, because there is
- *  only one. An automount-only Partial has no validated What=, so UNC
+ *  An automount-only Partial has no validated What=, so UNC
  *  comparison is deferred until a mount half exists.
  *
  *  Store access text outside the closed vocabulary differs from every valid
@@ -161,9 +154,9 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    /** Whether at least one row is System mode -- gates the boot-health
-     *  banner's visibility (design §7.1.8: shown as global health, not
-     *  noise for a Session-only configuration). */
+    /** Whether at least one row has unit files -- gates the boot-health
+     *  banner, which is global health and only noise when there is nothing
+     *  for boot to arm. */
     bool hasShares() const;
     QString bootHealthText() const;
     bool bootHealthy() const;
@@ -175,12 +168,12 @@ public Q_SLOTS:
      *
      * Runs the actual inspection (Store, systemctl, mountinfo, one KAuth
      * round trip — all blocking I/O) on a worker thread via QtConcurrent,
-     * never the GUI thread (plan §1.4.6). Calling refresh() again before a
+     * never the GUI thread. Calling refresh() again before a
      * previous call has completed simply retargets the single
      * QFutureWatcher at the new future; Qt only ever delivers finished()
      * for the future a watcher is *currently* assigned to, so a slower,
-     * now-stale refresh cannot land after and overwrite a newer one (plan
-     * §1.4's "one immutable result", extended by §7.1.7 to every source).
+     * now-stale refresh cannot land after and overwrite a newer one: each
+     * refresh publishes one immutable result covering every source.
      */
     void refresh();
 

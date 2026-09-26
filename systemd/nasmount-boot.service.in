@@ -1,12 +1,12 @@
 [Unit]
-Description=Arm nasmount system-mode network shares
+Description=Arm nasmount network shares
 # local-fs.target: /etc and /run must be mounted before this can even open
 # its own state. remote-fs-pre.target: ordering hook network filesystem
 # mount units use to run before the actual network mounts; being ordered
 # after it (not before) means this always has a chance to install its
 # autofs triggers ahead of any consumer that waits for remote-fs.target.
 After=local-fs.target remote-fs-pre.target
-# Both directives are required together, not either alone (design §6.3):
+# Both directives are required together, not either alone:
 # Wants= pulls remote-fs.target into the boot transaction even when no other
 # network filesystem exists on the host, so Before= actually constrains
 # something; Before= is what stops a consumer ordered After=remote-fs.target

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Prevent the transaction/Edit/Forget surface removed by the simplification
-# plan from silently returning. Run from CTest and install.sh.
+# Prevent the removed transaction/Edit/Forget surface from silently returning.
+# Run from CTest and install.sh.
 
 set -euo pipefail
 
@@ -52,8 +52,8 @@ check_no_matches "privileged inventory runtime coupling" \
     src/root/inventory.h src/root/inventory.cpp
 
 set +e
-documentation_output=$(grep -rn -E --exclude='simplification-implementation-plan.md' \
-    '/etc/nasmount/transactions|recovery records' README.md docs src install.sh uninstall.sh 2>&1)
+documentation_output=$(grep -rn -E \
+    '/etc/nasmount/transactions|recovery records' README.md src install.sh uninstall.sh 2>&1)
 documentation_status=$?
 set -e
 if [ "$documentation_status" -eq 0 ]; then

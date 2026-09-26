@@ -362,8 +362,7 @@ int openMountpointNoCreate(const MountpointPlan &plan, uid_t expectedUid, gid_t 
         // Every component must already belong to the recorded owner -- nothing
         // here is ever created, so there is no "we just made this, it is
         // necessarily ours" case the way openMountpointNoFollow() has. Boot
-        // checks gid too (design §10.1/plan §4.1.5's "verify recorded
-        // uid/gid"), stricter than the interactive walk's uid-only check,
+        // checks the recorded gid too, stricter than the interactive walk's uid-only check,
         // since nothing here can self-correct a drifted group the way a fresh
         // fchown() would.
         if (childStat.st_uid != expectedUid || childStat.st_gid != expectedGid) {
@@ -475,7 +474,7 @@ QString mountOptions(uid_t uid, gid_t gid, const QString &credPath, UnitValue::A
 }
 
 // ---------------------------------------------------------------------------
-// Marker-v2 unit generation and the restricted-template validator.
+// Marker unit generation and the restricted-template validator.
 // ---------------------------------------------------------------------------
 
 QString credentialDirectory()
@@ -609,10 +608,10 @@ bool buildAutomountUnitContent(const UnitValue::Marker &marker, const QString &m
     // Condition*= directive is parsed out of [Unit] by systemd.unit(5), and
     // systemd logs "Unknown key name ... in section 'Automount', ignoring"
     // for one placed anywhere else -- silently discarding the guard rather
-    // than failing. This matters most for a System share, which
-    // nasmount-boot arms before login: without the condition systemd would
+    // than failing. This matters because nasmount-boot arms every share
+    // before login: without the condition systemd would
     // set the trigger up over a missing path and, because DirectoryMode= is
-    // set, create that path itself (plan §1.2.3).
+    // set, create that path itself.
     *content = QStringLiteral("# Managed by nasmount — do not edit by hand; use the KCM or the dialog.\n%1"
                               "[Unit]\n"
                               "Description=nasmount automount: %2\n"

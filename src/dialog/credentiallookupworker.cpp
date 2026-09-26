@@ -104,7 +104,8 @@ int run(int argc, char **argv)
         return ExitRefused;
     }
 
-    // The exact shape kio-extras' SMB authenticator uses (plan §3.2): share
+    // The exact shape kio-extras' SMB authenticator uses, so the lookup hits
+    // the entry Dolphin saved: share
     // URL with no user-info, username supplied separately, empty password,
     // verifyPath set. No realm is invented and keepPassword stays false.
     KIO::AuthInfo info;
@@ -115,7 +116,7 @@ int run(int argc, char **argv)
     KPasswdServerClient client;
     // checkAuthInfo() only reports what is known; queryAuthInfo(), which
     // would prompt, is never used — autofill must not become a second
-    // password dialog (plan §1). The service may still ask to unlock a
+    // password dialog. The service may still ask to unlock a
     // wallet, which is why this runs where it can be abandoned.
     const bool answered = client.checkAuthInfo(&info, request.windowId, request.userTime);
 

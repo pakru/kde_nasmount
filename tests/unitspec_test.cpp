@@ -353,7 +353,7 @@ int main(int argc, char **argv)
         }
     }
 
-    out << "=== openMountpointNoCreate: boot's no-create/no-chown walk (design §10.1) ===" << Qt::endl;
+    out << "=== openMountpointNoCreate: boot's no-create/no-chown walk ===" << Qt::endl;
     {
         QTemporaryDir tmp(home + QStringLiteral("/.nasmount-test-boot-XXXXXX"));
         check(QStringLiteral("temp dir created"), tmp.isValid());
@@ -550,12 +550,10 @@ int main(int argc, char **argv)
             tampered.replace(UnitSpec::credentialPathFor(marker.id), wrongCredPath);
             expectMountRejected(QStringLiteral("credential path inconsistent with marker id rejected"), tampered);
         }
-        // The "credential path from the other mode's directory" case is gone:
-        // there is one credential directory, so no such path exists to plant.
         {
             // Take a genuine guest unit and splice a credential path into its
             // Options= — must be rejected even though the path itself is
-            // well-formed for this marker's mode/id.
+            // well-formed for this marker's id.
             UnitValue::Marker guestMarker = marker;
             guestMarker.authentication = UnitValue::AuthenticationKind::Guest;
             QString guestContent;
@@ -620,13 +618,14 @@ int main(int argc, char **argv)
                   conditionAt > unitAt && unitAt >= 0 && automountAt > conditionAt, baseAutomount);
         }
         {
-            // The pre-fix layout: condition under [Automount], absent from
-            // [Unit]. It must now fail closed rather than validate.
+            // Condition under [Automount], absent from [Unit]: systemd would
+            // ignore it there, so this layout must fail closed rather than
+            // validate.
             QString oldLayout = baseAutomount;
             oldLayout.replace(QStringLiteral("ConditionPathIsDirectory=/mnt/nas\n\n"), QStringLiteral("\n"));
             oldLayout.replace(QStringLiteral("DirectoryMode=0700"),
                               QStringLiteral("DirectoryMode=0700\nConditionPathIsDirectory=/mnt/nas"));
-            expectAutomountRejected(QStringLiteral("legacy [Automount]-section condition rejected"), oldLayout);
+            expectAutomountRejected(QStringLiteral("[Automount]-section condition rejected"), oldLayout);
         }
     }
 

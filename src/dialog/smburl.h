@@ -5,9 +5,8 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Split out of the dialog itself so it is testable without a GUI (smburl_test)
- * and so it survives the front end being rewritten: it moved here intact when
- * the QWidgets dialog was replaced by the shared QML form. None of it is a
+ * Split out of the dialog itself so it is testable without a GUI
+ * (smburl_test). None of it is a
  * security boundary — the KAuth helper re-validates every field regardless,
  * because a hostile process can invoke the action directly and never come
  * through this code at all — but it is the parsing most likely to meet
@@ -41,7 +40,7 @@ QString suggestMountpoint(const QString &unc);
 QString describeState(const QString &mountPoint);
 
 /**
- * The credential-lookup target for a share (plan §3.2): the server and the
+ * The credential-lookup target for a share: the server and the
  * *first* path component only, which is what KDE's SMB worker authenticates
  * against and therefore what makes a lookup hit an entry Dolphin saved. Built
  * with QUrl's setters, so a space or percent sign is encoded once. An invalid

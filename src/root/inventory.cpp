@@ -15,7 +15,7 @@ namespace Root::Inventory
 
 QList<ShareRecord> buildFor(uid_t uid, QString *error)
 {
-    Q_UNUSED(error); // no failure mode left now that there is no transaction enumeration to fail
+    Q_UNUSED(error); // nothing here can fail: unreadable entries are skipped, not errors
     QList<ShareRecord> records;
     for (const Verify::OwnedUnit &unit : Verify::enumerateOwnedUnits(uid)) {
         if (unit.id.isEmpty() || unit.state == Verify::Definition::Tampered) {

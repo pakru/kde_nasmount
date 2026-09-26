@@ -1,6 +1,6 @@
 /*
  * credentiallookupworker — the child half of credential autofill, and the
- * only code here that calls KDE's password service (autofill plan §4.1).
+ * only code here that calls KDE's password service.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *

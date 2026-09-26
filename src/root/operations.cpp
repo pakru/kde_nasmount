@@ -37,7 +37,7 @@ bool writeUnitFile(int dirFd, const QString &fileName, const QString &content, Q
 }
 
 /** `allowMissing` is always true here: every removal in this module is
- *  idempotent by design (plan §2.2.7), since a caller retrying after a
+ *  idempotent by design, since a caller retrying after a
  *  partial failure does not know how far the previous attempt got. */
 bool removeUnitFile(int dirFd, const QString &fileName, QString *error)
 {
@@ -51,9 +51,9 @@ bool readUnitFile(int dirFd, const QString &fileName, QByteArray *content, QStri
 }
 
 /** Whether any managed marker anywhere, or a credential file in either
- *  the credential namespace, already claims `id` (design §5.1: "generation retries
- *  until the value is absent from every managed unit marker and credential
- *  namespace"). Deliberately global, not scoped to one uid -- ids must be
+ *  the credential namespace, already claims `id`: generation retries until
+ *  the value is absent from every managed unit marker and credential
+ *  namespace. Deliberately global, not scoped to one uid -- ids must be
  *  unique across every user's shares. */
 bool shareIdInUse(const QString &id)
 {
@@ -124,8 +124,7 @@ DefineOutput define(const DefineInput &input)
     bool credentialMayExist = false;
 
     // Same-call, checked, best-effort compensation for exactly what this
-    // call created (simplification-implementation-plan.md §4, Phase 3
-    // action 2) -- never a persisted recovery record. A crash instead of a
+    // call created -- never a persisted recovery record. A crash instead of a
     // same-process failure leaves whatever was durably written, visible on
     // the next inventory refresh as an owned Partial pair.
     auto cleanup = [&](const QString &reason) {
@@ -201,7 +200,7 @@ DefineOutput define(const DefineInput &input)
         return out;
     }
 
-    // Units first, then the credential (design §8.1): nasmount never reloads
+    // Units first, then the credential: nasmount never reloads
     // or starts the new unit before the credential exists, so an interrupted
     // pre-credential crash is visible as owned unit state, discoverable and
     // removable, never an invisible orphaned secret.
@@ -242,8 +241,8 @@ DefineOutput define(const DefineInput &input)
         return out;
     }
 
-    // A definition arms immediately, as the last step (design §6.3a, plan
-    // §4.3): Add either produces an armed share or reports why it could not.
+    // A definition arms immediately, as the last step: Add either produces an
+    // armed share or reports why it could not.
     {
         Arming::ArmShareRequest armReq;
         armReq.ownerUid = input.ownerUid;
@@ -285,7 +284,7 @@ RemovalOutput remove(const RemovalInput &input)
     const Arming::StopResult result = Arming::safeStop(input.unitName, input.mountPoint, input.what, &stopError);
     if (result == Arming::StopResult::Busy || result == Arming::StopResult::CorrelationMismatch
         || result == Arming::StopResult::Indeterminate) {
-        // Never claim full removal (design §9.2). Nothing destructive has
+        // Never claim full removal. Nothing destructive has
         // happened; retry once the runtime is no longer busy.
         out.error = stopError;
         return out;

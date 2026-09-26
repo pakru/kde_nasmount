@@ -1,9 +1,9 @@
 /*
- * Tests for Root::CredentialStore (plan §2.1, §2.3.1-4).
+ * Tests for Root::CredentialStore.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Every function here writes below /etc/nasmount or /run/nasmount, so --
+ * Every function here reads or writes below /etc/nasmount, so --
  * like every other kde_nasmount-root test file -- a real accept path needs root
  * and belongs to VM integration testing. What is testable without root is
  * the id-validation fail-closed path, common to every function and checked
@@ -61,18 +61,9 @@ int main(int argc, char **argv)
         QString error;
         check(QStringLiteral("assertAbsent() rejects invalid id (as a real failure, not a false meaning absent)"),
               !Root::CredentialStore::assertAbsent(invalidId, &error), error);
-        check(QStringLiteral("assertAbsent() sets an error for the invalid-id case (design: error only for real I/O failure)"),
+        check(QStringLiteral("assertAbsent() sets an error for the invalid-id case (an invalid id is a real failure, not absence)"),
               !error.isEmpty(), error);
     }
-    out << "=== Session mode is equally validated (mode alone changes nothing about id checking) ===" << Qt::endl;
-    {
-        QString error;
-        check(QStringLiteral("write() rejects invalid id for Session too"),
-              !Root::CredentialStore::write(invalidId, QStringLiteral("u"),
-                                            QString(), QString(), &error),
-              error);
-    }
-
     out << "=== write(): a non-empty username with an empty password is rejected, not silently written ==="
         << Qt::endl;
     {

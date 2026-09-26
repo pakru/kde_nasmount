@@ -3,21 +3,16 @@ Name=nasmount
 Icon=drive-network
 
 # Every mutation here is auth_admin. A share is boot-owned and persistent,
-# and its credential is stored root-owned on disk indefinitely (design §7) --
+# and its credential is stored root-owned on disk indefinitely --
 # the equivalent by hand is sudo-editing /etc, so creating or removing one
 # requires authentication exactly like that would.
 #
-# There is no passwordless (Policy=yes) mutation tier any more. There used to
-# be one, for sign-in-scoped shares: those were armed by a per-session
-# supervisor at login, and any prompting policy would have popped an
-# authentication dialog on every single login, so define/undefine/arm/disarm
-# were allow_active=yes. That whole mode is gone -- shares are armed at boot
-# by nasmount-boot, which runs as root and authorizes nothing -- and with it
-# the only reason to keep an unauthenticated mutation. Do not reintroduce one
-# without the login-prompt argument that justified it.
+# There is deliberately no passwordless (Policy=yes) mutation. Nothing needs
+# one: shares are armed at boot by nasmount-boot, which runs as root and
+# authorizes nothing, so no action is ever invoked unattended.
 #
-# Design §7.1 describes these as "auth_admin_keep" (briefly caching admin auth
-# so several actions in a row do not each re-prompt), but kauth-policy-gen's
+# "auth_admin_keep" (briefly caching admin auth so several actions in a row
+# do not each re-prompt) would be the natural choice, but kauth-policy-gen's
 # own Policy-value grammar (invent.kde.org/frameworks/kauth
 # src/policy-gen/policy-gen.cpp) only ever accepts yes|no|auth_self|auth_admin
 # -- it has never generated a "_keep" .policy entry, even though polkit itself

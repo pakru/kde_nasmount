@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * A thin host around the shared ShareForm, which is the same file the KCM
- * embeds — the two front ends now differ only in chrome and in what each
+ * embeds — the two front ends differ only in chrome and in what each
  * knows up front. Here the share is fixed (it came from the smb:// URL
  * Dolphin was invoked on) and, when that share is already saved, this window
- * offers removal instead of an add form, matching the original service-menu
- * interaction. Editing a saved share remains a KCM job.
+ * offers removal instead of an add form.
  */
 
 import QtQuick
@@ -36,7 +35,7 @@ QQC2.ApplicationWindow {
     minimumWidth: preferredWidth
     minimumHeight: preferredHeight
 
-    // --- credential autofill (plan §5) ---------------------------------------
+    // --- credential autofill -------------------------------------------------
     // Host-specific by necessity: the KCM embeds the same form and has no
     // smb:// URL, so the form only knows how to *receive* a suggestion.
     Connections {

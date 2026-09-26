@@ -41,9 +41,9 @@ QString canonicalMountPoint(const QString &raw)
 
 /**
  * What the worker thread hands back to the GUI-thread continuation, which
- * only ever Q_EMITs finished() from it (plan §1.6.4): the per-user lock is
+ * only ever Q_EMITs finished() from it: the per-user lock is
  * acquired first thing on the worker thread and held across the Store
- * snapshot read, the helper call and the checked Store/wallet commit, all of
+ * snapshot read, the helper call and the checked Store commit, all of
  * which now happen on the worker thread too — none of it belongs on the GUI
  * thread, and the lock must cover all of it, not just the KAuth call.
  */
@@ -58,7 +58,7 @@ struct WorkResult {
  * Renders one helper outcome for display: `successMessage` on
  * ConfirmedSuccess, the helper's own error text on ConfirmedFailure, and —
  * for Unknown — text that says plainly the result could not be confirmed
- * rather than guessing at either success or failure (plan §1.5.6).
+ * rather than guessing at either success or failure.
  */
 QString describeOutcome(HelperOutcome outcome, const QString &detail, const QString &successMessage)
 {
@@ -124,8 +124,8 @@ void MountActions::addShare(const QString &unc, const QString &rawMountPoint, co
         }
         r.id = defineResult.id;
 
-        // definesystem arms immediately, as its own last step (design
-        // §6.3a): there is no separate arm step to call here, and no secret
+        // definesystem arms immediately, as its own last step: there is no
+        // separate arm step to call here, and no secret
         // to store locally -- the credential is the helper's root-owned file.
         Store::Share share;
         share.id = r.id;
@@ -191,7 +191,7 @@ void MountActions::deleteShare(const QString &id)
             // Neither a confirmed failure nor an unknown result may remove
             // the Store record — an unknown removal that actually succeeded
             // would otherwise leave a root definition with no local record
-            // pointing at it (plan §1.5.6).
+            // pointing at it.
             r.message = QStringLiteral("could not fully remove %1: %2%3")
                             .arg(share.mountPoint,
                                  describeOutcome(undefineResult.outcome, undefineResult.message, QString()),  QStringLiteral(" — retry removal later"));
@@ -218,9 +218,9 @@ void MountActions::removeOrphanedRecord(const QString &id)
     const QString kind = QStringLiteral("removeRecord");
     Q_EMIT started(id, kind);
     // No helper call: Definition::None means there is nothing on the
-    // privileged side for it to act on (plan §5.4). It is still a Store and
-    // Store mutation, so it follows the same worker-thread/UserLock rule as
-    // every other client operation.
+    // privileged side for it to act on. It is still a Store mutation, so it
+    // follows the same worker-thread/UserLock rule as every other client
+    // operation.
     auto future = QtConcurrent::run([=]() -> WorkResult {
         WorkResult r;
         r.id = id;

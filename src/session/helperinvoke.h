@@ -1,12 +1,13 @@
 /*
  * helperinvoke — the one place a KAuth action against the nasmount helper is
- * issued from, shared by mountactions (async, worker-thread) and the session
- * supervisor (a plain oneshot binary, where a blocking call is fine).
+ * issued from, shared by mountactions and the model (both on worker threads)
+ * and nasmount-cleanup (a plain command-line tool, where a blocking call is
+ * fine).
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * A boolean result cannot represent what KAuth actually tells the caller
- * (plan §1.5). Authorization denial and an explicit error from our own
+ * Authorization denial and an explicit error from our own
  * helper.cpp both mean the call provably did not mutate state — a confirmed
  * failure. A D-Bus timeout or disconnect after the call may have been
  * dispatched means exactly the opposite: the helper may have already acted,
@@ -34,8 +35,8 @@ enum class HelperOutcome {
  * The full result of one helper call. `message` carries the helper's own
  * text on success, or the error description otherwise — human-readable, not
  * meant for programmatic branching. `id` and `activated` are populated only
- * once the corresponding helper action actually returns them (phase 2+); a
- * caller reached before then sees them at their defaults. `data` is the
+ * when the helper action returns them; otherwise they stay at their
+ * defaults. `data` is the
  * complete raw reply map, for reconciliation fields not yet promoted to a
  * typed field here.
  */

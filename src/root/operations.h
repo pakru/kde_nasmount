@@ -1,14 +1,12 @@
 /*
- * operations — define/undefine/purge as direct, checked operations (design
- * §9, simplification-implementation-plan.md §4/§5).
+ * operations — define/undefine/purge as direct, checked operations.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * define()/remove() are both mode-generic: the caller (helper.cpp) hard-codes
- * the mode involved from which entry point was invoked (`define` vs
- * `definesystem`), never from a free-form caller argument (design §7.1).
+ * Owner and identity come from the caller (helper.cpp), which takes them from
+ * KAuth and the validated marker, never from a free-form caller argument.
  * There is no in-place replace/edit: changing a share's UNC, mount point,
- * credentials, authentication kind, or mode is done by removing the
+ * credentials, authentication kind, or access mode is done by removing the
  * definition and creating it again.
  *
  * Neither writes a durable manifest: a same-process failure is compensated
@@ -32,7 +30,7 @@ namespace Root::Operations
 {
 
 // ---------------------------------------------------------------------------
-// define (design §9.1)
+// define
 // ---------------------------------------------------------------------------
 
 struct DefineInput {
@@ -56,17 +54,15 @@ struct DefineInput {
      *  than defaulting it; only an *absent* one means read-write. */
     UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
 
-    /** System + authenticated only: written after both unit halves exist
-     *  (simplification-implementation-plan.md §4, corrected ordering).
-     *  Ignored otherwise -- a Session credential is never written at define
-     *  time (arm() writes it). */
+    /** Authenticated shares only: written after both unit halves exist, so
+     *  an interrupted define leaves discoverable unit state rather than an
+     *  unindexed secret. Ignored for a guest share. */
     QString domain;
     QString password;
 
-    /** System only: the same MountpointPlan the caller already validated via
+    /** The same MountpointPlan the caller already validated via
      *  UnitSpec::validateMountpoint() (plan.path must equal `mountPoint`) --
-     *  needed for the immediate-arm path walk (design §6.3a). Unused for
-     *  Session, where arm() remains a separate later action. */
+     *  needed for the immediate-arm path walk. */
     UnitSpec::MountpointPlan mountPlan;
 };
 
@@ -74,21 +70,18 @@ struct DefineOutput {
     bool ok = false;
     QString shareId;
     QString error;
-    /** System only: whether the share is now actually active (design
-     *  §6.3a). Always false for Session, where activation is a separate,
-     *  later arm() call. */
+    /** Whether the share is now actually active. Add has no "armed after
+     *  the next reboot" success state, so a successful define sets it. */
     bool activated = false;
 };
 
 /**
  * Fresh define, write-forward only (`Definition::None` only — an existing
- * Partial pair is never repaired; the caller must remove it first,
- * simplification-implementation-plan.md §4.1/§4.3). Writes the mount unit,
- * then the automount unit; for System + authenticated, writes the credential
- * only once both halves exist; for System + guest, asserts no credential
- * artifact exists (design §3.2.2). Session never arms here -- `arm` remains
- * a separate action, called by the client after a confirmed define. A
- * System definition instead arms immediately, as its last step: on arm
+ * Partial pair is never repaired; the caller must remove it first). Writes
+ * the mount unit, then the automount unit; for an authenticated share, writes
+ * the credential only once both halves exist; for a guest share, asserts no
+ * credential artifact exists. The definition then arms immediately, as its
+ * last step: on arm
  * failure, the new definition and credential are removed with checked
  * same-call compensation and the whole call reports failure, matching
  * "creation succeeds only with an active trigger and matching id."
@@ -96,7 +89,7 @@ struct DefineOutput {
 DefineOutput define(const DefineInput &input);
 
 // ---------------------------------------------------------------------------
-// undefine (design §9.2)
+// undefine
 // ---------------------------------------------------------------------------
 
 struct RemovalInput {
@@ -121,7 +114,7 @@ struct RemovalOutput {
 RemovalOutput remove(const RemovalInput &input);
 
 // ---------------------------------------------------------------------------
-// authenticated uninstall purge (design §14 / plan phase 8)
+// authenticated uninstall purge
 // ---------------------------------------------------------------------------
 
 struct PurgeOutput {

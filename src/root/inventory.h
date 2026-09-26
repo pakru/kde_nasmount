@@ -1,7 +1,6 @@
 /*
- * inventory — the caller-scoped, privileged credential-health view
- * `inventory` returns (plan §3.3, design §7.1's "read-only caller-owned
- * credential health"; simplification-implementation-plan.md §4.4).
+ * inventory — the caller-scoped, privileged, read-only credential-health
+ * view the `inventory` action returns.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -14,8 +13,8 @@
  * location, and returns only raw facts. It does not inspect runtime state,
  * call systemd, or decide whether a missing credential is currently an
  * error — Session::MountModel owns that interpretation, since it already has
- * the definition and runtime facts (design §7.1.3's rule is never split
- * between the helper and the model).
+ * the definition and runtime facts (that rule is never split between the
+ * helper and the model).
  */
 
 #pragma once

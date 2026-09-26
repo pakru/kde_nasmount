@@ -1,5 +1,5 @@
 /*
- * Tests for helperinvoke's outcome classification (plan §1.5).
+ * Tests for helperinvoke's outcome classification.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *

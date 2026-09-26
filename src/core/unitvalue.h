@@ -1,6 +1,6 @@
 /*
  * unitvalue — the one encoder every value written into a generated unit file
- * goes through, plus the unit-naming and marker-v2 helpers built on top of it.
+ * goes through, plus the unit-naming and marker helpers built on top of it.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -64,7 +64,7 @@ bool unitPathsFor(const QString &mountPoint, UnitPaths *paths, QString *error);
 
 /**
  * Whether a share carries a credential artifact at all. Guest shares use the
- * fixed `guest` mount option and have no credential file. Design §4, §8.1.
+ * fixed `guest` mount option and have no credential file.
  */
 enum class AuthenticationKind { Credentials, Guest };
 
@@ -102,12 +102,13 @@ QString accessModeToString(AccessMode access);
  */
 bool accessModeFromString(const QString &text, AccessMode *access);
 
-/** True iff `id` is exactly 32 lowercase hex characters (design §5.1). */
+/** True iff `id` is exactly 32 lowercase hex characters -- the only form the
+ *  helper generates, and so the only one safe to build a filename from. */
 bool isValidShareId(const QString &id);
 
 /**
- * The marker-v2 fields, both written to and required from every unit half.
- * Design §6.1. There is no partial/optional representation: a value only
+ * The marker fields, both written to and required from every unit half.
+ * There is no partial/optional representation: a value only
  * exists here once the complete marker has parsed successfully.
  */
 struct Marker {
@@ -127,8 +128,7 @@ struct Marker {
 };
 
 /**
- * The marker-v2 comment block written into both generated unit files
- * (design §6.1):
+ * The marker comment block written into both generated unit files:
  *
  *   # X-Nasmount-Managed=1
  *   # X-Nasmount-Owner-Uid=<uid>
@@ -166,13 +166,13 @@ QString markerComment(const Marker &marker);
  * namespace (any `# X-Nasmount-...` line), even if incomplete or malformed.
  * False means an ordinary, non-nasmount unit — "not ours". This is distinct
  * from parseMarker() succeeding, which additionally proves the marker is a
- * complete, well-formed marker-v2 block: callers must treat "hasMarker() true
+ * complete, well-formed marker block: callers must treat "hasMarker() true
  * but parseMarker() false" as Tampered, never as absent.
  */
 bool hasMarker(const QString &unitFileContent);
 
 /**
- * Parses the marker-v2 block out of unit file content.
+ * Parses the marker block out of unit file content.
  *
  * Succeeds only when all six required fields above are present exactly once,
  * each holds a syntactically valid value, and no other `# X-Nasmount-...`
@@ -181,8 +181,7 @@ bool hasMarker(const QString &unitFileContent);
  * `Access=readwrite` is accepted even though generation never emits one.
  *
  * Any deviation — a duplicate field, a missing required field, an unknown
- * field in the managed marker namespace (including the old `Credential-Id`
- * spelling, which is never parsed), an invalid integer, an invalid id, or an
+ * field in the managed marker namespace, an invalid integer, an invalid id, or an
  * unrecognised mode/authentication/access value — fails closed: this returns
  * false and every output is left unmodified. There is exactly one success
  * path.

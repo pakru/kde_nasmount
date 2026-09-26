@@ -5,9 +5,10 @@
 #
 # Run WITHOUT sudo. The build happens as you; only `cmake --install` elevates.
 #
-# This is a clean install only (docs/credential-modes-design.md §2) — there is
-# no migration from an older nasmount. If a previous version is installed, run
-# uninstall.sh first.
+# Re-running it over an existing source install replaces the program files in
+# place and leaves shares, their credentials and configuration untouched;
+# nothing is migrated. Do not run uninstall.sh first to "upgrade": it purges
+# every share.
 
 set -euo pipefail
 
@@ -67,7 +68,7 @@ sed 's/^/  /' "$BUILD/install_manifest.txt"
 
 
 echo
-echo "Enabling the boot coordinator (arms System-mode shares at boot)..."
+echo "Enabling the boot coordinator (arms every share at boot)..."
 sudo systemctl daemon-reload
 sudo systemctl enable --now nasmount-boot.service
 
@@ -76,7 +77,7 @@ echo "Refreshing Dolphin's service menu cache and System Settings' KCM cache..."
 kbuildsycoca6 --noincremental 2>/dev/null || true
 
 echo
-echo "Done. Restart Dolpin and System settings to apply KDE mount"
+echo "Done. Restart Dolphin and System Settings to pick up nasmount."
 echo
 echo "Then type smb://<your-nas>/ in the location bar, right-click a share"
 echo "and choose 'Mount as Network Drive…' — or open System Settings →"

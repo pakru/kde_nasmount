@@ -5,12 +5,15 @@ A KDE/Plasma 6 tool that mounts CIFS shares by generating **static systemd
 (a System Settings KCM and a Dolphin service-menu dialog) drive one privileged
 KAuth helper. Qt 6 / KF6, C++20, CMake.
 
-Read [`README.md`](README.md) for what the tool does and
-[`docs/plans_and_designs/credential-modes-design.md`](docs/plans_and_designs/credential-modes-design.md) for *why*
-it is built this way — the state model, authorisation rules, and session
-lifecycle. Code comments cite that document by section (`design §6.2`) and the
-implementation plans by section (`plan §7.3.2`); keep doing that when you
-encode a rule whose reason is not local.
+Read [`README.md`](README.md) for what the tool does. **The sources are the
+design record**: every header and every non-obvious rule carries its own
+reasoning in comments, and this file carries the cross-cutting rules.
+
+**Never cite a design document or plan** (`design §6.2`, `plan §4.1`,
+`autofill plan`) in code, tests, scripts, or this file. Planning documents
+live in `docs/plans_and_designs/`, which is gitignored and never published, so
+a citation points at nothing for anyone reading the repository. When a rule's
+reason is not local, write the reason itself next to the rule.
 
 ## Build, test, install
 
@@ -70,11 +73,24 @@ choice); on the matching distribution, call the build script directly instead.
 The working tree is copied in, uncommitted changes included, and the source is
 mounted read-only so a build can never write back into it.
 
-The image digests are duplicated between `build-in-container.sh` and
-`ci.yml`; `packaging_metadata_test.sh` fails if they drift, because a local
-build against a different image proves nothing about CI. Each target clears
-only its own `dist/<family>/` subdirectory, since the build scripts require an
-empty output directory.
+The image digests are pinned in `build-in-container.sh`, and repeated in
+every container job of `ci.yml` and `release.yml`. `packaging_metadata_test.sh`
+compares the helper only against the *first* pin of each distribution in
+`ci.yml`, because a local build against a different image proves nothing about
+CI — the other `ci.yml` copies and all of `release.yml` are unchecked, so bump
+every copy together. Each target clears only its own `dist/<family>/`
+subdirectory, since the build scripts require an empty output directory.
+
+Build dependencies are **six hand-maintained lists** that must agree:
+`packaging/debian/control`, the spec's `BuildRequires`, the DEB and RPM lists
+in `build-in-container.sh`, every Ubuntu/Fedora build block in `ci.yml`, and
+`release.yml`. A missing entry fails only in the distribution it was forgotten
+in. `packaging_metadata_test.sh` checks those lists only for the KIO and
+QML-runtime dependencies the autofill feature added (`libkf6kio-dev`/
+`kf6-kio-devel`, `qml6-module-qtquick-dialogs`); extend it when you add
+another. The password service itself is a weak dependency in both families
+(`Recommends:`), never `Requires:` — a host without it must still install and
+mount with a typed credential.
 
 The package entry points use `dpkg-buildpackage`/debhelper and `rpmbuild`/RPM
 macros, which call CMake directly with `NASMOUNT_PACKAGE_FAMILY=deb|rpm`.
@@ -107,11 +123,11 @@ Both families upgrade in place. Five rules govern an upgrade, and
 [`packaging_metadata_test.sh`](tests/packaging_metadata_test.sh) and
 [`package_scripts_test.sh`](tests/package_scripts_test.sh) encode them:
 
-1. An upgrade **never** runs `nasmount-package-guard`. The guard stops program
-   files disappearing under live state; an upgrade replaces them in place.
-   Neither family refuses an upgrade, and neither tears anything down during
-   one. `nasmount.prerm.in` reaches its teardown from `remove)` only; the RPM
-   gates `%preun`/`%postun` on `"$1" -eq 0`. **RPM runs the old package's
+1. An upgrade **never** refuses and **never** tears anything down; it replaces
+   program files in place under live state. No maintainer script runs
+   `nasmount-package-guard` at all (see below). `nasmount.prerm.in` reaches
+   its teardown from `remove)` only; the RPM gates `%preun`/`%postun` on
+   `"$1" -eq 0`. **RPM runs the old package's
    `%preun` and `%postun` with `$1=1` during an upgrade**, so an ungated
    teardown there would unmount and delete every share on every update. That
    gate is the single highest-consequence line in the spec and is tested.
@@ -137,7 +153,10 @@ Both families upgrade in place. Five rules govern an upgrade, and
    [`goldenunits_test.cpp`](tests/goldenunits_test.cpp) is the only gate that
    catches this. If it fails, revert the change or design a migration and raise
    `MIN_UPGRADABLE_VERSION` — **never regenerate
-   [`tests/golden/units/`](tests/golden/units/)** to make it pass.
+   [`tests/golden/units/`](tests/golden/units/)** to make it pass. A release
+   that deliberately adds a new shape (as 0.1.4 did) *adds* a
+   `v<version>/` directory and registers it in `Corpora` in the test; existing
+   directories are never edited or deleted.
 
    A marker field may be **optional-on-read only if its absence reproduces the
    exact pre-existing byte output.** That is the rule that let
@@ -177,9 +196,8 @@ be unchanged, partly removed, or fully removed), because the privileged purge
 is not atomic across shares and a lost KAuth reply cannot be told apart from a
 purge that ran. Never collapse those into one "cleanup failed" message.
 
-**Neither family refuses direct package-manager removal any more.** Both tear
-managed state down themselves. This is a deliberate maintainer decision, not
-drift, and it replaced the guard-refuses contract:
+**Neither family refuses direct package-manager removal.** Both tear managed
+state down themselves. This is a deliberate maintainer decision, not drift:
 
 - **DEB** splits it. `prerm remove` disarms every managed share (automount
   halves first, then the mount halves, which unmounts live CIFS mounts);
@@ -305,10 +323,11 @@ boundary**, not a style preference:
 
 - Everything is **STATIC** on purpose: the privileged helper must not depend on
   a `.so` an unprivileged user could replace. Don't convert these to shared.
-- `kde_nasmount_assert_no_root_link()` in [`CMakeLists.txt`](CMakeLists.txt#L166)
+- `kde_nasmount_assert_no_root_link()` in [`CMakeLists.txt`](CMakeLists.txt#L271)
   fails the configure step if `kde_nasmount-root` ever reaches
-  `kde_nasmount-session`, the dialog, the cleanup tool, or the KCM.
-  Structural placement is the real defence; that check catches accidents.
+  `kde_nasmount-session`, the dialog, the cleanup tool, the package guard, or
+  the KCM. Structural placement is the real defence; that check catches
+  accidents. Add any new unprivileged target to that list.
 - The helper ([`src/helper/helper.cpp`](src/helper/helper.cpp)) is deliberately
   thin: caller validation, typed argument decoding, root-lock acquisition,
   dispatch into `kde_nasmount-root`, reply conversion. **Do not add filesystem or
@@ -317,41 +336,96 @@ boundary**, not a style preference:
   from `KAuth::HelperSupport::callerUid()`, never from the arguments. Validation
   done in the dialog or KCM is UX feedback and is re-done in the helper.
 
-Binaries: `nasmount-helper` (root, D-Bus activated), `nasmount-boot` (root,
-started by `nasmount-boot.service`), `nasmount-dialog` (service menu, QML),
-`nasmount-cleanup` (authenticated uninstall), `kcm_nasmount` (QML KCM,
-[`src/kcm/ui/`](src/kcm/ui/)).
+What gets installed:
+
+| Artifact | Runs as | Role |
+|----------|---------|------|
+| `nasmount-helper` | root, D-Bus activated by KAuth | the only mutator reachable from a user |
+| `nasmount-boot` | root, `nasmount-boot.service` | arms every valid share at boot; authorizes nothing |
+| `nasmount-dialog` | user | Dolphin service menu (QML); also the credential-lookup child, below |
+| `kcm_nasmount.so` | user | System Settings module, QML in [`src/kcm/ui/`](src/kcm/ui/) |
+| `nasmount-cleanup` | user | authenticated, owner-scoped purge via the `purge` action |
+| `nasmount-uninstall` | user | shell script ([`packaging/nasmount-uninstall.sh`](packaging/nasmount-uninstall.sh)): cleanup, then apt/dnf |
+| `nasmount-package-guard` | on demand (CI upgrade jobs) | libexec, read-only state classifier; links `kde_nasmount-core` only |
+
+The KAuth actions are `definesystem`, `undefinesystem`, `purge` (all
+`auth_admin`) and `inventory` (read-only, `Policy=yes`).
 
 Both front ends render the same form,
 [`src/kcm/ui/ShareForm.qml`](src/kcm/ui/ShareForm.qml) — the KCM picks it up
 by directory glob, `nasmount-dialog` embeds it via
 [`src/dialog/dialog.qrc`](src/dialog/dialog.qrc). It must stay host-agnostic:
-no `kcm`/`backend` reference inside it, everything injected as a property.
-A single host reference there silently makes it usable by one front end only,
-which is how the two drifted apart before.
+no `kcm`/`backend` reference inside it, everything injected as a property
+(`actions`, `fixedUnc`, …). A single host reference there silently makes it
+usable by one front end only, and the two front ends drift apart. QML
+reaches C++ by name at runtime, so a C++ rename compiles cleanly and breaks on
+the first click; [`qml_invokable_gate.sh`](tests/qml_invokable_gate.sh)
+requires every `actions.<name>(` to be a `Q_INVOKABLE` on
+`Session::MountActions` and every `kcm.`/`backend.` name to exist on its host.
+
+### Credential autofill (service-menu dialog only)
+
+The dialog pre-fills the credential fields from KDE's password service (README
+"Credential autofill"). It is an *import* into the normal Define,
+not a second credential source, and these rules keep it that way:
+
+- `KF6::KIOCore` (for `KPasswdServerClient`) links into `nasmount-dialog`
+  **only** — never core, session, the KCM, or anything privileged.
+- The lookup runs in a short-lived child process: `nasmount-dialog` re-invoked
+  with a private flag, speaking a versioned, size-capped protocol over pipes
+  ([`credentiallookup.h`](src/dialog/credentiallookup.h),
+  [`credentiallookupworker.cpp`](src/dialog/credentiallookupworker.cpp)). Not a
+  thread: `KPasswdServerClient` blocks in a nested event loop with no deadline
+  and may show a wallet prompt, and only a process can be abandoned. It is a
+  mode of the existing binary so the installed file set is unchanged —
+  splitting it out is an installed-file-set change (the synchronized-update rule
+  under "Native packages").
+- Only `checkAuthInfo()` is ever called. Never `queryAuthInfo()` or
+  `addAuthInfo()`: nasmount never asks the password service to store or prompt.
+- A suggestion is **all-or-nothing and one-shot**: applied as one tuple,
+  sealed the moment the user edits any credential field
+  (`ShareForm.credentialsSealed`), never written to Store, a file, or a log. An
+  imported password must never pair with a typed username;
+  `shareform_qml_test` loads the real `ShareForm.qml` to hold that.
+- When the `smb://` URL names a user, a candidate for another account is
+  refused (`acceptCandidate()`), not substituted.
+- It takes no lock — it mutates nothing — and the helper re-validates the
+  result like any typed credential. The KCM's Add form stays manual.
+- `NASMOUNT_DEBUG_LOOKUP=1` prints why a lookup missed: reasons only, never a
+  username, password, or length.
 
 ## Conventions
 
-- Every source file opens with a block comment: what the unit is, then
+- Every header, QML file and standalone `.cpp` (`main.cpp`, `helper.cpp`)
+  opens with a block comment: what the unit is, then
   `SPDX-License-Identifier: GPL-3.0-or-later`, then the *reasoning* that a
-  reader would otherwise have to reconstruct. Headers carry the API contracts as
-  `/** ... */` doc comments; `.cpp` files carry implementation reasoning. Match
-  this density — it is unusually high and it is intentional.
+  reader would otherwise have to reconstruct. A `.cpp` that implements a header
+  opens with the SPDX line alone — its unit description lives in the header.
+  Headers carry the API contracts as `/** ... */` doc comments; `.cpp` files
+  carry implementation reasoning beside the code. Match this density — it is
+  unusually high and it is intentional.
 - KDE/Qt style: 4 spaces, brace on its own line for functions and attached for
   control flow, `const QString &` parameters, `QStringLiteral` for literals,
   namespaces `UnitSpec` / `UnitValue` / `Verify` / `Session` / `Root::*`. There
   is no `.clang-format`; follow the surrounding file.
 - Errors are reported through `bool` returns plus a `QString *error`
-  out-parameter, not exceptions. There is **no logging framework** — user-facing
-  output goes to `QTextStream(stdout/stderr)` in the standalone binaries only.
+  out-parameter, not exceptions. There is **no logging framework** (no
+  `qDebug`/`qWarning` anywhere in `src`) — user-facing output goes to
+  `QTextStream(stdout/stderr)` in the standalone binaries only, and nothing
+  ever prints credential material.
 - No in-place Edit exists anywhere. Changing a share's UNC, mount point,
   credentials, authentication or mode is Delete then Add. Don't reintroduce an
   edit path.
 - There is one lifecycle: every share is defined with a root-owned `/etc`
   credential and armed at boot. There is no Session/System choice, no
   KWallet, no per-share reconnect switch, and no runtime verb
-  (connect/arm/disarm/mount-now). Don't reintroduce one without reading
-  design §1.1, which records why the sign-in-scoped mode was removed.
+  (connect/arm/disarm/mount-now). A sign-in-scoped mode (credential under
+  `/run`, password in KWallet, a per-user supervisor arming after login)
+  existed and was removed: it could not arm before someone logged in and
+  unlocked a wallet, so it could not survive a reboot unattended, and it
+  depended on a wallet this tool cannot guarantee is reachable. Don't
+  reintroduce it without answering both. The only residue is the fixed
+  `# X-Nasmount-Mode=system` marker line, kept because the format is frozen.
 - Properties of an *existing* definition are still always re-derived from the
   validated unit marker via `Verify::inspectDefinition()` — never from the
   Store and never from a caller-supplied flag.
@@ -361,28 +435,46 @@ which is how the two drifted apart before.
 
 ## Tests
 
+The suite is 24 CTest entries: 18 C++ test binaries, four shell gates
+(`removed_api_gates.sh`, `qml_invokable_gate.sh`, `package_scripts_test.sh`,
+`packaging_metadata_test.sh`), `version_metadata` (a CMake script checking
+`VERSION` against every generated version string), and ECM's `appstreamtest`.
+Both native package builds run all of it.
+
 `tests/*.cpp` are plain `main()` binaries using a local harness (`static int
 passed/failed` plus a `check(label, condition, detail)` helper, `return failed
-== 0 ? 0 : 1`) — **not** QTest. Copy the pattern from an existing test.
+== 0 ? 0 : 1`) — **not** QTest. Copy the pattern from an existing test. Code
+that lives in no library (the dialog's `smburl.cpp`, `credentiallookup.cpp`)
+is tested by compiling its translation units straight into the test, without
+`KF6::KIOCore`, so nothing needs a wallet or a NAS. Tests that read the source
+tree (`goldenunits_test`, `shareform_qml_test`) get the path as a compile
+definition rather than a staged copy, which could go stale.
 
-Adding a test means editing **three** places:
+Adding a C++ test means editing **three** places:
 
 1. `tests/<name>_test.cpp`;
 2. `CMakeLists.txt` — `add_executable` + `target_link_libraries` + `add_test`;
-3. [`install.sh`](install.sh#L44) — the explicit test-binary list, which gates
+3. [`install.sh`](install.sh#L45) — the explicit test-binary list, which gates
    installation. It is a hand-maintained list; a new test not added there is
    silently skipped at install time.
 
+A new shell gate likewise needs its `add_test` *and* its own `bash …` line in
+`install.sh`.
+
 The same hand-maintained-list trap exists in CI. `packaging_metadata_test.sh`
-compares the workflow job names to an **exact set**, and `ci_success` carries
-its own `needs`/`env`/loop; a job added to the workflow but not to all of those
-runs without gating anything. The test asserts that wiring for `upgrade_deb`.
+compares both workflows' job names to an **exact set**, and `ci_success`
+carries its own `needs`/`env`/loop; a job added to the workflow but not to all
+of those runs without gating anything. The test asserts that wiring for
+`upgrade_deb` and `upgrade_rpm`.
 
 [`tests/removed_api_gates.sh`](tests/removed_api_gates.sh) is a grep-based gate
 that fails the suite if deleted APIs return — the transaction/recovery engine,
 tombstones/Forget, automatic partial repair, in-place Edit/Replace, pending-
-transaction presentation roles. If a build fails there, the fix is to stop using
-the forbidden identifier, not to loosen the pattern.
+transaction presentation roles, runtime coupling in the privileged inventory,
+and stale transaction-storage prose in `README.md`, `src` and the install
+scripts. If a build fails
+there, the fix is to stop using the forbidden identifier, not to loosen the
+pattern.
 
 Privileged accept paths and real reboot / no-login behaviour are **not** covered
 locally and must be validated in a disposable VM.
@@ -400,8 +492,10 @@ locally and must be validated in a disposable VM.
 - Generation and validation of unit bodies share the same fixed-value functions,
   so any functional deviation becomes `Tampered`. If you change generation,
   change the shared function — never the two sides separately.
-- Every KAuth mutation is `auth_admin` by design (there is no passwordless
-  tier left — see the .actions header for why the old one existed); the threat
-  model in the README explains what that rests on. Adding actions means editing
-  [`io.github.pakru.nasmount.actions`](io.github.pakru.nasmount.actions).
+- Every KAuth mutation is `auth_admin` by design, with no passwordless tier:
+  nothing is ever invoked unattended, since boot arming runs as root. The
+  header of [`io.github.pakru.nasmount.actions`](io.github.pakru.nasmount.actions)
+  also explains why `auth_admin_keep` is written as plain `auth_admin`
+  (`kauth-policy-gen` cannot emit `_keep`). Adding an action means editing
+  that file — and is upgrade rule 5.
 - Requires Linux 6.8+ (`STATX_MNT_ID_UNIQUE`), Plasma 6 / KF6, `cifs-utils`.

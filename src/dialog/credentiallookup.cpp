@@ -258,7 +258,7 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
     // The answer must not *contradict* the question, which is weaker than
     // repeating it: the service replies with the URL of whichever entry
     // matched, and a host-level entry — what Dolphin writes by default —
-    // names no share at all (plan §9.4). So scheme and host must match, while
+    // names no share at all. So scheme and host must match, while
     // the share must match only when the reply names one; an absent URL
     // carries no identity and cannot contradict anything.
     if (reply.resultUrl.isValid() && !reply.resultUrl.isEmpty()) {
@@ -475,7 +475,7 @@ bool Controller::isRunning() const
 
 void Controller::start(const Request &request)
 {
-    // One attempt per window (plan §4.1): there is no retry.
+    // One attempt per window: there is no retry.
     if (m_started || !request.target.isValid()) {
         return;
     }
@@ -511,7 +511,7 @@ void Controller::start(const Request &request)
         const QString username = candidate.username;
         const QString domain = candidate.domain;
         const QString password = candidate.password;
-        // Drop our copies before handing the tuple on (plan §4.2). Qt gives
+        // Drop our copies before handing the tuple on. Qt gives
         // no zeroisation guarantee; this is not keeping it, not erasing it.
         candidate = Candidate();
         reply = Reply();

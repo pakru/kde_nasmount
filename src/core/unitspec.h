@@ -21,7 +21,7 @@
 namespace UnitSpec
 {
 
-/** Per-field and whole-file credential limits (design §8.1), centralised here
+/** Per-field and whole-file credential limits, centralised here
  *  so define, arm, and the privileged writer they both funnel into apply
  *  exactly the same bound rather than each picking its own. */
 constexpr qsizetype MaxCredentialFieldBytes = 4096;
@@ -92,7 +92,7 @@ bool validateMountpoint(const QString &rawPath, const QString &homeDir,
 int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QString *error);
 
 /**
- * Boot's counterpart to openMountpointNoFollow() (design §10.1, plan §4.1.5):
+ * Boot's counterpart to openMountpointNoFollow():
  * verifies every component of an *already-existing* mount point without ever
  * creating, chowning or chmoding anything.
  *
@@ -123,8 +123,8 @@ int openMountpointNoCreate(const MountpointPlan &plan, uid_t expectedUid, gid_t 
 QString mountOptions(uid_t uid, gid_t gid, const QString &credPath, UnitValue::AccessMode access);
 
 // ---------------------------------------------------------------------------
-// Marker-v2 unit generation and the restricted-template validator (plan
-// phase 1.2). Generation and validation share these same fixed-value
+// Marker unit generation and the restricted-template validator.
+// Generation and validation share these same fixed-value
 // functions, so there is exactly one definition of "what a share unit looks
 // like" for a given marker + mount point: generation emits it, validation
 // re-derives it and compares. That is what makes "any functional deviation
@@ -132,7 +132,7 @@ QString mountOptions(uid_t uid, gid_t gid, const QString &credPath, UnitValue::A
 // ---------------------------------------------------------------------------
 
 /** Root directory for credential files: /etc/nasmount. A share's credential
- *  is persistent and root-owned; there is no second location. Design §5. */
+ *  is persistent and root-owned; there is no second location. */
 QString credentialDirectory();
 
 /** `<credentialDirectory()>/<id>.cred`. `id` must satisfy
@@ -140,7 +140,7 @@ QString credentialDirectory();
 QString credentialPathFor(const QString &id);
 
 /**
- * The complete, fixed `Options=` value for one marker (design §6.2):
+ * The complete, fixed `Options=` value for one marker:
  * identical safety and ownership options in every case, differing only in the
  * leading `guest` or `credentials=<path>` term and in the access mode's `ro`
  * and permission bits. The credential path is fully determined by the id; a
@@ -161,20 +161,20 @@ QString mountOptionsFor(const UnitValue::Marker &marker);
  * Builds the complete `.mount` unit content for `marker` at `mountPoint`,
  * mounting `unc`. Both must already be validated (validateUnc /
  * validateMountpoint); this only encodes them. Fails only on an encoding
- * rejection (control characters, stray quote, trailing backslash — plan
- * §1.1's UnitValue::encodeUnitValue), which validated input never triggers.
+ * rejection (control characters, stray quote, trailing backslash — see
+ * UnitValue::encodeUnitValue()), which validated input never triggers.
  */
 bool buildMountUnitContent(const UnitValue::Marker &marker, const QString &unc,
                            const QString &mountPoint, QString *content, QString *error);
 
 /**
  * Builds the complete `.automount` unit content for `marker` at
- * `mountPoint`, including `ConditionPathIsDirectory=` (plan §1.2.3) so
+ * `mountPoint`, including `ConditionPathIsDirectory=` so
  * systemd itself refuses to start if the path has vanished since validation.
  * That directive is emitted in `[Unit]`, the only section systemd parses a
  * `Condition*=` out of — in `[Automount]` it is ignored with a log line and
- * the guard silently does nothing, which matters most for a System share
- * armed by nasmount-boot before login.
+ * the guard silently does nothing, which matters because nasmount-boot arms
+ * every share before login.
  */
 bool buildAutomountUnitContent(const UnitValue::Marker &marker, const QString &mountPoint,
                                QString *content, QString *error);

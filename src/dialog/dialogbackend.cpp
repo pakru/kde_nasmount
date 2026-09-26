@@ -68,7 +68,7 @@ void DialogBackend::removeExisting()
 void DialogBackend::startCredentialLookup()
 {
     // A saved share opens the removal view: a lookup would be a wallet
-    // prompt with nowhere to put the answer (plan §5).
+    // prompt with nowhere to put the answer.
     if (!m_existingId.isEmpty() || m_lookup) {
         return;
     }
@@ -84,7 +84,7 @@ void DialogBackend::startCredentialLookup()
             &DialogBackend::credentialSuggestion);
     // missed() reaches nothing user-visible: finding nothing is the ordinary
     // case, and an error box would turn a silent convenience into an
-    // interruption (plan §5). The opt-in diagnostic above is the exception,
+    // interruption. The opt-in diagnostic above is the exception,
     // because "nothing happened and nothing said why" cannot be debugged.
     connect(m_lookup, &Dialog::CredentialLookup::Controller::missed, this,
             [](const QString &reason) { reportLookup(QStringLiteral("no credential applied — ") + reason); });
@@ -93,13 +93,14 @@ void DialogBackend::startCredentialLookup()
 
     Dialog::CredentialLookup::Request request;
     request.target = target;
-    // Only the URL's own username, never the local login (plan §3.1).
+    // Only the URL's own username, never the local login: only the URL is
+    // evidence of which SMB account is meant.
     request.username = m_urlUser;
     request.windowId = 0;
 
     // kpasswdserver's windowId is an X11 XID, and under Wayland winId()
     // returns something else entirely — passing that would name an unrelated
-    // window (plan §4.1). Under Wayland the prompt appears unparented.
+    // window. Under Wayland the prompt appears unparented.
     if (QGuiApplication::platformName() == QLatin1String("xcb")) {
         const QList<QWindow *> windows = QGuiApplication::topLevelWindows();
         if (!windows.isEmpty()) {

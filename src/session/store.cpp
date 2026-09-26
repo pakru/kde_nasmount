@@ -108,7 +108,7 @@ CommitResult commitShare(const Share &share, quint64 expectedGeneration, QString
     auto config = KSharedConfig::openConfig(ConfigName);
     // Re-read immediately before the compare, not the caller's possibly-stale
     // in-memory snapshot: another cooperating process may have committed
-    // since this caller's own read (plan §1.6.3-4). This check is meaningful
+    // since this caller's own read. This check is meaningful
     // because the caller is expected to hold Session::UserLock across both;
     // it catches a lock-discipline bug, it is not a substitute for the lock.
     config->reparseConfiguration();
@@ -132,9 +132,9 @@ CommitResult commitShare(const Share &share, quint64 expectedGeneration, QString
 
 bool removeShare(const QString &id)
 {
-    // No secret to revoke first any more: the share's credential is a
-    // root-owned file the helper removes when it undefines the definition,
-    // so this only clears the local convenience record.
+    // Nothing secret lives here: the share's credential is a root-owned file
+    // the helper removes when it undefines the definition, so this only
+    // clears the local convenience record.
     auto config = KSharedConfig::openConfig(ConfigName);
     config->reparseConfiguration();
     KConfigGroup root = config->group(SharesGroup);

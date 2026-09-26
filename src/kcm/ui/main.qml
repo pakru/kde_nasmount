@@ -16,11 +16,9 @@ Item {
 
     KCMUtils.ConfigModule.buttons: KCMUtils.ConfigModule.NoAdditionalButton
 
-    // The numeric Session::DisplayState mirror that used to live here is
-    // gone with the runtime verbs that were the only thing switching on it.
-    // This page now shows state only as text (model.stateText), so nothing
-    // here has to track the enum's ordering. Reintroducing the constants
-    // would reintroduce a mirror QML cannot check: it resolves these at
+    // State is shown only as text (model.stateText), so nothing here tracks
+    // Session::DisplayState's ordering. Do not mirror its numeric values in
+    // QML: that is a mirror QML cannot check -- it resolves these at
     // runtime, so a reorder in mountmodel.h would silently mismatch rather
     // than fail to build.
 
@@ -64,9 +62,9 @@ Item {
             }
         }
 
-        // design §7.1.8/§7.4.8: global boot-coordinator health, never
-        // overriding a specific share's own row state. Every share is now
-        // boot-armed, so this is relevant whenever any share exists at all.
+        // Global boot-coordinator health, never overriding a specific share's
+        // own row state. Every share is boot-armed, so this is relevant
+        // whenever any share exists at all.
         QQC2.Pane {
             visible: kcm.shareModel.hasShares || !kcm.shareModel.bootHealthy
             contentItem: RowLayout {
@@ -154,9 +152,8 @@ Item {
                         // remains is removal.
 
                         // --- removal, driven directly by the backend's own
-                        // actionability booleans (simplification plan §4
-                        // action 8) -- QML never reproduces the safety rule
-                        // behind them. ---------------------------------------
+                        // actionability booleans -- QML never reproduces the
+                        // safety rule behind them. ---------------------------
                         QQC2.Button {
                             visible: delegateRoot.hasStoreRecord && delegateRoot.hasUnitFiles && delegateRoot.canRemoveDefinition
                             text: "Delete"

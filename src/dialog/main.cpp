@@ -50,7 +50,7 @@ void reportStartupFailure(const QString &message)
 
 int main(int argc, char **argv)
 {
-    // Dispatched before anything else (plan §4.1): that invocation is a
+    // Dispatched before anything else: that invocation is a
     // pipe-to-pipe transport with no interface, so it must not construct a
     // QApplication or reach the QML engine below. It is absent from the
     // parser because --help describes commands a user runs.
@@ -87,10 +87,10 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    // The two identities stay separate into the backend (plan §3.1): the
+    // The two identities stay separate into the backend: the
     // Linux login is only what the field is pre-filled with, while the URL's
-    // username is evidence of which SMB account is meant. Merging them, as
-    // this used to, would exclude a NAS account named differently.
+    // username is evidence of which SMB account is meant. Merging them would
+    // exclude a NAS account named differently.
     QString loginUser;
     if (const struct passwd *pw = ::getpwuid(::getuid())) {
         loginUser = QString::fromLocal8Bit(pw->pw_name);

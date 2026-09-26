@@ -1,5 +1,5 @@
 /*
- * Tests for Root::DurableFs (plan §2.2).
+ * Tests for Root::DurableFs.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *

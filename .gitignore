@@ -47,6 +47,8 @@ CMakeLists.txt.user*
 # --- local Claude Code overrides (shared settings.json stays tracked) -------
 .claude/settings.local.json
 .claude/
+
+# --- local planning documents: never published; sources must not cite them --
 docs/plans_and_designs/
 
 # --- crash and profiling artifacts ------------------------------------------

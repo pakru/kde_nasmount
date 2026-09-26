@@ -10,9 +10,7 @@
 # these names at runtime against a QObject exposed as `var`, so a rename on
 # the C++ side leaves the QML call compiling cleanly, passing qmllint, and
 # passing every ctest binary -- then throwing a TypeError the first time a
-# user clicks the button. That is exactly what happened when
-# addSystemShare() was renamed to addShare(): nothing caught it until a
-# review read both sides side by side.
+# user clicks the button.
 #
 # Deliberately grep-based rather than a Qt test: the failure is a *name*
 # mismatch across two languages, so comparing the declared names directly is
@@ -92,7 +90,7 @@ check_host backend src/dialog/dialogbackend.h
 
 # --- ShareForm must stay host-agnostic -------------------------------------
 # It is embedded by both front ends; a host reference silently makes it
-# usable by only one of them, which is how the two forms drifted apart.
+# usable by only one of them, and the two forms drift apart.
 if strip_comments src/kcm/ui/ShareForm.qml | grep -qE '\b(kcm|backend)\.'; then
     fail "ShareForm.qml references a host context object; it must stay host-agnostic"
 fi

@@ -1,14 +1,13 @@
 /*
- * Tests for Root::Inventory (plan §3.3, simplification-implementation-plan.md
- * §4.4).
+ * Tests for Root::Inventory.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * buildFor() itself enumerates real /etc/systemd/system state and reads
  * /etc/nasmount credential files, so — like durablefs_test.cpp before it —
  * it cannot exercise a real accept path as an unprivileged test process.
- * ShareRecord is now just {id, credentialApplicable, credentialHealthy};
- * toJson() is the pure serialisation left to cover here.
+ * ShareRecord is {id, credentialApplicable, credentialHealthy}; toJson() is
+ * the pure serialisation covered here.
  */
 
 #include "inventory.h"

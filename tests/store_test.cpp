@@ -1,15 +1,12 @@
 /*
- * Tests for Store's checked, compare-and-swap commit API (plan §1.6).
+ * Tests for Store's checked, compare-and-swap commit API.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Deliberately never calls readPassword/writePassword/removePassword or
- * removeShare (which itself calls removePassword): those open a real KWallet
- * over D-Bus, which is not available — and must not be required — for an
- * unprivileged, offline unit test. What is covered here is everything
- * reachable through KConfig alone: checked insert/update, generation-conflict
- * rejection standing in for two racing cooperating clients (plan §1.6.7), and
- * corrupt-record visibility (plan §1.6.5).
+ * Store is KConfig alone and holds no secret, so all of it is testable
+ * offline and unprivileged: checked insert/update, generation-conflict
+ * rejection standing in for two racing cooperating clients, and
+ * corrupt-record visibility.
  *
  * XDG_CONFIG_HOME is redirected to a fresh temporary directory before any
  * KConfig object is touched, so this never reads or writes the real user's
@@ -82,7 +79,7 @@ int main(int argc, char **argv)
         check(QStringLiteral("generation is 1 after one commit"), snap.generation == 1, QString::number(snap.generation));
     }
 
-    out << "=== commitShare: generation-conflict on a duplicate insert (plan §1.6.7) ===" << Qt::endl;
+    out << "=== commitShare: generation-conflict on a duplicate insert ===" << Qt::endl;
     {
         // Simulates two cooperating clients that both believe the id is
         // unused: the second commitShare(..., 0, ...) must not silently
@@ -106,7 +103,7 @@ int main(int argc, char **argv)
               snap.share.unc);
     }
 
-    out << "=== commitShare: generation-conflict on a stale update (plan §1.6.7) ===" << Qt::endl;
+    out << "=== commitShare: generation-conflict on a stale update ===" << Qt::endl;
     {
         Store::Share share;
         share.id = QStringLiteral("0000000000000000000000000000003");
@@ -149,7 +146,7 @@ int main(int argc, char **argv)
         const Store::Snapshot snap = Store::snapshotById(share.id);
 
         // Directly remove the group to simulate a concurrent removeShare()
-        // without touching KWallet.
+        // from another process.
         {
             auto config = KSharedConfig::openConfig(QStringLiteral("nasmountrc"));
             KConfigGroup root = config->group(QStringLiteral("Shares"));
@@ -171,7 +168,7 @@ int main(int argc, char **argv)
         check(QStringLiteral("corrupt is false for an absent record (nothing to be corrupt)"), !snap.corrupt);
     }
 
-    out << "=== shareSnapshots: corrupt records are surfaced, not skipped (plan §1.6.5) ===" << Qt::endl;
+    out << "=== shareSnapshots: corrupt records are surfaced, not skipped ===" << Qt::endl;
     {
         // Write a group missing MountPoint directly, bypassing the checked
         // API, to simulate a hand-edited or partially-written config file.
@@ -254,7 +251,7 @@ int main(int argc, char **argv)
               legacy.share.access == QStringLiteral("readwrite"), legacy.share.access);
     }
 
-    out << "=== UserLock: a second acquirer blocks until the first releases (plan §1.6.7) ===" << Qt::endl;
+    out << "=== UserLock: a second acquirer blocks until the first releases ===" << Qt::endl;
     {
         QString err1;
         auto first = Session::UserLock::acquire(&err1);

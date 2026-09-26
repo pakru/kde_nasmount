@@ -8,25 +8,28 @@ Requirements:
  
 ## Downloads and Install
 
-Download the latest package for your system with one command.
+Download the latest package for your system with one command. Replace
+`<version>` with the number shown on the
+[latest release](https://github.com/pakru/kde_nasmount/releases/latest) — its
+release notes carry the same commands with the version filled in.
 
 Kubuntu 26.04 LTS amd64:
 
 ```bash
-wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-amd64-0.x.y.deb
+wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-amd64-<version>.deb
 ```
 
 Fedora KDE 44 x86_64:
 
 ```bash
-wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-fedora44-x86_64-0.x.y.rpm
+wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-fedora44-x86_64-<version>.rpm
 ```
 
 Then install the downloaded package:
 
 ```bash
-sudo apt install ./nasmount-amd64-0.1.3.deb                   # Kubuntu
-sudo dnf install ./nasmount-fedora44-x86_64-0.1.3.rpm         # Fedora
+sudo apt install ./nasmount-amd64-<version>.deb                   # Kubuntu
+sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm         # Fedora
 ```
 
 `apt install` is preferred over `dpkg -i` for the `.deb`: it resolves the

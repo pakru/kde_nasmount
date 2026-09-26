@@ -1,16 +1,16 @@
 /*
  * userlock — the per-user lock shared by the dialog, the KCM and the
- * supervisor (plan §6).
+ * cleanup tool.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The root lock in the helper only covers one privileged call at a time; it
- * says nothing about the unprivileged config/wallet writes a client makes
+ * says nothing about the unprivileged config writes a client makes
  * immediately before or after that call. Without a lock spanning all of it,
- * two cooperating frontends (or the supervisor and a frontend) can interleave
+ * two cooperating frontends can interleave
  * an Add or Delete's config snapshot, its KAuth call and its config commit.
  * This does not defend against a hostile process already running as the
- * user — nothing here does, per the README threat model — it keeps
+ * user — nothing unprivileged can — it keeps
  * *cooperating* callers consistent with each other.
  *
  * Lock ordering is fixed: this lock is always acquired before the root lock,

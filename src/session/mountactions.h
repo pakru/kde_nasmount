@@ -1,8 +1,8 @@
 /*
- * mountactions — the operation controller for Add and Delete (plan phase 7).
+ * mountactions — the operation controller for Add and Delete.
  * There is no in-place Edit and no per-share runtime verb: changing a share's
  * UNC, mount point, credentials or authentication kind is Delete then Add
- * again (simplification-implementation-plan.md), and a share is armed at boot
+ * again, and a share is armed at boot
  * and mounts on first access rather than being armed or mounted by hand.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -11,21 +11,21 @@
  * `finished()`. Nothing on the calling (GUI) thread blocks: the per-user lock
  * acquisition and the KAuth call (KAuth::ExecuteJob::exec()) run on a worker
  * thread, because both are unbounded waits on another process — a slow
- * polkit prompt would otherwise freeze System Settings (plan §10).
+ * polkit prompt would otherwise freeze System Settings.
  *
  * The per-user lock (Session::UserLock) is acquired first thing on the
  * worker thread and held across the Store snapshot read, the KAuth call and
  * the checked Store commit that follows — all of it, not just the KAuth
- * call (plan §1.6.4) — and is released only once the worker lambda returns.
+ * call — and is released only once the worker lambda returns.
  * The GUI-thread continuation only ever Q_EMITs finished(); it does not
  * itself touch Store.
  *
  * There is one lifecycle and therefore no mode routing: every share is
  * defined with a root-owned credential and armed at boot, so the helper
  * action names are fixed (definesystem/undefinesystem) rather than chosen
- * per share. Existing definitions still have their mode re-derived from the
+ * per share. An existing definition's properties are re-derived from the
  * validated marker by the helper itself — Store is never authoritative for
- * that — but there is no longer a second mode for it to resolve to.
+ * them.
  */
 
 #pragma once
@@ -37,7 +37,7 @@ namespace Session
 {
 
 /**
- * Guest and authenticated inputs must not be mixed (plan §1.7.3): an empty
+ * Guest and authenticated inputs must not be mixed: an empty
  * username means guest, which the helper represents as no credential at
  * all, so a non-empty password or domain alongside it cannot be honoured —
  * silently discarding them would surprise a caller who meant to
@@ -53,8 +53,7 @@ public:
     explicit MountActions(QObject *parent = nullptr);
 
     /** The only create there is: a share is boot-armed with a root-owned
-     *  credential, so there is no mode to choose and no per-share reconnect
-     *  switch. Requires authentication; a polkit prompt is expected.
+     *  credential. Requires authentication; a polkit prompt is expected.
      *
      *  `access` is one of "readwrite", "readonly" or "readwrite-executable"
      *  — the same closed vocabulary the marker and the helper use, via
@@ -75,14 +74,14 @@ public:
     /**
      * Removes a Store record with no backing unit at all (Definition::None) —
      * nothing for the helper to act on, so this is a local KConfig removal
-     * with no KAuth call (plan §5.4, "removal of the user record").
+     * with no KAuth call.
      */
     Q_INVOKABLE void removeOrphanedRecord(const QString &id);
 
     /**
      * Path-based removal for a Pair or either-half Partial definition
      * discovered only by scanning the unit tree — no Store record exists
-     * for it at all, so there is no id to key off (plan §7.3.1). Mode is
+     * for it at all, so there is no id to key off. Authentication is
      * derived fresh from the validated marker, exactly like deleteShare().
      */
     Q_INVOKABLE void removeOrphanByPath(const QString &mountPoint);

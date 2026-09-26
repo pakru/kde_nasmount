@@ -1,14 +1,13 @@
 /*
- * arming — the shared arm/disarm/safe-stop routines every privileged caller
- * that starts or stops a share's automount goes through (plan §2.5, design
- * §6.4, §9.5; simplification-implementation-plan.md §4.2).
+ * arming — the shared arm and safe-stop routines every privileged caller
+ * that starts or stops a share's automount goes through.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * "The automount reports active" and "this is the instance we are allowed
- * to act on" are different claims (plan §1.4.4). Every stop in this project
+ * to act on" are different claims. Every stop in this project
  * goes through safeStop(), which proves the second claim via the recorded
- * instance id before touching anything; every start goes through arm(),
+ * instance id before touching anything; every start goes through armShare(),
  * which never returns success without that id durably recorded, and rolls
  * itself back rather than leave an active-but-unrecorded ("blessed")
  * trigger if recording fails.
@@ -35,7 +34,7 @@ namespace Root::Arming
 {
 
 /**
- * The structured result of an attempted stop (plan §2.5.2), replacing a
+ * The structured result of an attempted stop, rather than a
  * bare bool: callers that must distinguish "nothing to do" from "could not
  * prove it was safe" from "the process itself failed" make different
  * decisions.
@@ -48,7 +47,7 @@ enum class StopPrecheck { ShouldStop, AlreadyInactive, CorrelationMismatch, Inde
 StopPrecheck evaluateStopPrecheck(const Verify::RuntimeSnapshot &snapshot, QString *error);
 
 /**
- * The correlation gate (design §4.2, §6.4) plus the actual stop, as one
+ * The correlation gate plus the actual stop, as one
  * operation: computes the runtime snapshot for `unitName`/`mountPoint`, and
  * — only if the mount is verified `Match`, or the automount is `Inactive`,
  * or the automount is `Active` with `ActivationTrust::Trusted` — stops both
@@ -58,14 +57,14 @@ StopPrecheck evaluateStopPrecheck(const Verify::RuntimeSnapshot &snapshot, QStri
 StopResult safeStop(const QString &unitName, const QString &mountPoint, const QString &expectedWhat, QString *error);
 
 // ---------------------------------------------------------------------------
-// Shared single-share arming (plan §4.1, design §6.3/§6.3a/§6.4) — used by
+// Shared single-share arming — used by
 // definesystem's immediate arm and by nasmount-boot, so both
 // implement the exact same idempotency and path-safety rules. Never writes a
-// credential (System's was already durably written by definesystem before
+// credential (an authenticated share's was durably written by definesystem before
 // this ever runs; a guest share never has one) — only validates it.
 // ---------------------------------------------------------------------------
 
-/** How the mount point may be touched while arming (design §10.1). An
+/** How the mount point may be touched while arming. An
  *  interactive Add may create it exactly like
  *  UnitSpec::openMountpointNoFollow(); nasmount-boot must never create or
  *  chown anything and instead verifies whatever already exists via
@@ -75,8 +74,8 @@ enum class PathPolicy { InteractiveCreate, BootNoCreate };
 enum class ArmPrecheck { ReadyToArm, AlreadyArmed, Blocked };
 
 /**
- * Pure decision table over an already-computed runtime snapshot (design
- * §6.4's "inspect runtime before touching the path"): `Blocked` for
+ * Pure decision table over an already-computed runtime snapshot, so runtime
+ * is inspected before the path is touched at all: `Blocked` for
  * Indeterminate automount/mount state, a live mount already occupying the
  * path, or an active automount whose instance id does not match what was
  * recorded (never "bless" it); `AlreadyArmed` only when the automount is
@@ -115,9 +114,9 @@ struct ArmShareResult {
 };
 
 /**
- * Arms one share, standalone (design §9.5, simplification plan §4.2) — used
+ * Arms one share, standalone — used
  * by `definesystem`'s immediate arm and by nasmount-boot for each share it
- * enumerates. Inspects runtime *before* touching the path (design §6.4): a
+ * enumerates. Inspects runtime *before* touching the path: a
  * recorded instance id that already matches an active automount is an
  * idempotent no-op that touches nothing further; an active-but-unrecorded
  * instance, or a live mount that does not correlate, fails closed without

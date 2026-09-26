@@ -111,7 +111,7 @@ int main(int argc, char **argv)
         check(QStringLiteral("empty rejected"), !UnitValue::isValidShareId(QString()));
     }
 
-    out << "=== marker v2: round trip, every authentication kind x access mode ===" << Qt::endl;
+    out << "=== marker: round trip, every authentication kind x access mode ===" << Qt::endl;
     {
         const uid_t uid = ::getuid();
         const gid_t gid = ::getgid();
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
               !UnitValue::hasMarker(QStringLiteral("[Unit]\nDescription=something else\n")));
     }
 
-    out << "=== marker v2: the access field is optional on read, omitted on write ===" << Qt::endl;
+    out << "=== marker: the access field is optional on read, omitted on write ===" << Qt::endl;
     {
         // This block is the upgrade gate in miniature. If any of it fails,
         // every unit pair written by 0.1.0-0.1.3 becomes Tampered on upgrade
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
         check(QStringLiteral("operator!= agrees"), base != executable);
     }
 
-    out << "=== marker v2: embedded in a full unit file, other lines ignored ===" << Qt::endl;
+    out << "=== marker: embedded in a full unit file, other lines ignored ===" << Qt::endl;
     {
         UnitValue::Marker in;
         in.ownerUid = 1000;
@@ -242,7 +242,7 @@ int main(int argc, char **argv)
         check(QStringLiteral("round-trips out of a full unit file"), out == in);
     }
 
-    out << "=== marker v2: rejection matrix (every deviation is Tampered, not parsed) ===" << Qt::endl;
+    out << "=== marker: rejection matrix (every deviation is Tampered, not parsed) ===" << Qt::endl;
     {
         const QString id = QStringLiteral("0123456789abcdef0123456789abcdef");
         auto validLines = [&]() {
@@ -281,7 +281,7 @@ int main(int argc, char **argv)
         {
             QStringList lines = validLines();
             lines << QStringLiteral("# X-Nasmount-Credential-Id=%1").arg(id);
-            expectRejected(QStringLiteral("unknown field rejected (old Credential-Id spelling not parsed)"), lines);
+            expectRejected(QStringLiteral("unknown field rejected (X-Nasmount-Credential-Id)"), lines);
         }
         {
             QStringList lines = validLines();

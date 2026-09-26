@@ -378,7 +378,7 @@ int main(int argc, char **argv)
                    QString(), QStringLiteral("alice"), QStringLiteral("WORKGROUP"),
                    QStringLiteral("secret"));
 
-    // The shape the real service returns (plan §9.4): a host-level entry
+    // The shape the real service returns: a host-level entry
     // answers a share-level question with no share component. Rejecting it
     // threw away every credential Dolphin saves by default.
     expectAccepted(QStringLiteral("a host-level entry answers for the share"),

@@ -1,14 +1,14 @@
 /*
- * Tests for Root::Arming (plan §2.5, §4.1).
+ * Tests for Root::Arming.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * armShare()/arm()/disarm() all write below
- * /etc/nasmount and /etc/systemd/system and call real systemctl, so — like
+ * armShare() and safeStop() read and write below /etc/nasmount and
+ * /run/nasmount-ids and call real systemctl, so — like
  * every other kde_nasmount-root test file — a real accept path needs root and
  * belongs to VM integration testing. evaluateArmPrecheck() is the one piece
  * of this module that is pure decision logic over an already-computed
- * snapshot (design §6.4's "never bless an unrecorded trigger"); it is
+ * snapshot — the rule that an unrecorded trigger is never blessed; it is
  * exposed specifically so this file can exercise its full decision table
  * without systemctl or mountinfo access.
  */

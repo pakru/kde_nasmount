@@ -1,14 +1,13 @@
 /*
- * Tests for MountActions' pure decision functions (plan §1.7).
+ * Tests for MountActions' pure decision functions.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * addShare() itself is not unit-tested here: it dispatches real KAuth calls
- * and real KWallet I/O on a worker thread, neither of which is mockable
- * without a live D-Bus transport (see helperinvoke_test.cpp's header for
- * why). What *is* pure and safety-relevant is isolated here: whether
- * guest/authenticated fields are self-consistent, and mode-correct action
- * routing.
+ * addShare() itself is not unit-tested here: it dispatches a real KAuth call
+ * on a worker thread, which is not mockable without a live D-Bus transport
+ * (see helperinvoke_test.cpp's header for why). What *is* pure and
+ * safety-relevant is isolated here: whether guest/authenticated fields are
+ * self-consistent.
  */
 
 #include "mountactions.h"
