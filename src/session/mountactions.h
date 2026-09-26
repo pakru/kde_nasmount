@@ -55,6 +55,13 @@ public:
     /** The only create there is: a share is boot-armed with a root-owned
      *  credential. Requires authentication; a polkit prompt is expected.
      *
+     *  `shareInput` is the Add field's text in either spelling, smb://host/share or
+     *  //host/share. It is resolved by ShareAddress::resolveShareInput()
+     *  before anything else happens, and only the resulting //host/share is
+     *  ever passed to the helper or written to Store: that form is what the
+     *  unit, the helper and the drift comparison all use. A refused address
+     *  is reported through finished() without a KAuth call.
+     *
      *  `access` is one of "readwrite", "readonly" or "readwrite-executable"
      *  — the same closed vocabulary the marker and the helper use, via
      *  UnitValue::accessModeToString(). A string rather than an enum because
@@ -65,7 +72,7 @@ public:
      *
      *  Because there is no in-place Edit, this is the only opportunity to
      *  choose the access mode for a share. */
-    Q_INVOKABLE void addShare(const QString &unc, const QString &rawMountPoint, const QString &username,
+    Q_INVOKABLE void addShare(const QString &shareInput, const QString &rawMountPoint, const QString &username,
                               const QString &domain, const QString &password, const QString &access);
 
     /** Removes the definition and the local record. */
@@ -85,6 +92,17 @@ public:
      * derived fresh from the validated marker, exactly like deleteShare().
      */
     Q_INVOKABLE void removeOrphanByPath(const QString &mountPoint);
+
+    /** The smb:// display form of a //host/share UNC
+     *  (ShareAddress::displayUrl()). Here because ShareForm reaches C++ only
+     *  through the actions object its host injects, which keeps the form
+     *  host-agnostic. */
+    Q_INVOKABLE QString displayUrl(const QString &unc) const;
+
+    /** The user an smb:// address names, or empty
+     *  (ShareAddress::userInShareInput()): lets the Add form fill an empty
+     *  Username from the address as it is typed. */
+    Q_INVOKABLE QString userInShareInput(const QString &text) const;
 
 Q_SIGNALS:
     void started(const QString &id, const QString &kind);

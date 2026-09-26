@@ -1,6 +1,7 @@
 /*
- * Tests for the credential half of ShareForm.qml — the *real* file from the
- * source tree, not a C++ model of it.
+ * Tests for ShareForm.qml — the *real* file from the source tree, not a C++
+ * model of it: its credential rules, its smb:// input, and its read-only
+ * mode (the KCM's Details view).
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -58,6 +59,25 @@ public:
         lastAccess = access;
     }
 
+    /** Stand-ins for the two pure lookups the form makes. The real ones are
+     *  covered by shareaddress_test; these need only be faithful enough to
+     *  drive the form's own rules. */
+    Q_INVOKABLE QString displayUrl(const QString &unc) const
+    {
+        return unc.startsWith(QStringLiteral("//")) ? QStringLiteral("smb:") + unc : unc;
+    }
+
+    Q_INVOKABLE QString userInShareInput(const QString &text) const
+    {
+        if (!text.startsWith(QStringLiteral("smb://"))) {
+            return QString();
+        }
+        const QString authority = text.mid(6).section(QLatin1Char('/'), 0, 0);
+        const bool hasShare = !text.mid(6).section(QLatin1Char('/'), 1).isEmpty();
+        return (hasShare && authority.contains(QLatin1Char('@'))) ? authority.section(QLatin1Char('@'), 0, 0)
+                                                                  : QString();
+    }
+
     int calls = 0;
     QString lastUnc;
     QString lastMountPoint;
@@ -102,6 +122,22 @@ bool applySuggestion(QObject *form, const QString &username, const QString &doma
 void callMethod(QObject *form, const char *name)
 {
     QMetaObject::invokeMethod(form, name);
+}
+
+QVariant propertyOf(QObject *form, const char *name, const char *property)
+{
+    QObject *object = fieldNamed(form, name);
+    return object ? object->property(property) : QVariant();
+}
+
+void showDefinition(QObject *form, const QVariantMap &values)
+{
+    QMetaObject::invokeMethod(form, "showDefinition", Q_ARG(QVariant, QVariant(values)));
+}
+
+bool radioChecked(QObject *form, const char *name)
+{
+    return propertyOf(form, name, "checked").toBool();
 }
 
 } // namespace
@@ -307,6 +343,175 @@ int main(int argc, char **argv)
                   && textOf(form, "domainField").isEmpty());
         check(QStringLiteral("reset clears the seal, so a reused form is usable again"),
               !form->property("credentialsSealed").toBool());
+        delete form;
+    }
+
+    // --- the Add form's share address (the KCM, no fixed share) -------------
+    auto freshAddForm = [&freshForm]() -> QObject * {
+        QObject *form = freshForm();
+        if (form) {
+            form->setProperty("fixedUnc", QString());
+            callMethod(form, "reset");
+        }
+        return form;
+    };
+    {
+        QObject *form = freshAddForm();
+        if (!form) {
+            return 1;
+        }
+        check(QStringLiteral("reset pre-fills smb://"), textOf(form, "uncField") == QStringLiteral("smb://"),
+              textOf(form, "uncField"));
+        form->setProperty("mountPoint", QStringLiteral("/home/user/DATA"));
+        check(QStringLiteral("the bare smb:// prefix is not submittable"), !form->property("canSubmit").toBool());
+        simulateEdit(form, "uncField", QStringLiteral("//"));
+        check(QStringLiteral("a bare // prefix is not submittable"), !form->property("canSubmit").toBool());
+        simulateEdit(form, "uncField", QStringLiteral("smb://nas/DATA"));
+        check(QStringLiteral("a share after the prefix is submittable"), form->property("canSubmit").toBool());
+        delete form;
+    }
+    {
+        QObject *form = freshAddForm();
+        if (!form) {
+            return 1;
+        }
+        simulateEdit(form, "uncField", QStringLiteral("smb://alice@nas/DATA"));
+        check(QStringLiteral("the address's user fills an empty Username"),
+              textOf(form, "userField") == QStringLiteral("alice"), textOf(form, "userField"));
+        check(QStringLiteral("filling from the address is not a credential edit"),
+              !form->property("credentialsSealed").toBool());
+        simulateEdit(form, "uncField", QStringLiteral("smb://alicia@nas/DATA"));
+        check(QStringLiteral("a corrected address updates the Username it filled"),
+              textOf(form, "userField") == QStringLiteral("alicia"), textOf(form, "userField"));
+        simulateEdit(form, "passwordField", QStringLiteral("typed-secret"));
+        simulateEdit(form, "uncField", QStringLiteral("smb://nas/DATA"));
+        check(QStringLiteral("an address losing its user never clears Username or the password"),
+              textOf(form, "userField") == QStringLiteral("alicia")
+                  && textOf(form, "passwordField") == QStringLiteral("typed-secret"));
+        delete form;
+    }
+    {
+        QObject *form = freshAddForm();
+        if (!form) {
+            return 1;
+        }
+        simulateEdit(form, "userField", QStringLiteral("bob"));
+        simulateEdit(form, "uncField", QStringLiteral("smb://alice@nas/DATA"));
+        check(QStringLiteral("the address never overwrites a typed Username"),
+              textOf(form, "userField") == QStringLiteral("bob"), textOf(form, "userField"));
+        delete form;
+    }
+
+    // --- read-only mode: the KCM's Details view -----------------------------
+    auto freshDetails = [&freshAddForm](const QVariantMap &values) -> QObject * {
+        QObject *form = freshAddForm();
+        if (form) {
+            form->setProperty("readOnly", true);
+            showDefinition(form, values);
+        }
+        return form;
+    };
+    {
+        QObject *form = freshDetails({{QStringLiteral("remoteUrl"), QStringLiteral("smb://nas/DATA")},
+                                      {QStringLiteral("mountPoint"), QStringLiteral("/home/user/DATA")},
+                                      {QStringLiteral("authentication"), QStringLiteral("credentials")},
+                                      {QStringLiteral("username"), QStringLiteral("alice")},
+                                      {QStringLiteral("domain"), QStringLiteral("WORKGROUP")},
+                                      {QStringLiteral("access"), QStringLiteral("readonly")}});
+        if (!form) {
+            return 1;
+        }
+        check(QStringLiteral("details: the saved values are shown"),
+              textOf(form, "uncField") == QStringLiteral("smb://nas/DATA")
+                  && form->property("mountPoint").toString() == QStringLiteral("/home/user/DATA")
+                  && textOf(form, "userField") == QStringLiteral("alice")
+                  && textOf(form, "domainField") == QStringLiteral("WORKGROUP"));
+        check(QStringLiteral("details: the saved access mode is the one checked"),
+              radioChecked(form, "readOnlyRadio") && !radioChecked(form, "readWriteRadio")
+                  && !radioChecked(form, "executableRadio"));
+        check(QStringLiteral("details: the password is never shown"), textOf(form, "passwordField").isEmpty());
+        check(QStringLiteral("details: text fields are read-only"),
+              propertyOf(form, "uncField", "readOnly").toBool() && propertyOf(form, "userField", "readOnly").toBool()
+                  && propertyOf(form, "passwordField", "readOnly").toBool()
+                  && propertyOf(form, "domainField", "readOnly").toBool());
+        check(QStringLiteral("details: access radios are disabled"),
+              !propertyOf(form, "readOnlyRadio", "enabled").toBool()
+                  && !propertyOf(form, "readWriteRadio", "enabled").toBool()
+                  && !propertyOf(form, "executableRadio", "enabled").toBool());
+        check(QStringLiteral("details: Browse is hidden"), !propertyOf(form, "browseButton", "visible").toBool());
+        check(QStringLiteral("details: never submittable"), !form->property("canSubmit").toBool());
+        const int callsBefore = actions.calls;
+        callMethod(form, "submit");
+        check(QStringLiteral("details: submit() records no call"), actions.calls == callsBefore);
+        check(QStringLiteral("details: sealed against suggestions"),
+              form->property("credentialsSealed").toBool()
+                  && !applySuggestion(form, QStringLiteral("mallory"), QString(), QStringLiteral("x")));
+        // The password itself is never shown (checked above); a credentials
+        // share still shows that one exists, rather than an empty field that
+        // would read as "no password" or an "Unknown" that would read as a
+        // missing credential.
+        const QString passwordPlaceholder = propertyOf(form, "passwordField", "placeholderText").toString();
+        check(QStringLiteral("details: a credentials share shows that a password exists"),
+              !passwordPlaceholder.isEmpty() && passwordPlaceholder != QStringLiteral("Unknown"),
+              passwordPlaceholder);
+        delete form;
+    }
+    {
+        QObject *form = freshDetails({{QStringLiteral("remoteUrl"), QStringLiteral("smb://nas/PUBLIC")},
+                                      {QStringLiteral("authentication"), QStringLiteral("guest")},
+                                      {QStringLiteral("access"), QStringLiteral("readwrite")}});
+        if (!form) {
+            return 1;
+        }
+        check(QStringLiteral("details: a guest share says so"),
+              textOf(form, "userField").isEmpty()
+                  && propertyOf(form, "userField", "placeholderText").toString().contains(QStringLiteral("guest")),
+              propertyOf(form, "userField", "placeholderText").toString());
+        delete form;
+    }
+    {
+        // An orphan share has credentials but no saved username: its empty
+        // Username must not read as guest.
+        QObject *form = freshDetails({{QStringLiteral("remoteUrl"), QStringLiteral("smb://nas/DATA")},
+                                      {QStringLiteral("authentication"), QStringLiteral("credentials")},
+                                      {QStringLiteral("access"), QStringLiteral("readwrite")}});
+        if (!form) {
+            return 1;
+        }
+        const QString placeholder = propertyOf(form, "userField", "placeholderText").toString();
+        check(QStringLiteral("details: an unknown username is unknown, not guest"),
+              placeholder.startsWith(QStringLiteral("Unknown")) && !placeholder.contains(QStringLiteral("guest")),
+              placeholder);
+        delete form;
+    }
+    {
+        QObject *form = freshDetails({{QStringLiteral("remoteUrl"), QStringLiteral("smb://nas/DATA")},
+                                      {QStringLiteral("authentication"), QString()},
+                                      {QStringLiteral("access"), QString()}});
+        if (!form) {
+            return 1;
+        }
+        check(QStringLiteral("details: unknown authentication reads Unknown"),
+              propertyOf(form, "userField", "placeholderText").toString() == QStringLiteral("Unknown"));
+        check(QStringLiteral("details: an unknown access mode checks no radio"),
+              !radioChecked(form, "readOnlyRadio") && !radioChecked(form, "readWriteRadio")
+                  && !radioChecked(form, "executableRadio"));
+        delete form;
+    }
+
+    // --- the access labels ---------------------------------------------------
+    {
+        // The same three literals mountmodel_test pins for accessModeLabel():
+        // the list's access column and this form must name a mode alike.
+        QObject *form = freshForm();
+        if (!form) {
+            return 1;
+        }
+        check(QStringLiteral("access radio labels match the list's access column"),
+              propertyOf(form, "readOnlyRadio", "text").toString() == QStringLiteral("Read only")
+                  && propertyOf(form, "readWriteRadio", "text").toString() == QStringLiteral("Read & Write")
+                  && propertyOf(form, "executableRadio", "text").toString()
+                      == QStringLiteral("Read & Write & Execute"));
         delete form;
     }
 

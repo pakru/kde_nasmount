@@ -59,8 +59,10 @@ struct RowClassifyInput {
 };
 
 /** Pure output of classifyRow(): the display state, its explanatory detail,
- *  and the complete actionability mapping -- QML trusts these three booleans directly
- *  rather than reproducing backend safety rules from raw role combinations. */
+ *  and the complete actionability mapping. QML never sees these booleans:
+ *  rowRemoval() turns them into the one removal a row offers, and QML trusts
+ *  that result rather than reproducing backend safety rules from raw role
+ *  combinations. */
 struct RowClassification {
     DisplayState state = DisplayState::Broken;
     QString detail;
@@ -114,38 +116,134 @@ struct StoreDefinitionDriftInput {
  *  read-write and matching. */
 bool storeDefinitionDrift(const StoreDefinitionDriftInput &input);
 
+/** "Read only" | "Read & Write" | "Read & Write & Execute" — the access
+ *  column's text. Must equal ShareForm's radio labels, so a share reads the
+ *  same in the list as in the form that created it; mountmodel_test and
+ *  shareform_qml_test pin the same three literals. */
+QString accessModeLabel(UnitValue::AccessMode mode);
+
+/** "normal" | "warning" | "error". Busy is a warning (it clears on its own
+ *  or after a refresh); MissingCredentials and Broken are errors (they need
+ *  the user to act). A string rather than DisplayState itself so QML never
+ *  mirrors the enum's numeric values, which it could not check at build
+ *  time. */
+QString stateSeverity(DisplayState state);
+
+/** Pure input to rowRemoval(). */
+struct RowRemovalInput {
+    bool hasStoreRecord = false;
+    bool hasUnitFiles = false;
+    bool canRemoveDefinition = false;
+    bool canRemoveLocalRecord = false;
+    bool requiresAdministrator = false;
+    DisplayState state = DisplayState::Broken;
+    QString detail;
+};
+
+/** The one removal a row offers, and why there is none when there is not. */
+struct RowRemoval {
+    /** "delete" (definition and local record), "removeOrphan" (a definition
+     *  with no local record, removed by path), "removeRecord" (a local record
+     *  alone), or empty when nothing can be removed right now. */
+    QString kind;
+    /** Set only when `kind` is empty: the disabled remove button's tooltip. */
+    QString blockedReason;
+};
+
+/**
+ * Maps a row's actionability to its single removal. classifyRow() never sets
+ * both canRemove flags, so at most one kind ever applies — which is what lets
+ * the KCM show one remove button per row that means different things on
+ * different rows.
+ */
+RowRemoval rowRemoval(const RowRemovalInput &input);
+
+/** Pure input to presentRow(): the facts that decide what a row shows,
+ *  beyond classifyRow()'s state and detail. */
+struct RowPresentInput {
+    /** As in RowClassifyInput. */
+    QString definitionState = QStringLiteral("none");
+    DisplayState state = DisplayState::Broken;
+    QString detail;
+    QString unc;
+    /** Meaningful only for a "pair" or "partial" definition; defaults
+     *  otherwise, which presentRow() must never display. */
+    UnitValue::AuthenticationKind authentication = UnitValue::AuthenticationKind::Credentials;
+    UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
+    bool hasStoreRecord = false;
+    bool storeCorrupt = false;
+    QString storeUsername;
+    QString storeDomain;
+};
+
+/** Everything a row renders besides its removal, as display strings. */
+struct RowPresentation {
+    QString remoteUrl;
+    QString stateText;
+    QString severity;
+    QString detail;
+    QString access;         ///< accessModeToString(), or "" when unknown
+    QString accessText;     ///< accessModeLabel(), or "" when unknown
+    QString authentication; ///< "guest" | "credentials", or "" when unknown
+    QString username;       ///< from Store, "" without a readable record
+    QString domain;         ///< from Store, "" without a readable record
+    QString section;        ///< "managed" | "foreign"
+};
+
+/**
+ * The pure presentation of one row — the only place a row's displayed
+ * meaning is decided, beside classifyRow(), so it can be table-tested.
+ *
+ * Access and authentication are shown only when the marker behind them was
+ * validated, which is exactly a "pair" or "partial" definition: Tampered
+ * entries reset both to their defaults, and Store-only and Foreign rows never
+ * had a marker at all. Everywhere else they are "", never a defaulted
+ * "Read & Write" that would read as a fact about the share.
+ *
+ * Username and domain come from Store — the user's own convenience record,
+ * since the credential itself is root-only — and only when that record is
+ * readable. A foreign mount reads "Mounted", with no detail: its section
+ * header already says another tool made it.
+ */
+RowPresentation presentRow(const RowPresentInput &input);
+
 class MountModel : public QAbstractListModel
 {
     Q_OBJECT
-    Q_PROPERTY(bool hasShares READ hasShares NOTIFY refreshed)
     Q_PROPERTY(QString bootHealthText READ bootHealthText NOTIFY refreshed)
     Q_PROPERTY(bool bootHealthy READ bootHealthy NOTIFY refreshed)
 
 public:
     /**
-     * Only what a delegate actually renders. Authentication kind, definition
-     * state, Store corruption and credential health are *inputs* to
-     * classifyRow(), which folds them into stateText/detail/drift -- they are
-     * deliberately not re-exported raw, so there is one place that decides
-     * what a row means and the two front ends cannot disagree about it.
+     * Only what the KCM's delegate and its Details view actually render, each
+     * a finished display value. Definition state, Store corruption, drift and
+     * credential health are *inputs* to classifyRow(), presentRow() and
+     * rowRemoval(), which fold them into these -- they are deliberately not
+     * re-exported raw, so there is one place that decides what a row means
+     * and QML never recombines raw facts into a rule of its own.
+     * Authentication kind is exported, but only as Details' display value,
+     * decided in presentRow() like everything else.
      */
     enum Roles {
         IdRole = Qt::UserRole + 1,
-        UncRole,
         MountPointRole,
+        RemoteUrlRole, ///< the smb:// display form of the share
         StateTextRole,
+        SeverityRole, ///< stateSeverity()
         DetailRole,
-        HasUnitFilesRole,
-        HasStoreRecordRole,      ///< whether an id (and so the id-based actions) applies to this row
-        DriftRole,               ///< Store disagrees with the marker on authentication or access
-        CanRemoveDefinitionRole,   ///< Delete is offered
-        CanRemoveLocalRecordRole,  ///< "Remove local record" is offered
-        RequiresAdministratorRole, ///< Tampered/NotOurs/untrusted-active -- never casually actionable
-        /** "readwrite" | "readonly" | "readwrite-executable", always from the
-         *  validated marker and never from Store. Since there is no Edit,
-         *  this is the only way to discover a share's access mode short of
-         *  reading its unit file. */
+        /** "readwrite" | "readonly" | "readwrite-executable" from the
+         *  validated marker and never from Store, or "" when no validated
+         *  marker exists -- never a defaulted "readwrite". Since there is no
+         *  Edit, this is the only way to discover a share's access mode short
+         *  of reading its unit file. */
         AccessRole,
+        AccessTextRole,     ///< accessModeLabel() of AccessRole, or ""
+        AuthenticationRole, ///< "guest" | "credentials" | "" (unknown)
+        UsernameRole,       ///< from Store, for Details only
+        DomainRole,         ///< from Store, for Details only
+        RemovalRole,        ///< RowRemoval::kind
+        RemovalBlockedReasonRole,
+        SectionRole, ///< "managed" | "foreign"
     };
 
     explicit MountModel(QObject *parent = nullptr);
@@ -154,10 +252,6 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    /** Whether at least one row has unit files -- gates the boot-health
-     *  banner, which is global health and only noise when there is nothing
-     *  for boot to arm. */
-    bool hasShares() const;
     QString bootHealthText() const;
     bool bootHealthy() const;
 
@@ -188,7 +282,8 @@ private:
         QString definitionWhat; ///< validated .mount What=; empty for automount-only Partial
         UnitValue::AuthenticationKind authentication = UnitValue::AuthenticationKind::Credentials;
         /** From the validated marker, never from Store. Left at the default
-         *  for a row with no validated definition behind it. */
+         *  for a row with no validated definition behind it; presentRow() is
+         *  what keeps that default from ever being displayed. */
         UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
         QString definitionState = QStringLiteral("none");
         /** Computed once, from source 2, and reused when source 3's fresh
@@ -205,6 +300,14 @@ private:
         bool canRemoveDefinition = false;
         bool canRemoveLocalRecord = false;
         bool requiresAdministrator = false;
+        /** Copied whenever a Store record merges, corrupt or not;
+         *  presentRow() decides whether they are shown. */
+        QString storeUsername;
+        QString storeDomain;
+        /** Computed once per refresh, after every source has been merged, so
+         *  data() is a plain field read with no decisions left in it. */
+        RowPresentation presentation;
+        RowRemoval removal;
     };
 
     struct RefreshResult {

@@ -22,7 +22,7 @@
 #include "credentiallookupworker.h"
 #include "dialogbackend.h"
 #include "nasmountversion.h"
-#include "smburl.h"
+#include "shareaddress.h"
 
 #include <KLocalizedString>
 
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     QString unc;
     QString urlUser;
     QString error;
-    if (!Dialog::SmbUrl::parse(args.first(), &unc, &urlUser, &error)) {
+    if (!Session::ShareAddress::parseSmbUrl(args.first(), &unc, &urlUser, &error)) {
         reportStartupFailure(error);
         return 2;
     }

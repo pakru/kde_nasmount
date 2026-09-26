@@ -53,8 +53,10 @@ fail() {
 }
 
 # --- actions.<name>( must be Q_INVOKABLE on MountActions --------------------
-invokables=$(grep -oE 'Q_INVOKABLE[[:space:]]+void[[:space:]]+[a-zA-Z_][a-zA-Z0-9_]*' \
-                 src/session/mountactions.h | awk '{print $NF}' | sort -u)
+# Any return type, not just void: the form also calls pure lookups that return
+# a value (the smb:// display form, the user an address names).
+invokables=$(grep -oE 'Q_INVOKABLE[[:space:]]+[a-zA-Z:_<>]+[[:space:]]+\*?[a-zA-Z_][a-zA-Z0-9_]*' \
+                 src/session/mountactions.h | awk '{print $NF}' | tr -d '*' | sort -u)
 
 for f in $qml_files; do
     # Strip comments so prose mentioning an old name never trips the gate.

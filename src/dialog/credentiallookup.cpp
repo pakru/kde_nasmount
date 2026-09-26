@@ -3,7 +3,7 @@
  */
 
 #include "credentiallookup.h"
-#include "smburl.h"
+#include "shareaddress.h"
 #include "unitspec.h"
 
 #include <QCoreApplication>
@@ -279,7 +279,7 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
         return false;
     }
 
-    const SmbUrl::Identity found = SmbUrl::splitDomainUser(reply.username);
+    const Session::ShareAddress::Identity found = Session::ShareAddress::splitDomainUser(reply.username);
     if (found.username.isEmpty()) {
         // Never guest selection: that is the user's choice to make.
         *rejection = QStringLiteral("no usable username in the stored credential");
@@ -292,7 +292,8 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
     }
 
     if (!requestedUsername.isEmpty()) {
-        const SmbUrl::Identity asked = SmbUrl::splitDomainUser(requestedUsername);
+        const Session::ShareAddress::Identity asked =
+            Session::ShareAddress::splitDomainUser(requestedUsername);
         // Case-insensitive, as SMB names are: refusing "Alice" for a URL
         // that said "alice" rejects the same account, while accepting "bob"
         // for "alice" would pair one identity with another's secret.

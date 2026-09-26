@@ -36,6 +36,7 @@ Depends:
  cifs-utils,
  polkitd,
  qml6-module-org-kde-kcmutils,
+ qml6-module-org-kde-kirigami,
  qml6-module-qtquick,
  qml6-module-qtquick-controls,
  qml6-module-qtquick-dialogs,

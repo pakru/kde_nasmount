@@ -46,6 +46,7 @@ echo "Running tests..."
 for t in unitspec_test unitvalue_test verify_test helperinvoke_test store_test \
          mountactions_test mountmodel_test durablefs_test inventory_test operations_test \
          arming_test credentialstore_test cleanupvalidation_test packagestate_test smburl_test \
+         shareaddress_test \
          credentiallookup_test shareform_qml_test goldenunits_test; do
     "$BUILD/bin/$t" || {
         echo "ERROR: $t failed — refusing to install." >&2

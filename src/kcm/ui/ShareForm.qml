@@ -12,6 +12,20 @@
  *
  * Validation here is convenience only. UnitSpec re-validates every field in
  * the privileged helper, which is the boundary that actually matters.
+ *
+ * The share is typed as smb://host/share (//host/share is still accepted);
+ * MountActions::addShare() resolves either to the //host/share form the
+ * helper and the unit use. When the address names a user, that user fills an
+ * empty Username as the address is typed.
+ *
+ * `readOnly` turns the same form into a view of a saved share — the KCM's
+ * Details. It is presentation only, not an edit path: there is no in-place
+ * Edit anywhere in this codebase, so a read-only form can never submit, and
+ * it is sealed against credential suggestions. The password is never shown:
+ * it lives only in the root-owned credential file, and nothing returns it.
+ *
+ * No Kirigami here: shareform_qml_test loads this exact file in the native
+ * package builds, whose containers do not have Kirigami installed.
  */
 
 import QtQuick
@@ -36,7 +50,28 @@ ColumnLayout {
     /** The share this form will actually submit. */
     readonly property string effectiveUnc: fixedUnc.length > 0 ? fixedUnc : uncField.text
 
-    readonly property bool canSubmit: effectiveUnc.length > 2 && pathField.text.length > 0
+    /** Something after the smb:// or // prefix: the pre-filled prefix alone
+     *  is not a share. */
+    readonly property bool shareEntered: effectiveUnc.replace(/^(smb:)?\/\//i, "").length > 0
+
+    readonly property bool canSubmit: !form.readOnly && shareEntered && pathField.text.length > 0
+
+    /** Shows a saved share instead of collecting a new one. Set by the host;
+     *  fill it with showDefinition(). */
+    property bool readOnly: false
+
+    /** "guest" | "credentials" | "" (unknown), for the read-only view's
+     *  placeholders only: an orphan share has credentials but no known
+     *  username, and an empty Username must not read as guest there. */
+    property string savedAuthentication: ""
+
+    readonly property bool savedUsernameUnknown: form.readOnly && form.savedAuthentication !== "guest"
+                                                 && userField.text.length === 0
+
+    /** The Username this form last filled in from the address. While
+     *  Username still holds exactly that, a corrected address may replace
+     *  it; once the user types their own, it is theirs. */
+    property string urlFilledUsername: ""
 
     /** One of the three values UnitValue::accessModeToString() produces. The
      *  helper re-validates it; this is convenience, like every other check
@@ -67,7 +102,7 @@ ColumnLayout {
 
     QQC2.Label {
         visible: form.fixedUnc.length > 0
-        text: form.fixedUnc
+        text: form.actions ? form.actions.displayUrl(form.fixedUnc) : form.fixedUnc
         font.bold: true
         elide: Text.ElideMiddle
         Layout.fillWidth: true
@@ -75,12 +110,27 @@ ColumnLayout {
 
     QQC2.Label {
         visible: form.fixedUnc.length === 0
-        text: "Share (//host/share[/subdir]):"
+        text: form.readOnly ? "Share:" : "Share (smb://host/share[/subdir]):"
     }
     QQC2.TextField {
         id: uncField
+        objectName: "uncField"
         visible: form.fixedUnc.length === 0
+        readOnly: form.readOnly
         Layout.fillWidth: true
+        // Fills Username from the address only while it is empty or still
+        // holds what the address put there, and never clears it: clearing
+        // Username would run the guest handler below and wipe a typed
+        // password and domain. An assignment, not an edit, so it does not
+        // seal credentials either.
+        onTextEdited: {
+            const fromAddress = form.actions ? form.actions.userInShareInput(text) : ""
+            if (fromAddress.length > 0
+                    && (userField.text.length === 0 || userField.text === form.urlFilledUsername)) {
+                userField.text = fromAddress
+                form.urlFilledUsername = fromAddress
+            }
+        }
     }
 
     QQC2.Label { text: "Mount point:" }
@@ -88,22 +138,30 @@ ColumnLayout {
         Layout.fillWidth: true
         QQC2.TextField {
             id: pathField
-            placeholderText: "/home/you/ShareName"
+            placeholderText: form.readOnly ? "" : "/home/you/ShareName"
+            readOnly: form.readOnly
             Layout.fillWidth: true
         }
         QQC2.Button {
+            objectName: "browseButton"
+            visible: !form.readOnly
             text: "Browse…"
             onClicked: folderDialog.open()
         }
     }
 
-    QQC2.Label { text: "Username (leave empty for guest access):" }
+    QQC2.Label { text: form.readOnly ? "Username:" : "Username (leave empty for guest access):" }
     QQC2.TextField {
         id: userField
-        // The three credential fields carry objectNames so
+        // The fields, the access radios and Browse carry objectNames so
         // shareform_qml_test can reach them: QML ids do not exist outside the
         // component.
         objectName: "userField"
+        readOnly: form.readOnly
+        placeholderText: !form.readOnly ? ""
+            : form.savedAuthentication === "guest" ? "None — guest access"
+            : form.savedAuthentication === "credentials" ? "Unknown — not in your saved settings"
+            : "Unknown"
         Layout.fillWidth: true
         // Guest selection clears the fields it disables below, not just
         // visually hides them -- otherwise stale text
@@ -123,16 +181,23 @@ ColumnLayout {
         id: passwordField
         objectName: "passwordField"
         echoMode: TextInput.Password
-        enabled: userField.text.length > 0
+        enabled: userField.text.length > 0 || (form.readOnly && form.savedAuthentication !== "guest")
+        readOnly: form.readOnly
+        placeholderText: !form.readOnly ? ""
+            : form.savedAuthentication === "credentials" ? "****"
+            : form.savedAuthentication === "guest" ? ""
+            : "Unknown"
         Layout.fillWidth: true
         onTextEdited: form.credentialsSealed = true
     }
 
-    QQC2.Label { text: "Domain (optional):" }
+    QQC2.Label { text: form.readOnly ? "Domain:" : "Domain (optional):" }
     QQC2.TextField {
         id: domainField
         objectName: "domainField"
-        enabled: userField.text.length > 0
+        enabled: userField.text.length > 0 || form.savedUsernameUnknown
+        readOnly: form.readOnly
+        placeholderText: form.savedUsernameUnknown ? "Unknown" : ""
         Layout.fillWidth: true
         onTextEdited: form.credentialsSealed = true
     }
@@ -144,6 +209,8 @@ ColumnLayout {
     QQC2.ButtonGroup { id: accessGroup }
     QQC2.RadioButton {
         id: readOnlyRadio
+        objectName: "readOnlyRadio"
+        enabled: !form.readOnly
         text: "Read only"
         QQC2.ButtonGroup.group: accessGroup
         // hoverEnabled is required: `hovered` stays false without it, so the
@@ -159,6 +226,8 @@ ColumnLayout {
     }
     QQC2.RadioButton {
         id: readWriteRadio
+        objectName: "readWriteRadio"
+        enabled: !form.readOnly
         checked: true
         text: "Read & Write"
         QQC2.ButtonGroup.group: accessGroup
@@ -170,6 +239,8 @@ ColumnLayout {
     }
     QQC2.RadioButton {
         id: executableRadio
+        objectName: "executableRadio"
+        enabled: !form.readOnly
         text: "Read & Write & Execute"
         QQC2.ButtonGroup.group: accessGroup
         hoverEnabled: true
@@ -204,8 +275,32 @@ ColumnLayout {
         return true
     }
 
+    /**
+     * Fills the read-only view with a saved share: `values` carries the
+     * model's remoteUrl, mountPoint, authentication, username, domain and
+     * access. Sealed first, so no credential suggestion can ever land in a
+     * view of a saved share. Username is assigned before Domain because the
+     * guest handler clears Domain whenever Username becomes empty.
+     */
+    function showDefinition(values) {
+        form.credentialsSealed = true
+        form.urlFilledUsername = ""
+        form.savedAuthentication = values.authentication ? values.authentication : ""
+        uncField.text = values.remoteUrl ? values.remoteUrl : ""
+        pathField.text = values.mountPoint ? values.mountPoint : ""
+        userField.text = values.username ? values.username : ""
+        domainField.text = values.domain ? values.domain : ""
+        passwordField.text = ""
+        // An unknown access mode checks nothing, rather than showing the
+        // read-write default as if it were a fact about the share.
+        readOnlyRadio.checked = values.access === "readonly"
+        readWriteRadio.checked = values.access === "readwrite"
+        executableRadio.checked = values.access === "readwrite-executable"
+    }
+
     function reset() {
-        uncField.text = "//"
+        uncField.text = "smb://"
+        form.urlFilledUsername = ""
         pathField.text = ""
         userField.text = ""
         domainField.text = ""
@@ -227,6 +322,11 @@ ColumnLayout {
     // submit is the single moment the choice exists. It is recorded in the
     // root-owned unit marker, not here.
     function submit() {
+        // A view of a saved share never submits; canSubmit already says so,
+        // and this holds even for a caller that skips it.
+        if (form.readOnly) {
+            return
+        }
         // Sealed before the snapshot: a suggestion applied between the two
         // would change the visible fields but not what was submitted.
         form.credentialsSealed = true
