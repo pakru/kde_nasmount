@@ -11,6 +11,7 @@
 #include <QProcess>
 #include <QSet>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
@@ -437,6 +438,13 @@ QList<MountEntry> parseMountinfo(const QString &content)
             continue; // malformed line — skip rather than guess
         }
         MountEntry entry;
+        bool idOk = false;
+        bool parentOk = false;
+        entry.mountId = fields.at(0).toLongLong(&idOk);
+        entry.parentId = fields.at(1).toLongLong(&parentOk);
+        if (!idOk || !parentOk) {
+            continue;
+        }
         entry.mountPoint = unescapeMountinfoField(fields.at(4));
         entry.filesystemType = fields.at(sepIndex + 1);
         entry.mountSource = unescapeMountinfoField(fields.at(sepIndex + 2));
@@ -459,24 +467,48 @@ MountClassification classifyMountEntries(const QList<MountEntry> &entries, const
                                          const QString &expectedWhat)
 {
     const QString target = QDir::cleanPath(canonicalMountPoint);
+    QList<const MountEntry *> stack;
     for (const MountEntry &entry : entries) {
-        if (entry.mountPoint != target) {
+        if (entry.mountPoint == target) {
+            stack.append(&entry);
+        }
+    }
+    if (stack.isEmpty()) {
+        return {MountState::Absent, VerificationState::NotApplicable};
+    }
+
+    // The visible mount is the one nothing else at this path is mounted on.
+    // Reading the first line instead sees the autofs trigger under a live
+    // CIFS mount and reports it absent while systemd reports it active.
+    const MountEntry *top = nullptr;
+    for (const MountEntry *candidate : std::as_const(stack)) {
+        const bool covered = std::any_of(stack.cbegin(), stack.cend(), [candidate](const MountEntry *other) {
+            return other != candidate && other->parentId == candidate->mountId;
+        });
+        if (covered) {
             continue;
         }
-        if (entry.filesystemType == QStringLiteral("cifs")) {
-            return {MountState::Present,
-                   (entry.mountSource == expectedWhat) ? VerificationState::Match : VerificationState::Mismatch};
+        if (top) {
+            return {MountState::Indeterminate, VerificationState::Indeterminate};
         }
-        if (entry.filesystemType == QStringLiteral("autofs")) {
-            // The trigger has not been crossed yet -- the ordinary resting
-            // state for an armed-but-idle share.
-            return {MountState::Absent, VerificationState::NotApplicable};
-        }
-        // Some other filesystem entirely occupies the path: a present
-        // foreign mount, not "our" CIFS mount absent.
-        return {MountState::Present, VerificationState::Mismatch};
+        top = candidate;
     }
-    return {MountState::Absent, VerificationState::NotApplicable};
+    if (!top) {
+        return {MountState::Indeterminate, VerificationState::Indeterminate};
+    }
+
+    if (top->filesystemType == QStringLiteral("cifs")) {
+        return {MountState::Present,
+               (top->mountSource == expectedWhat) ? VerificationState::Match : VerificationState::Mismatch};
+    }
+    if (top->filesystemType == QStringLiteral("autofs")) {
+        // The trigger has not been crossed yet -- the ordinary resting
+        // state for an armed-but-idle share.
+        return {MountState::Absent, VerificationState::NotApplicable};
+    }
+    // Some other filesystem entirely occupies the path: a present
+    // foreign mount, not "our" CIFS mount absent.
+    return {MountState::Present, VerificationState::Mismatch};
 }
 
 RuntimeSnapshot inspectRuntime(const QString &unitName, const QString &mountPoint, const QString &expectedWhat)
