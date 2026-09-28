@@ -57,6 +57,9 @@ int main(int argc, char **argv)
         if (entries.size() == 3) {
             check(QStringLiteral("zero optional fields: mountpoint"), entries.at(0).mountPoint == QStringLiteral("/mnt/plain"));
             check(QStringLiteral("zero optional fields: fstype"), entries.at(0).filesystemType == QStringLiteral("ext4"));
+            check(QStringLiteral("mount id and parent id parsed"),
+                  entries.at(0).mountId == 36 && entries.at(0).parentId == 35,
+                  QStringLiteral("%1 %2").arg(entries.at(0).mountId).arg(entries.at(0).parentId));
             check(QStringLiteral("one optional field: fstype is autofs"),
                   entries.at(1).filesystemType == QStringLiteral("autofs"));
             check(QStringLiteral("cifs entry: mountSource"),
@@ -132,6 +135,51 @@ int main(int argc, char **argv)
                                                         mp, expectedWhat);
             check(QStringLiteral("an entry at an unrelated path is ignored"),
                   c.mount == Verify::MountState::Absent && c.verification == Verify::VerificationState::NotApplicable);
+        }
+
+        auto stacked = [&entry](qint64 id, qint64 parent, const QString &mountPoint, const QString &fsType,
+                                const QString &source) {
+            Verify::MountEntry e = entry(mountPoint, fsType, source);
+            e.mountId = id;
+            e.parentId = parent;
+            return e;
+        };
+        const auto trigger = stacked(179, 33, mp, QStringLiteral("autofs"), QStringLiteral("systemd-1"));
+        const auto cifsOnTrigger = stacked(182, 179, mp, QStringLiteral("cifs"), expectedWhat);
+        {
+            // The regression: a triggered automount lists the autofs trigger
+            // first and the live CIFS mount on it second.
+            const auto c = Verify::classifyMountEntries({trigger, cifsOnTrigger}, mp, expectedWhat);
+            check(QStringLiteral("CIFS mounted on its autofs trigger -> Present/Match"),
+                  c.mount == Verify::MountState::Present && c.verification == Verify::VerificationState::Match);
+        }
+        {
+            const auto c = Verify::classifyMountEntries({cifsOnTrigger, trigger}, mp, expectedWhat);
+            check(QStringLiteral("stack top is found regardless of line order"),
+                  c.mount == Verify::MountState::Present && c.verification == Verify::VerificationState::Match);
+        }
+        {
+            const auto c = Verify::classifyMountEntries(
+                {trigger, stacked(182, 179, mp, QStringLiteral("cifs"), QStringLiteral("//other/share"))}, mp,
+                expectedWhat);
+            check(QStringLiteral("a different CIFS source on the trigger -> Present/Mismatch"),
+                  c.mount == Verify::MountState::Present && c.verification == Verify::VerificationState::Mismatch);
+        }
+        {
+            const auto c = Verify::classifyMountEntries(
+                {trigger, cifsOnTrigger, stacked(190, 182, mp, QStringLiteral("ext4"), QStringLiteral("/dev/sdX"))},
+                mp, expectedWhat);
+            check(QStringLiteral("a foreign mount over our CIFS mount -> Present/Mismatch"),
+                  c.mount == Verify::MountState::Present && c.verification == Verify::VerificationState::Mismatch);
+        }
+        {
+            // Two uncovered mounts at one path (e.g. a propagated copy under
+            // a different parent): which one is visible is a guess.
+            const auto c = Verify::classifyMountEntries(
+                {trigger, stacked(200, 40, mp, QStringLiteral("cifs"), expectedWhat)}, mp, expectedWhat);
+            check(QStringLiteral("no single stack top -> Indeterminate"),
+                  c.mount == Verify::MountState::Indeterminate
+                      && c.verification == Verify::VerificationState::Indeterminate);
         }
     }
 

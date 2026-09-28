@@ -144,6 +144,8 @@ QList<OwnedUnit> enumerateManagedUnits();
 
 /** One line of /proc/self/mountinfo, escapes already decoded. */
 struct MountEntry {
+    qint64 mountId = -1; ///< field 1, unique within the mount namespace
+    qint64 parentId = -1; ///< field 2; a mount stacked on another names it here
     QString mountPoint;
     QString filesystemType;
     QString mountSource; ///< the "What" — e.g. //host/share
@@ -167,6 +169,10 @@ struct MountClassification {
  * `Absent`), or nothing at all (`Absent`, `NotApplicable`). Exposed for
  * testing without a real mount; production code reaches this only through
  * inspectRuntime().
+ *
+ * Only the top of a stack at the path is classified: a triggered automount
+ * lists the autofs trigger and the CIFS mount on it at the same path. A
+ * stack whose top cannot be singled out is `Indeterminate` on both axes.
  */
 MountClassification classifyMountEntries(const QList<MountEntry> &entries, const QString &canonicalMountPoint,
                                          const QString &expectedWhat);
