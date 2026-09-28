@@ -1,11 +1,12 @@
-# KDE NAS Mount - easy network mounts w/out CLI hustle for KDE
+# KDE NAS Mount 
+# Easy network mounts w/out CLI hustle for KDE
 
 Make your SMB network shares easly connected to your KDE Plasma desktop.
 
 Current builds suppor:
  - deb - Kubuntu 26.04+
  - rpm - Fedora 44+
-**or**
+
 Custom build:
  - KDE Plasma 6.0+ and Linux kernel 6.8+ on any other distro
  
