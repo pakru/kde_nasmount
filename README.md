@@ -36,9 +36,17 @@ sudo apt install ./nasmount-amd64-<version>.deb                   # Kubuntu
 sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm         # Fedora
 ```
 
+## Usage
+
+* Start a new Dolphin session. Go to your SMB share, right-click a network folder and choose "Mount as Network Drive…".
+
 ![Mount as Network drive in Dolphin](docs/img/img3.png)
 
+* Choose an empty local folder to mount your network folder on, enter your SMB credentials (your current SMB credentials are used by default), choose the chmod access level for mounted folders and files, and click "Mount".
+
 ![Mount as Network Drive dialog](docs/img/img1.png)
+
+* See and manage your network mounts in KDE System Settings:
 
 ![Network Mounts settings page](docs/img/img2.png)
 
