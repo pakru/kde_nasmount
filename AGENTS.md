@@ -502,16 +502,13 @@ they share with the KCM live. Tests that read the source
 tree (`goldenunits_test`, `shareform_qml_test`) get the path as a compile
 definition rather than a staged copy, which could go stale.
 
-Adding a C++ test means editing **three** places:
+Adding a C++ test means editing two places:
 
 1. `tests/<name>_test.cpp`;
-2. `CMakeLists.txt` — `add_executable` + `target_link_libraries` + `add_test`;
-3. [`install.sh`](install.sh#L45) — the explicit test-binary list, which gates
-   installation. It is a hand-maintained list; a new test not added there is
-   silently skipped at install time.
+2. `CMakeLists.txt` — `add_executable` + `target_link_libraries` + `add_test`.
 
-A new shell gate likewise needs its `add_test` *and* its own `bash …` line in
-`install.sh`.
+A new shell gate needs only its `add_test`. `install.sh` runs no tests — it
+only builds and installs — so run `make test` before `make install`.
 
 The same hand-maintained-list trap exists in CI. `packaging_metadata_test.sh`
 compares both workflows' job names to an **exact set**, and `ci_success`

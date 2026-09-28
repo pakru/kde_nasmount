@@ -6,7 +6,7 @@
 # Kirigami, and which calls the KCM may use to open a folder. Every check
 # greps comments too, so no comment may spell out a forbidden name -- word
 # explanations around it.
-# Run from CTest and install.sh.
+# Run from CTest.
 
 set -euo pipefail
 

@@ -1,9 +1,9 @@
 # nasmount — conventional `make` / `make install` front end for the CMake build.
 #
 # `install`/`uninstall` delegate to install.sh/uninstall.sh rather than
-# reimplementing them. install.sh gates installation on the full test suite
-# passing, enables nasmount-boot.service, and refreshes Dolphin's and System
-# Settings' service cache; uninstall.sh runs the authenticated purge through
+# reimplementing them. install.sh enables nasmount-boot.service and refreshes
+# Dolphin's and System Settings' service cache; it does not run the tests, so
+# run `make test` first. uninstall.sh runs the authenticated purge through
 # nasmount-cleanup before it removes the installed files. A bare
 # `cmake --install` would skip all of that.
 
