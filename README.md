@@ -1,6 +1,6 @@
 # KDE NAS Mount 
-# Easy network mounts w/out CLI hustle for KDE
 
+### Easy network mounts w/out CLI hustle for KDE
 Make your SMB network shares easly connected to your KDE Plasma desktop.
 
 Current builds suppor:
