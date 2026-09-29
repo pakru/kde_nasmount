@@ -170,6 +170,21 @@ if grep -Eq '^Requires: +kf6-kio-core' "$repo_root/packaging/rpm/nasmount.spec.i
     exit 1
 fi
 
+# The smb KIO worker behind the Add dialog's Share "Browse...": weak in both
+# families for the same reason as the password service. Without it Browse
+# reports an unknown protocol and typing an address still works, so it must
+# never be a hard dependency.
+grep -Eq '^Recommends:.*[ ,]kio-extras([ ,]|$)' "$repo_root/packaging/debian/control"
+grep -Eq '^Recommends: +kio-extras$' "$repo_root/packaging/rpm/nasmount.spec.in"
+# Depends: spans continuation lines, so read the whole field, not one line.
+deb_depends=$(awk '/^Depends:/ {field = 1; print; next} /^[^ \t]/ {field = 0} field' \
+    "$repo_root/packaging/debian/control")
+if printf '%s\n' "$deb_depends" | grep -q 'kio-extras' \
+    || grep -Eq '^Requires:.*kio-extras' "$repo_root/packaging/rpm/nasmount.spec.in"; then
+    echo "ERROR: kio-extras (the smb KIO worker) must not be a hard dependency" >&2
+    exit 1
+fi
+
 # The KCM page imports org.kde.kirigami. KCMUtils happens to pull it in today,
 # but a direct import deserves a direct runtime dependency in both families.
 # Runtime only: ShareForm.qml, the one QML file a test loads, must stay free

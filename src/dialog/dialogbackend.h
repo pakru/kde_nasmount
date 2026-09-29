@@ -24,7 +24,7 @@
 #include <QObject>
 #include <QString>
 
-namespace Dialog::CredentialLookup
+namespace Session::CredentialLookup
 {
 class Controller;
 }
@@ -86,5 +86,5 @@ private:
     QString m_existingMountPoint;
     QString m_existingStateText;
     Session::MountActions *m_actions = nullptr;
-    Dialog::CredentialLookup::Controller *m_lookup = nullptr;
+    Session::CredentialLookup::Controller *m_lookup = nullptr;
 };

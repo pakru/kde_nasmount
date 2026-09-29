@@ -20,7 +20,9 @@
 #include "shareaddress.h"
 
 #include <QCoreApplication>
+#include <QList>
 #include <QTextStream>
+#include <QUrl>
 
 using namespace Session::ShareAddress;
 
@@ -256,6 +258,215 @@ int main(int argc, char **argv)
     check(QStringLiteral("partial input while typing"), userInShareInput(QStringLiteral("smb://alice@")).isEmpty());
     check(QStringLiteral("// input has no user"), userInShareInput(QStringLiteral("//nas/share")).isEmpty());
     check(QStringLiteral("unparsable input"), userInShareInput(QStringLiteral("smb://nas:x/share")).isEmpty());
+
+    out << "=== shareInputProblem: the form's verdict is the submit's verdict ===" << Qt::endl;
+    {
+        struct Case {
+            QString input;
+            QString username;
+        };
+        const QList<Case> cases = {
+            {QString(), QString()},
+            {QStringLiteral("smb://"), QString()},
+            {QStringLiteral("//"), QString()},
+            {QStringLiteral("SMB://"), QString()},
+            {QStringLiteral("smb://nas.local/DATA"), QString()},
+            {QStringLiteral("//nas.local/DATA"), QString()},
+            {QStringLiteral("smb://nas.local/DATA/sub dir/"), QString()},
+            {QStringLiteral("smb://nas.local"), QString()},
+            {QStringLiteral("smb://nas.local/"), QString()},
+            {QStringLiteral("nas/share"), QString()},
+            {QStringLiteral("http://nas/share"), QString()},
+            {QStringLiteral("smb://nas.local:445/DATA"), QString()},
+            {QStringLiteral("smb://user:secret@nas.local/DATA"), QString()},
+            {QStringLiteral("smb://nas.local/DATA?x=1"), QString()},
+            {QStringLiteral("smb://[fe80::1]/DATA"), QString()},
+            {QStringLiteral("smb://nas.local/100%"), QString()},
+            {QStringLiteral("smb://nas.local/DATA/../other"), QString()},
+            {QStringLiteral("smb://na$s/DATA"), QString()},
+            {QStringLiteral("smb://alice@nas.local/DATA"), QString()},
+            {QStringLiteral("smb://alice@nas.local/DATA"), QStringLiteral("alice")},
+            {QStringLiteral("smb://alice@nas.local/DATA"), QStringLiteral("bob")},
+        };
+        for (const Case &c : cases) {
+            QString unc;
+            QString error;
+            const bool accepted = resolveShareInput(c.input, c.username, &unc, &error);
+            const QString problem = shareInputProblem(c.input, c.username);
+            check(QStringLiteral("problem is empty exactly when the submit accepts: '%1' as '%2'")
+                      .arg(c.input, c.username),
+                  problem.isEmpty() == accepted, problem);
+        }
+
+        auto expectProblem = [](const QString &label, const QString &input, const QString &username,
+                                const QString &mention) {
+            const QString problem = shareInputProblem(input, username);
+            check(label, problem.contains(mention, Qt::CaseInsensitive) && problem.at(0).isUpper(), problem);
+        };
+        expectProblem(QStringLiteral("the pre-filled prefix reads as nothing entered"),
+                      QStringLiteral("smb://"), QString(), QStringLiteral("Enter the share address"));
+        expectProblem(QStringLiteral("empty reads as nothing entered"), QString(), QString(),
+                      QStringLiteral("Enter the share address"));
+        expectProblem(QStringLiteral("a bare // reads as nothing entered"), QStringLiteral("//"), QString(),
+                      QStringLiteral("Enter the share address"));
+        expectProblem(QStringLiteral("no prefix"), QStringLiteral("nas/share"), QString(),
+                      QStringLiteral("expected smb://host/share"));
+        expectProblem(QStringLiteral("a server without a share says so"), QStringLiteral("smb://nas.local"),
+                      QString(), QStringLiteral("not a share"));
+        expectProblem(QStringLiteral("a port is named as unsupported"), QStringLiteral("smb://nas.local:445/DATA"),
+                      QString(), QStringLiteral("not supported"));
+        expectProblem(QStringLiteral("a host that cannot be parsed names the cause"), QStringLiteral("smb://na$s/DATA"),
+                      QString(), QStringLiteral("invalid hostname"));
+        check(QStringLiteral("and does not dump the parser's internals"),
+              !shareInputProblem(QStringLiteral("smb://na$s/DATA"), QString()).contains(QStringLiteral("source was")));
+        expectProblem(QStringLiteral("a host that parses but cannot be mounted"),
+                      QStringLiteral("//na$s/DATA"), QString(), QStringLiteral("not a valid share address"));
+        expectProblem(QStringLiteral("a user in the address needs a Username"),
+                      QStringLiteral("smb://alice@nas.local/DATA"), QString(), QStringLiteral("Username"));
+        expectProblem(QStringLiteral("a user in the address must match Username"),
+                      QStringLiteral("smb://alice@nas.local/DATA"), QStringLiteral("bob"),
+                      QStringLiteral("different user"));
+        check(QStringLiteral("a refusal does not echo the input back"),
+              !shareInputProblem(QStringLiteral("nas/share"), QString()).contains(QStringLiteral("nas/share")));
+    }
+
+    out << "=== browsedShareInput: a folder picked in the Share browser ===" << Qt::endl;
+    {
+        struct Accept {
+            const char *label;
+            QString url;
+            QString input;
+            QString user;
+            QString unc; ///< what resolveShareInput() must make of `input`
+        };
+        const QList<Accept> accepted = {
+            {"share", QStringLiteral("smb://nas.local/DATA"), QStringLiteral("smb://nas.local/DATA"), QString(),
+             QStringLiteral("//nas.local/DATA")},
+            {"folder inside a share", QStringLiteral("smb://nas.local/DATA/Films/2024"),
+             QStringLiteral("smb://nas.local/DATA/Films/2024"), QString(),
+             QStringLiteral("//nas.local/DATA/Films/2024")},
+            {"trailing slash", QStringLiteral("smb://nas.local/DATA/"), QStringLiteral("smb://nas.local/DATA"),
+             QString(), QStringLiteral("//nas.local/DATA")},
+            {"encoded space", QStringLiteral("smb://nas.local/Media%20Library"),
+             QStringLiteral("smb://nas.local/Media Library"), QString(), QStringLiteral("//nas.local/Media Library")},
+            {"a percent sign stays encoded in the field", QStringLiteral("smb://nas.local/100%25"),
+             QStringLiteral("smb://nas.local/100%25"), QString(), QStringLiteral("//nas.local/100%")},
+            {"a number sign stays encoded in the field", QStringLiteral("smb://nas.local/C%23"),
+             QStringLiteral("smb://nas.local/C%23"), QString(), QStringLiteral("//nas.local/C#")},
+            {"a question mark stays encoded in the field", QStringLiteral("smb://nas.local/why%3F"),
+             QStringLiteral("smb://nas.local/why%3F"), QString(), QStringLiteral("//nas.local/why?")},
+            {"the user moves out of the address", QStringLiteral("smb://alice@nas.local/DATA"),
+             QStringLiteral("smb://nas.local/DATA"), QStringLiteral("alice"), QStringLiteral("//nas.local/DATA")},
+        };
+        for (const Accept &a : accepted) {
+            const BrowsedShare picked = browsedShareInput(QUrl(a.url));
+            check(QStringLiteral("browsed: %1").arg(QLatin1String(a.label)),
+                  picked.error.isEmpty() && picked.input == a.input && picked.user == a.user,
+                  picked.error.isEmpty() ? QStringLiteral("input='%1' user='%2'").arg(picked.input, picked.user)
+                                         : picked.error);
+            QString unc;
+            QString error;
+            const bool ok = resolveShareInput(picked.input, picked.user, &unc, &error);
+            check(QStringLiteral("browsed text resolves to the picked share: %1").arg(QLatin1String(a.label)),
+                  ok && unc == a.unc, ok ? unc : error);
+        }
+
+        // A server pick is shown, not dropped: the ordinary validation then
+        // says a share is missing.
+        const BrowsedShare server = browsedShareInput(QUrl(QStringLiteral("smb://nas.local")));
+        check(QStringLiteral("browsed: a server is shown as a server"),
+              server.error.isEmpty() && server.input == QStringLiteral("smb://nas.local"));
+        check(QStringLiteral("browsed: and validation then explains the missing share"),
+              shareInputProblem(server.input, server.user).contains(QStringLiteral("not a share")));
+
+        const QStringList refused = {
+            QStringLiteral("file:///home/user/Documents"),
+            QStringLiteral("file:///run/user/1000/kio-fuse-ab12/smb/nas/DATA"),
+            QStringLiteral("http://nas.local/DATA"),
+            QStringLiteral("smb://nas.local:445/DATA"),
+            QStringLiteral("smb://user:secret@nas.local/DATA"),
+            QStringLiteral("smb://user:@nas.local/DATA"),
+            QStringLiteral("smb://nas.local/DATA?x=1"),
+            QStringLiteral("smb://nas.local/DATA#frag"),
+            QStringLiteral("smb:///"),
+            QStringLiteral("smb://[fe80::1]/DATA"),
+        };
+        for (const QString &url : refused) {
+            const BrowsedShare picked = browsedShareInput(QUrl(url));
+            check(QStringLiteral("browsed: refused %1").arg(url), !picked.error.isEmpty() && picked.input.isEmpty(),
+                  picked.input);
+        }
+        check(QStringLiteral("browsed: an empty URL is refused"), !browsedShareInput(QUrl()).error.isEmpty());
+    }
+
+    out << "=== browseStartUrl: where the Share browser opens ===" << Qt::endl;
+    {
+        auto expectStart = [](const QString &label, const QString &input, const QString &host,
+                              const QString &path, const QString &user = QString()) {
+            const QUrl start = browseStartUrl(input);
+            check(label,
+                  start.scheme() == QStringLiteral("smb") && start.host() == host && start.path() == path
+                      && start.userName() == user && start.password().isEmpty() && start.port() == -1
+                      && !start.hasQuery() && !start.hasFragment(),
+                  start.toString());
+        };
+        expectStart(QStringLiteral("nothing typed opens the network root"), QString(), QString(), QString());
+        expectStart(QStringLiteral("the bare prefix opens the network root"), QStringLiteral("smb://"), QString(),
+                    QString());
+        expectStart(QStringLiteral("text that is not an address opens the network root"),
+                    QStringLiteral("nas/share"), QString(), QString());
+        expectStart(QStringLiteral("a server opens that server"), QStringLiteral("smb://nas.local"),
+                    QStringLiteral("nas.local"), QString());
+        expectStart(QStringLiteral("a share opens that share"), QStringLiteral("smb://nas.local/DATA"),
+                    QStringLiteral("nas.local"), QStringLiteral("/DATA"));
+        expectStart(QStringLiteral("a folder opens that folder"), QStringLiteral("smb://nas.local/DATA/Films"),
+                    QStringLiteral("nas.local"), QStringLiteral("/DATA/Films"));
+        expectStart(QStringLiteral("the // spelling is understood"), QStringLiteral("//nas.local/DATA"),
+                    QStringLiteral("nas.local"), QStringLiteral("/DATA"));
+        expectStart(QStringLiteral("a literal space is kept"), QStringLiteral("smb://nas.local/Media Library"),
+                    QStringLiteral("nas.local"), QStringLiteral("/Media Library"));
+        expectStart(QStringLiteral("the user is kept"), QStringLiteral("smb://alice@nas.local/DATA"),
+                    QStringLiteral("nas.local"), QStringLiteral("/DATA"), QStringLiteral("alice"));
+        // Nothing the user typed as a secret, or a port, may be handed on.
+        expectStart(QStringLiteral("a password, port, query and fragment are dropped"),
+                    QStringLiteral("smb://alice:secret@nas.local:445/DATA?x=1#f"), QStringLiteral("nas.local"),
+                    QStringLiteral("/DATA"), QStringLiteral("alice"));
+    }
+
+    out << "=== authLookupTarget ===" << Qt::endl;
+    {
+        auto expectTarget = [](const QString &label, const QString &unc, const QString &expected) {
+            const QUrl url = authLookupTarget(unc);
+            check(label, url.toString(QUrl::FullyEncoded) == expected, url.toString());
+        };
+        // The share root is the lookup target even when the user opened a
+        // folder deep inside it: that is what KDE's own SMB worker
+        // authenticates against, so anything narrower would miss the entry
+        // Dolphin saved.
+        expectTarget(QStringLiteral("share root"), QStringLiteral("//192.0.2.10/DATA"),
+                     QStringLiteral("smb://192.0.2.10/DATA"));
+        expectTarget(QStringLiteral("subdirectories are dropped"),
+                     QStringLiteral("//192.0.2.10/DATA/Documents/Docs"),
+                     QStringLiteral("smb://192.0.2.10/DATA"));
+        expectTarget(QStringLiteral("a space in the share name is encoded once"),
+                     QStringLiteral("//nas.local/Media Library"),
+                     QStringLiteral("smb://nas.local/Media%20Library"));
+        expectTarget(QStringLiteral("a literal percent is encoded, not re-read"),
+                     QStringLiteral("//nas.local/100%"), QStringLiteral("smb://nas.local/100%25"));
+        expectTarget(QStringLiteral("an already-encoded-looking name is not decoded again"),
+                     QStringLiteral("//nas.local/Media%20Library"),
+                     QStringLiteral("smb://nas.local/Media%2520Library"));
+        expectTarget(QStringLiteral("a non-ASCII share name survives"),
+                     QStringLiteral("//nas.local/Материалы"),
+                     QStringLiteral("smb://nas.local/%D0%9C%D0%B0%D1%82%D0%B5%D1%80%D0%B8%D0%B0%D0%BB%D1%8B"));
+        expectTarget(QStringLiteral("a trailing slash does not create an empty component"),
+                     QStringLiteral("//nas.local/DATA/"), QStringLiteral("smb://nas.local/DATA"));
+
+        check(QStringLiteral("a server-only UNC has no lookup target"),
+              !authLookupTarget(QStringLiteral("//nas.local")).isValid());
+        check(QStringLiteral("an empty UNC has no lookup target"),
+              !authLookupTarget(QString()).isValid());
+    }
 
     out << Qt::endl << passed << " passed, " << failed << " failed" << Qt::endl;
     return failed == 0 ? 0 : 1;

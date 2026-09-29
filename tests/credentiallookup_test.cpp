@@ -1,5 +1,5 @@
 /*
- * Tests for Dialog::CredentialLookup - the autofill protocol, its acceptance
+ * Tests for Session::CredentialLookup - the autofill protocol, its acceptance
  * policy, and the controller's lifetime.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -13,7 +13,7 @@
  */
 
 #include "credentiallookup.h"
-#include "smburl.h"
+#include "shareaddress.h"
 #include "unitspec.h"
 
 #include <QCoreApplication>
@@ -38,7 +38,7 @@ static void check(const QString &label, bool condition, const QString &detail = 
     condition ? ++passed : ++failed;
 }
 
-using namespace Dialog::CredentialLookup;
+using namespace Session::CredentialLookup;
 
 namespace
 {
@@ -246,7 +246,7 @@ int main(int argc, char **argv)
         // Built as the product builds it, from a share name with a space:
         // the round trip must survive QUrl's encoding of it.
         Request request;
-        request.target = Dialog::SmbUrl::authLookupTarget(
+        request.target = Session::ShareAddress::authLookupTarget(
             QStringLiteral("//nas.example/Media Library/Films"));
         request.username = QStringLiteral("WORKGROUP\\alice");
         request.windowId = 123456;
@@ -584,6 +584,49 @@ int main(int argc, char **argv)
             check(testCase.label, ok, run.gotCandidate ? run.username : run.missReason);
         }
         qunsetenv(ChildModeVariable);
+    }
+
+    // --- naming the program: how the KCM, which is not nasmount-dialog, runs it
+    {
+        // A program that is not there is an ordinary miss, never a crash or a
+        // hang: a KCM loaded from a build tree has no installed dialog.
+        Controller missing;
+        Run missingRun;
+        connectRun(&missing, &missingRun);
+        missing.setProgram(QStringLiteral("/nonexistent/nasmount-dialog"));
+        missing.setDeadlineMs(10000);
+        missing.start(sampleRequest());
+        pump([&missingRun]() { return missingRun.gotCandidate || missingRun.gotMiss; }, 10000);
+        check(QStringLiteral("program: a missing program is an ordinary miss"),
+              missingRun.gotMiss && !missingRun.gotCandidate, missingRun.missReason);
+
+        // An explicit path runs that program: the same test binary, named
+        // rather than defaulted to.
+        qputenv(ChildModeVariable, "echo-target");
+        Controller named;
+        Run namedRun;
+        connectRun(&named, &namedRun);
+        named.setProgram(QCoreApplication::applicationFilePath());
+        named.setDeadlineMs(10000);
+        named.start(sampleRequest());
+        pump([&namedRun]() { return namedRun.gotCandidate || namedRun.gotMiss; }, 10000);
+        qunsetenv(ChildModeVariable);
+        check(QStringLiteral("program: a named program runs and answers"),
+              namedRun.gotCandidate && namedRun.password == QStringLiteral("synthetic-secret"),
+              namedRun.missReason);
+
+        // The default is unchanged: an empty program is this executable.
+        qputenv(ChildModeVariable, "echo-target");
+        Controller defaulted;
+        Run defaultedRun;
+        connectRun(&defaulted, &defaultedRun);
+        defaulted.setProgram(QString());
+        defaulted.setDeadlineMs(10000);
+        defaulted.start(sampleRequest());
+        pump([&defaultedRun]() { return defaultedRun.gotCandidate || defaultedRun.gotMiss; }, 10000);
+        qunsetenv(ChildModeVariable);
+        check(QStringLiteral("program: empty still means the running executable"),
+              defaultedRun.gotCandidate, defaultedRun.missReason);
     }
 
     out << (failed == 0 ? "all passed" : "FAILURES") << ": " << passed << " passed, " << failed

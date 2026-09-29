@@ -32,6 +32,11 @@
 
 #include <QObject>
 #include <QString>
+#include <QThreadPool>
+#include <QUrl>
+#include <QVariantMap>
+
+#include <sys/types.h>
 
 namespace Session
 {
@@ -44,6 +49,17 @@ namespace Session
  * authenticate but mistyped the username. Exposed for testing.
  */
 bool guestFieldsConsistent(const QString &username, const QString &domain, const QString &password);
+
+/**
+ * The local path a folder picker's URL names, or empty when it names anything
+ * else (a network location, or a file URL carrying a host).
+ *
+ * QUrl::toLocalFile() and nothing hand-rolled: a URL's string form keeps `%`
+ * and `#` percent-encoded, so cutting the scheme off it turns a folder named
+ * "100%" into "100%25" - a different directory that the helper would then
+ * create and mount on. Exposed for testing.
+ */
+QString localPathFromUrl(const QUrl &url);
 
 class MountActions : public QObject
 {
@@ -104,9 +120,68 @@ public:
      *  Username from the address as it is typed. */
     Q_INVOKABLE QString userInShareInput(const QString &text) const;
 
+    /** The local path a folder picked in the mount point's Browse dialog
+     *  names, or empty for anything that is not a local folder
+     *  (Session::localPathFromUrl()). */
+    Q_INVOKABLE QString localPathFromUrl(const QUrl &url) const;
+
+    /** Why the Share field's text cannot be submitted, or empty
+     *  (ShareAddress::shareInputProblem()). Cheap enough for a binding. */
+    Q_INVOKABLE QString shareInputProblem(const QString &input, const QString &username) const;
+
+    /** Why the Mount point field's text cannot be a mount point, or empty
+     *  (Session::mountPointProblem()). Lexical only, so a binding can call it
+     *  on every keystroke; checkMountPoint() covers the rest. */
+    Q_INVOKABLE QString mountPointProblem(const QString &raw) const;
+
+    /**
+     * Starts the checks that touch the system - unit files, the folder
+     * itself - for `raw`, off the GUI thread; the answer arrives as
+     * mountPointChecked() carrying the same `raw`.
+     *
+     * One check runs at a time, and at most one waits behind it: a newer
+     * request replaces the waiting one. Typing quickly therefore costs one
+     * worker and no queue, and a walk that hangs on a stale network home
+     * holds only its own thread, on a pool of its own that addShare() and
+     * deleteShare() never wait for. A check may be answered after the text
+     * has changed; the receiver compares `raw` and drops what is stale.
+     */
+    Q_INVOKABLE void checkMountPoint(const QString &raw);
+
+    /** A folder picked in the Share browser, as Share field text:
+     *  { input, user, error } (ShareAddress::browsedShareInput()). */
+    Q_INVOKABLE QVariantMap browsedShareInput(const QUrl &picked) const;
+
+    /** Where the Share browser should open for the field's current text
+     *  (ShareAddress::browseStartUrl()). */
+    Q_INVOKABLE QUrl browseStartUrl(const QString &shareInput) const;
+
+    /**
+     * The password-service key the Share field's text belongs to, as a
+     * string: the server and the first path component, or empty when the
+     * text is not a usable share address. Two addresses with the same key
+     * would be given the same stored login, so the form compares them to
+     * decide whether an imported credential still belongs to the share.
+     */
+    Q_INVOKABLE QString lookupTargetOf(const QString &shareInput) const;
+
 Q_SIGNALS:
     void started(const QString &id, const QString &kind);
     void finished(const QString &id, const QString &kind, bool success, const QString &message);
+
+    /** The answer to checkMountPoint(): empty `problem` means nothing was
+     *  found. `raw` is the text that was checked, not the text now. */
+    void mountPointChecked(const QString &raw, const QString &problem);
+
+private:
+    void startMountPointCheck(const QString &raw);
+
+    QString m_homeDir;  ///< the caller's passwd home: what the helper authorizes against
+    uid_t m_uid;
+    QThreadPool m_checkPool;
+    bool m_checkRunning = false;
+    bool m_checkPending = false;
+    QString m_pendingRaw;
 };
 
 } // namespace Session

@@ -411,6 +411,157 @@ int openMountpointNoCreate(const MountpointPlan &plan, uid_t expectedUid, gid_t 
     return -1;
 }
 
+namespace
+{
+
+#ifndef STATX_ATTR_AUTOMOUNT
+#define STATX_ATTR_AUTOMOUNT 0x00001000
+#endif
+
+/** What previewMountpointProblem() learns about one path, without opening it. */
+struct Examined {
+    mode_t mode = 0;
+    uid_t uid = 0;
+    uint64_t mountId = 0; ///< 0 when the kernel cannot report one
+    dev_t device = 0;
+    bool automountTrigger = false;
+};
+
+/**
+ * statx() with AT_NO_AUTOMOUNT: describes `name` in `dirFd` (or `name` alone
+ * when it is absolute) without mounting it. `followLinks` is for the allowed
+ * root only, which the real walk opens by plain path; every component below
+ * it is examined as itself.
+ */
+bool examine(int dirFd, const QByteArray &name, bool followLinks, Examined *info, int *error)
+{
+    struct statx sx {};
+    unsigned mask = STATX_TYPE | STATX_UID;
+#if defined(STATX_MNT_ID)
+    mask |= STATX_MNT_ID;
+#endif
+    const int flags = AT_NO_AUTOMOUNT | (followLinks ? 0 : AT_SYMLINK_NOFOLLOW);
+    if (::statx(dirFd, name.constData(), flags, mask, &sx) != 0) {
+        *error = errno;
+        return false;
+    }
+    info->mode = sx.stx_mode;
+    info->uid = sx.stx_uid;
+    info->device = makedev(sx.stx_dev_major, sx.stx_dev_minor);
+#if defined(STATX_MNT_ID)
+    info->mountId = (sx.stx_mask & STATX_MNT_ID) ? sx.stx_mnt_id : 0;
+#endif
+    info->automountTrigger = (sx.stx_attributes_mask & STATX_ATTR_AUTOMOUNT)
+        && (sx.stx_attributes & STATX_ATTR_AUTOMOUNT);
+    return true;
+}
+
+/** Closes a descriptor on every way out of the preview walk. */
+struct FdGuard {
+    int fd = -1;
+    ~FdGuard()
+    {
+        if (fd >= 0) {
+            ::close(fd);
+        }
+    }
+    void reset(int next)
+    {
+        if (fd >= 0) {
+            ::close(fd);
+        }
+        fd = next;
+    }
+};
+
+} // namespace
+
+QString previewMountpointProblem(const MountpointPlan &plan, uid_t uid)
+{
+    if (plan.suffix.isEmpty()) {
+        return QString();
+    }
+
+    // The root, examined and opened like the real walk opens it -- by plain
+    // path, following a link such as /media -> /run/media -- but without
+    // O_DIRECTORY, which would mount it were it an automount trigger.
+    const QByteArray rootPath = plan.root.toLocal8Bit();
+    Examined root;
+    int err = 0;
+    if (!examine(AT_FDCWD, rootPath, /*followLinks=*/true, &root, &err) || !S_ISDIR(root.mode)
+        || root.automountTrigger) {
+        return QString();
+    }
+    FdGuard dir;
+    dir.reset(::open(rootPath.constData(), O_PATH | O_CLOEXEC));
+    if (dir.fd < 0) {
+        return QString();
+    }
+
+    QString walked = plan.root;
+    for (int i = 0; i < plan.suffix.size(); ++i) {
+        const QString &component = plan.suffix.at(i);
+        const QByteArray name = component.toLocal8Bit();
+        const bool isLast = (i == plan.suffix.size() - 1);
+        walked = QDir::cleanPath(walked + QLatin1Char('/') + component);
+
+        Examined info;
+        if (!examine(dir.fd, name, /*followLinks=*/false, &info, &err)) {
+            // ENOENT: everything from here on is created by the helper, which
+            // is fine. Any other errno is one this cannot interpret.
+            return QString();
+        }
+        if (S_ISLNK(info.mode)) {
+            return QStringLiteral("%1 is a symbolic link; choose the folder it points to").arg(walked);
+        }
+        if (!S_ISDIR(info.mode)) {
+            return QStringLiteral("%1 is a file, not a folder").arg(walked);
+        }
+
+        // Mount ids, as in the real walk, so a bind mount from the same
+        // filesystem is caught too. An automount that has not fired yet is an
+        // autofs mount of its own, so it differs from its parent as well; the
+        // attribute covers a trigger that is not a mount at all.
+        const bool crossesMount = info.automountTrigger
+            || ((info.mountId && root.mountId) ? (info.mountId != root.mountId) : (info.device != root.device));
+        if (crossesMount) {
+            return isLast ? QStringLiteral("Something is already mounted on %1").arg(walked)
+                          : QStringLiteral("%1 is on another filesystem or mount; choose a folder that is "
+                                           "not inside it").arg(walked);
+        }
+        if (info.uid != uid) {
+            return QStringLiteral("%1 belongs to another user").arg(walked);
+        }
+
+        if (isLast) {
+            // Safe to open for reading now: it is on the root's own mount and
+            // not a trigger, so opening it cannot mount anything.
+            FdGuard last;
+            last.reset(::openat(dir.fd, name.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+            if (last.fd < 0) {
+                return QString();
+            }
+            bool empty = false;
+            QString ignored;
+            if (directoryIsEmpty(last.fd, &empty, &ignored) && !empty) {
+                return QStringLiteral("%1 is not empty; choose an empty folder, so the mount does not hide "
+                                      "its files").arg(walked);
+            }
+            return QString();
+        }
+
+        // Descend by O_PATH without O_DIRECTORY: neither triggers an
+        // automount, and the component was just shown to be a plain directory
+        // on the same mount.
+        const int next = ::openat(dir.fd, name.constData(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
+        if (next < 0) {
+            return QString();
+        }
+        dir.reset(next);
+    }
+    return QString();
+}
+
 QString mountOptions(uid_t uid, gid_t gid, const QString &credPath, UnitValue::AccessMode access)
 {
     QStringList opts;

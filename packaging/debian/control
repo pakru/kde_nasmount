@@ -46,7 +46,10 @@ Depends:
 # kio6 ships the kpasswdserver service autofill reads. Debian's KIO symbols
 # file already adds it to ${shlibs:Depends}, so this restates intent in case
 # that changes; weak because a host without the service must still install.
-Recommends: dolphin, kio6, plasma-systemsettings
+# kio-extras ships the smb KIO worker the Add dialog's Share "Browse..." lists
+# shares with; weak for the same reason - without it Browse reports an unknown
+# protocol and a typed smb:// address still works.
+Recommends: dolphin, kio6, kio-extras, plasma-systemsettings
 Description: KDE Plasma CIFS mounts backed by static systemd units
  nasmount adds and removes persistent CIFS shares through a KAuth helper.
  Shares use root-owned systemd mount and automatic-mount unit pairs. They are

@@ -54,7 +54,11 @@ bool parseSmbUrl(const QString &raw, QString *unc, QString *user, QString *error
         url = QUrl(raw, QUrl::TolerantMode);
     }
     if (!url.isValid()) {
-        *error = i18n("Not a valid URL: %1 (%2)", raw, url.errorString());
+        // QUrl's text goes on to repeat the whole source and every parsed
+        // part; shown under an input field that is noise, and a repeat of
+        // what is already on screen. The cause is the part before it.
+        *error = i18n("Not a valid address: %1",
+                      url.errorString().section(QStringLiteral("; source was"), 0, 0));
         return false;
     }
     if (url.scheme() != QStringLiteral("smb")) {
@@ -88,7 +92,8 @@ bool parseSmbUrl(const QString &raw, QString *unc, QString *user, QString *error
         path.chop(1);
     }
     if (path.isEmpty()) {
-        *error = i18n("This URL points at a server, not a share - open a share first.");
+        *error = i18n("This points at a server, not a share - add the share name after the server "
+                      "(smb://server/share).");
         return false;
     }
 
@@ -153,7 +158,9 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
     } else if (input.startsWith(QStringLiteral("//"))) {
         candidate = input;
     } else {
-        *error = QStringLiteral("not a share address: %1 (expected smb://host/share)").arg(input);
+        // The input is not echoed: shown under the field, it is already on
+        // screen above the message.
+        *error = QStringLiteral("not a share address (expected smb://host/share)");
         return false;
     }
 
@@ -167,9 +174,8 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
     QString normalised;
     QString ignored;
     if (!UnitSpec::validateUnc(candidate, &normalised, &ignored)) {
-        *error = QStringLiteral("not a valid share address: %1 (expected smb://host/share[/subdir], "
-                                "with no '..' component)")
-                     .arg(input);
+        *error = QStringLiteral("not a valid share address (expected smb://host/share[/subdir], "
+                                "with no '..' component)");
         return false;
     }
 
@@ -198,6 +204,133 @@ QString userInShareInput(const QString &input)
     QString user;
     QString error;
     return parseSmbUrl(input, &unc, &user, &error) ? user : QString();
+}
+
+QString shareInputProblem(const QString &input, const QString &username)
+{
+    QString rest = input;
+    if (hasSmbPrefix(rest)) {
+        rest.remove(0, smbPrefix.size());
+    } else if (rest.startsWith(QStringLiteral("//"))) {
+        rest.remove(0, 2);
+    }
+    if (rest.isEmpty()) {
+        return QStringLiteral("Enter the share address, for example smb://nas/Media");
+    }
+
+    QString unc;
+    QString error;
+    if (resolveShareInput(input, username, &unc, &error)) {
+        return QString();
+    }
+    // The refusals are lower-case fragments where they are used in a sentence
+    // ("could not ... : <error>"); shown on their own they start a line.
+    if (!error.isEmpty()) {
+        error[0] = error.at(0).toUpper();
+    }
+    return error;
+}
+
+BrowsedShare browsedShareInput(const QUrl &picked)
+{
+    BrowsedShare result;
+    if (picked.scheme().compare(QStringLiteral("smb"), Qt::CaseInsensitive) != 0) {
+        result.error = QStringLiteral("Choose a folder on a network share (smb://)");
+        return result;
+    }
+    // The same parts parseSmbUrl() refuses. KIO does not produce them, but the
+    // conversion must not assume it.
+    const bool hasPasswordComponent = picked.userInfo(QUrl::FullyEncoded).contains(QLatin1Char(':'));
+    if (picked.hasQuery() || picked.hasFragment() || hasPasswordComponent || picked.port() != -1) {
+        result.error = QStringLiteral("This address has parts that are not supported here "
+                                      "(port, password, query or fragment)");
+        return result;
+    }
+    const QString host = picked.host();
+    if (host.isEmpty()) {
+        // The network root itself was accepted rather than a server in it.
+        result.error = QStringLiteral("Choose a share on a server, not the network root");
+        return result;
+    }
+    if (host.contains(QLatin1Char(':'))) {
+        result.error = QStringLiteral("IPv6 hosts are not supported yet");
+        return result;
+    }
+
+    QString path = picked.path(QUrl::FullyDecoded);
+    while (path.startsWith(QLatin1Char('/'))) {
+        path.remove(0, 1);
+    }
+    while (path.endsWith(QLatin1Char('/'))) {
+        path.chop(1);
+    }
+    const QString user = picked.userName(QUrl::FullyDecoded);
+    if (UnitSpec::hasControlChars(host) || UnitSpec::hasControlChars(path)
+        || UnitSpec::hasControlChars(user)) {
+        result.error = QStringLiteral("The address contains control characters");
+        return result;
+    }
+
+    // Through displayUrl(), like every address the list shows, so what lands
+    // in the field parses back to the same share.
+    result.input = displayUrl(path.isEmpty() ? QStringLiteral("//%1").arg(host)
+                                             : QStringLiteral("//%1/%2").arg(host, path));
+    result.user = user;
+    return result;
+}
+
+QUrl browseStartUrl(const QString &shareInput)
+{
+    const QUrl root(QStringLiteral("smb://"));
+
+    QString text = shareInput.trimmed();
+    if (text.startsWith(QStringLiteral("//"))) {
+        text.prepend(QStringLiteral("smb:"));
+    }
+    if (!hasSmbPrefix(text)) {
+        return root;
+    }
+
+    const QUrl typed(text, QUrl::TolerantMode);
+    if (!typed.isValid() || typed.host().isEmpty()) {
+        return root;
+    }
+    // Rebuilt from the parts worth keeping, so a password or a port typed into
+    // the field can never be handed to the file dialog.
+    QUrl start;
+    start.setScheme(QStringLiteral("smb"));
+    start.setHost(typed.host());
+    if (!typed.userName().isEmpty()) {
+        start.setUserName(typed.userName());
+    }
+    start.setPath(typed.path());
+    return start;
+}
+
+QUrl authLookupTarget(const QString &unc)
+{
+    // Validated already, but reached from the command line: treat anything
+    // unexpected as "no target" rather than assuming the shape.
+    QString rest = unc;
+    while (rest.startsWith(QLatin1Char('/'))) {
+        rest.remove(0, 1);
+    }
+    const QString host = rest.section(QLatin1Char('/'), 0, 0);
+    const QString share = rest.section(QLatin1Char('/'), 1, 1);
+    if (host.isEmpty() || share.isEmpty()) {
+        return QUrl();
+    }
+
+    // The same three calls kio-extras' smbauthenticator.cpp makes. A
+    // concatenated string would re-parse the share name as URL syntax, so
+    // "Media Library" would reach the service under a different key.
+    QUrl url(QStringLiteral("smb:///"));
+    url.setHost(host);
+    url.setPath(QLatin1Char('/') + share);
+    if (!url.isValid() || url.host() != host) {
+        return QUrl();
+    }
+    return url;
 }
 
 } // namespace Session::ShareAddress

@@ -430,6 +430,121 @@ int main(int argc, char **argv)
         }
     }
 
+    out << "=== previewMountpointProblem: the read-only twin of the interactive walk ===" << Qt::endl;
+    {
+        QTemporaryDir tmp(home + QStringLiteral("/.nasmount-test-preview-XXXXXX"));
+        check(QStringLiteral("temp dir created"), tmp.isValid());
+
+        auto makeFile = [](const QString &path, const char *content = "x") {
+            QFile file(path);
+            const bool opened = file.open(QIODevice::WriteOnly);
+            if (opened) {
+                file.write(content);
+            }
+            return opened;
+        };
+        auto planUnder = [](const QString &root, const QStringList &suffix) {
+            UnitSpec::MountpointPlan plan;
+            plan.root = root;
+            plan.suffix = suffix;
+            plan.path = root + QLatin1Char('/') + suffix.join(QLatin1Char('/'));
+            return plan;
+        };
+
+        const QString root = tmp.path();
+        QDir().mkpath(root + QStringLiteral("/empty"));
+        QDir().mkpath(root + QStringLiteral("/full"));
+        makeFile(root + QStringLiteral("/full/data"));
+        makeFile(root + QStringLiteral("/afile"));
+        QDir().mkpath(root + QStringLiteral("/real/inner"));
+        QFile::link(root + QStringLiteral("/real"), root + QStringLiteral("/link"));
+        QDir().mkpath(root + QStringLiteral("/dirlinkholder"));
+
+        auto parts = [](std::initializer_list<const char *> names) {
+            QStringList list;
+            for (const char *name : names) {
+                list << QString::fromLatin1(name);
+            }
+            return list;
+        };
+        struct Case {
+            const char *label;
+            QStringList suffix;
+            uid_t asUid;
+            const char *mustMention; ///< nullptr when the preview must say nothing
+        };
+        const Case cases[] = {
+            {"a path that does not exist yet", parts({"missing", "deeper", "MOUNT"}), uid, nullptr},
+            {"an existing empty folder", parts({"empty"}), uid, nullptr},
+            {"a non-empty folder", parts({"full"}), uid, "not empty"},
+            {"a file where the folder should be", parts({"afile"}), uid, "file, not a folder"},
+            {"a file in the middle of the path", parts({"afile", "sub"}), uid, "file, not a folder"},
+            {"a symlink as the mount point", parts({"link"}), uid, "symbolic link"},
+            {"a symlink in the middle of the path", parts({"link", "inner"}), uid, "symbolic link"},
+            {"a folder owned by another user", parts({"empty"}), uid + 1, "another user"},
+        };
+        for (const Case &c : cases) {
+            const UnitSpec::MountpointPlan plan = planUnder(root, c.suffix);
+            const QString problem = UnitSpec::previewMountpointProblem(plan, c.asUid);
+            const bool asExpected = c.mustMention ? problem.contains(QLatin1String(c.mustMention))
+                                                  : problem.isEmpty();
+            check(QStringLiteral("preview: %1").arg(QLatin1String(c.label)), asExpected, problem);
+
+            // Parity: the preview refuses exactly what the real walk refuses.
+            // The real walk creates missing folders, so it runs on the
+            // fixtures after the preview has looked at them.
+            QString walkError;
+            const int fd = UnitSpec::openMountpointNoFollow(plan, c.asUid, gid, &walkError);
+            check(QStringLiteral("preview agrees with the real walk: %1").arg(QLatin1String(c.label)),
+                  problem.isEmpty() == (fd >= 0), QStringLiteral("preview='%1' walk='%2'").arg(problem, walkError));
+            if (fd >= 0) {
+                ::close(fd);
+            }
+        }
+
+        // Read-only, or it would be no preview: nothing is created for a path
+        // that does not exist. (The parity loop above created it afterwards.)
+        {
+            const QString absent = QStringLiteral("never-here");
+            const QString problem = UnitSpec::previewMountpointProblem(planUnder(root, {absent, QStringLiteral("x")}), uid);
+            check(QStringLiteral("preview creates nothing"),
+                  problem.isEmpty() && !QDir(root + QLatin1Char('/') + absent).exists());
+        }
+
+        // An allowed root that is itself a symlink (/media -> /run/media on
+        // some systems) is opened by plain path, as the real walk does.
+        {
+            const UnitSpec::MountpointPlan plan = planUnder(root + QStringLiteral("/link"), {QStringLiteral("inner")});
+            QString walkError;
+            const int fd = UnitSpec::openMountpointNoFollow(plan, uid, gid, &walkError);
+            check(QStringLiteral("a root that is a symlink is followed, as by the real walk"),
+                  UnitSpec::previewMountpointProblem(plan, uid).isEmpty() && fd >= 0, walkError);
+            if (fd >= 0) {
+                ::close(fd);
+            }
+        }
+
+        // Mounts. /proc is a different mount from / on every Linux host and in
+        // every container, needs no privilege to look at, and cannot be
+        // created or removed by the test.
+        {
+            const QString procProblem = UnitSpec::previewMountpointProblem(planUnder(QStringLiteral("/"), {QStringLiteral("proc")}), uid);
+            check(QStringLiteral("an existing mount point is reported as mounted"),
+                  procProblem.contains(QLatin1String("already mounted")), procProblem);
+            const QString insideProblem = UnitSpec::previewMountpointProblem(
+                planUnder(QStringLiteral("/"), {QStringLiteral("proc"), QStringLiteral("sys")}), uid);
+            check(QStringLiteral("a folder inside another mount is reported"),
+                  insideProblem.contains(QLatin1String("another filesystem")), insideProblem);
+        }
+
+        // "Cannot tell" is never a refusal.
+        check(QStringLiteral("a root that does not exist says nothing"),
+              UnitSpec::previewMountpointProblem(planUnder(root + QStringLiteral("/no-such-root"), {QStringLiteral("x")}), uid)
+                  .isEmpty());
+        check(QStringLiteral("an empty suffix says nothing"),
+              UnitSpec::previewMountpointProblem(planUnder(root, {}), uid).isEmpty());
+    }
+
     out << "=== unit generation + restricted-template validation: all four combinations ===" << Qt::endl;
     {
         const QString mountPoint = QStringLiteral("/mnt/nas");

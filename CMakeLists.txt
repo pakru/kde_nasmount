@@ -86,11 +86,13 @@ target_link_libraries(kde_nasmount-core PUBLIC Qt6::Core)
 # ---------------------------------------------------------------------------
 add_library(kde_nasmount-session STATIC
     src/session/cleanupvalidation.cpp
+    src/session/credentiallookup.cpp
     src/session/store.cpp
     src/session/userlock.cpp
     src/session/helperinvoke.cpp
     src/session/mountactions.cpp
     src/session/mountmodel.cpp
+    src/session/mountpointcheck.cpp
     src/session/shareaddress.cpp
 )
 target_include_directories(kde_nasmount-session PUBLIC src/session)
@@ -165,7 +167,6 @@ qt_add_resources(NASMOUNT_DIALOG_QRC src/dialog/dialog.qrc)
 # cleanup manifest and both package payload lists -- untouched.
 add_executable(nasmount-dialog
     src/dialog/main.cpp
-    src/dialog/credentiallookup.cpp
     src/dialog/credentiallookupworker.cpp
     src/dialog/dialogbackend.cpp
     src/dialog/smburl.cpp
@@ -309,16 +310,12 @@ add_executable(shareaddress_test tests/shareaddress_test.cpp)
 target_link_libraries(shareaddress_test PRIVATE kde_nasmount-session)
 add_test(NAME shareaddress COMMAND shareaddress_test)
 
-# Links the dialog translation units the way smburl_test does, plus the
-# session library for the identity split it shares with the Add form, and
-# deliberately not KF6::KIOCore: everything tested here is pure, so the suite
-# never needs a wallet, a password service or a NAS.
-add_executable(credentiallookup_test
-    tests/credentiallookup_test.cpp
-    src/dialog/credentiallookup.cpp
-    src/dialog/smburl.cpp
-)
-target_include_directories(credentiallookup_test PRIVATE src/dialog)
+# The lookup's protocol, policy and controller live in the session library
+# (the KCM runs the same lookup as the service menu); only the child that
+# calls the password service stays in nasmount-dialog. This test links the
+# library and deliberately not KF6::KIOCore: everything tested here is pure, so
+# the suite never needs a wallet, a password service or a NAS.
+add_executable(credentiallookup_test tests/credentiallookup_test.cpp)
 target_link_libraries(credentiallookup_test PRIVATE kde_nasmount-session)
 add_test(NAME credentiallookup COMMAND credentiallookup_test)
 

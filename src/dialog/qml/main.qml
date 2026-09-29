@@ -24,9 +24,15 @@ QQC2.ApplicationWindow {
      *  to the minimums is what allows both: a resize assigns width/height
      *  directly and breaks those bindings, while the minimums are never
      *  assigned and keep enforcing the floor. Two heights because the
-     *  already-saved view is a few labels and one button, not the form. */
+     *  already-saved view is a few labels and one button, not the form.
+     *
+     *  The height is also never less than the content needs. The form grows a
+     *  line or two when it explains a problem under a field, and a window that
+     *  stayed at a fixed height would push the last radio, the note and the
+     *  Mount button out of sight exactly when there is something to read. */
     readonly property int preferredWidth: 560
-    readonly property int preferredHeight: existing ? 260 : 500
+    readonly property int preferredHeight: Math.max(existing ? 260 : 500,
+                                                    content.implicitHeight + 2 * content.anchors.margins)
 
     visible: true
     title: "Mount as Network Drive"
@@ -122,6 +128,7 @@ QQC2.ApplicationWindow {
     }
 
     ColumnLayout {
+        id: content
         anchors.fill: parent
         anchors.margins: 12
         spacing: 8

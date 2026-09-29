@@ -90,7 +90,11 @@ QML-runtime dependencies the autofill feature added (`libkf6kio-dev`/
 `kf6-kio-devel`, `qml6-module-qtquick-dialogs`); extend it when you add
 another. The password service itself is a weak dependency in both families
 (`Recommends:`), never `Requires:` - a host without it must still install and
-mount with a typed credential.
+mount with a typed credential. So is `kio-extras`, which ships the smb KIO
+worker behind the Add dialog's Share "Browse…": without it Browse reports an
+unknown protocol and a typed address still works.
+`packaging_metadata_test.sh` asserts both are `Recommends:` and neither is a
+hard dependency.
 
 The package entry points use `dpkg-buildpackage`/debhelper and `rpmbuild`/RPM
 macros, which call CMake directly with `NASMOUNT_PACKAGE_FAMILY=deb|rpm`.
@@ -317,8 +321,8 @@ boundary**, not a style preference:
 
 | Library | Contents | Linked into |
 |---------|----------|-------------|
-| `kde_nasmount-core` | validation, unit-value encoding, read-only state model (`src/core`) | everything, helper included |
-| `kde_nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model, `smb://` address conversion (`src/session`) | dialog, KCM, cleanup - **never the helper** |
+| `kde_nasmount-core` | validation, unit-value encoding, read-only state model, the read-only mount-point preview (`src/core`) | everything, helper included |
+| `kde_nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model, `smb://` address conversion, the Add form's mount-point checks, the credential-lookup protocol and controller (`src/session`) | dialog, KCM, cleanup - **never the helper** |
 | `kde_nasmount-root` | durable fd-based filesystem ops, root lock, systemd execution, credential/runtime stores (`src/root`) | `nasmount-helper`, `nasmount-boot` **only** |
 
 - Everything is **STATIC** on purpose: the privileged helper must not depend on
@@ -362,6 +366,55 @@ reaches C++ by name at runtime, so a C++ rename compiles cleanly and breaks on
 the first click; [`qml_invokable_gate.sh`](tests/qml_invokable_gate.sh)
 requires every `actions.<name>(` to be a `Q_INVOKABLE` on
 `Session::MountActions` and every `kcm.`/`backend.` name to exist on its host.
+
+### Validation and the two Browse buttons
+
+ShareForm **holds no validation rules of its own.** Each field's verdict is a
+string from `actions` - empty means fine - computed by the functions the submit
+path and the helper use, so a value the form accepts is a value `addShare()`
+accepts. That is why `Session::ShareAddress::shareInputProblem()` is
+`resolveShareInput()`'s own refusal and `Session::mountPointProblem()` applies
+the helper's `UnitSpec::validateMountpoint()` to the same
+`canonicalMountPoint()` the submit sends; `shareaddress_test` and
+`mountactions_test` hold that parity. A problem always gates Add but is only
+*shown* once its field has been revealed (a typing pause, leaving the field, a
+Browse pick, a host pre-fill), so the pre-filled `smb://` is not scolded.
+
+Two speeds, and the split is a rule:
+
+- **Synchronous** checks are lexical: no process, no filesystem access. They
+  sit in bindings and run on every keystroke.
+- **Anything that touches the system** - naming unit files with
+  `systemd-escape`, looking in `/etc/systemd/system`, examining the folder -
+  runs in `MountActions::checkMountPoint()` on a private one-thread pool,
+  single-flight with the newest waiting request winning, and answers through
+  `mountPointChecked(raw, problem)`, which a form applies only if the field
+  still holds `raw`. The folder is examined by
+  `UnitSpec::previewMountpointProblem()`, which **must never trigger an
+  automount** (statx with `AT_NO_AUTOMOUNT`, descending only by `O_PATH`
+  into components shown not to be a mount or a trigger): the path may sit on
+  another share's automount point, and looking at it from System Settings
+  would mount that share and stall. It lives beside the helper's walk it
+  mirrors, and `unitspec_test` runs both against the same fixtures.
+- A check that has not answered, or cannot tell, never blocks Add; the helper
+  is the authority. Every form on one `actions` hears every answer, so a
+  read-only form ignores them.
+
+`~` in the mount point is expanded to the caller's passwd home (not `$HOME`) by
+`canonicalMountPoint()`, so the check and the submit mean the same path; it
+only gives meaning to input the helper always refused as relative.
+
+The Share **Browse…** is the platform `FolderDialog` opened at `smb://`. Under
+Plasma that is KDE's KIO-backed dialog, so the KCM links nothing for it. A pick
+goes through `ShareAddress::browsedShareInput()` and lands in the field as if
+typed; a user in the picked URL fills Username by the rule typing uses and is
+kept out of the address. The mount-point Browse converts with
+`QUrl::toLocalFile()`, never string surgery: `toString()` keeps `%` and `#`
+encoded, so a folder named `100%` would otherwise become `100%25`.
+
+The Dolphin window's height follows its content for the same reason the form
+explains problems inline: a fixed height cuts the buttons off when a message
+appears.
 
 ShareForm also has a **read-only mode**, which is the KCM's Details view of a
 saved share
@@ -413,23 +466,32 @@ service-menu dialog from growing its own parser again.
 address copied from the list pastes back into Add unchanged;
 `shareaddress_test` holds that round trip.
 
-### Credential autofill (service-menu dialog only)
+### Credential autofill
 
-The dialog pre-fills the credential fields from KDE's password service (README
-"Credential autofill"). It is an *import* into the normal Define,
-not a second credential source, and these rules keep it that way:
+Both front ends pre-fill the credential fields from KDE's password service: the
+service-menu dialog when it opens, and the KCM's Add dialog after a Share
+Browse pick (never while the address is typed: a wallet prompt should follow
+something the user just did with SMB, not a keystroke). It is an *import* into
+the normal Define, not a second credential source, and these rules keep it
+that way:
 
 - `KF6::KIOCore` (for `KPasswdServerClient`) links into `nasmount-dialog`
   **only** - never core, session, the KCM, or anything privileged.
 - The lookup runs in a short-lived child process: `nasmount-dialog` re-invoked
-  with a private flag, speaking a versioned, size-capped protocol over pipes
-  ([`credentiallookup.h`](src/dialog/credentiallookup.h),
-  [`credentiallookupworker.cpp`](src/dialog/credentiallookupworker.cpp)). Not a
-  thread: `KPasswdServerClient` blocks in a nested event loop with no deadline
-  and may show a wallet prompt, and only a process can be abandoned. It is a
-  mode of the existing binary so the installed file set is unchanged -
-  splitting it out is an installed-file-set change (the synchronized-update rule
-  under "Native packages").
+  with a private flag, speaking a versioned, size-capped protocol over pipes.
+  The parent half - protocol, `acceptCandidate()` policy, `Controller`,
+  `ProcessTransport` - is in the session library
+  ([`credentiallookup.h`](src/session/credentiallookup.h)) so both front ends
+  share it; only the child
+  ([`credentiallookupworker.cpp`](src/dialog/credentiallookupworker.cpp))
+  calls the password service. The service menu runs the child as itself; the
+  KCM runs it by an **absolute path fixed at build time**
+  (`NASMOUNT_DIALOG_PROGRAM`), never a `PATH` lookup, and a program that will
+  not start is an ordinary miss. Not a thread: `KPasswdServerClient` blocks in
+  a nested event loop with no deadline and may show a wallet prompt, and only
+  a process can be abandoned. It is a mode of the existing binary so the
+  installed file set is unchanged - splitting it out is an installed-file-set
+  change (the synchronized-update rule under "Native packages").
 - Only `checkAuthInfo()` is ever called. Never `queryAuthInfo()` or
   `addAuthInfo()`: nasmount never asks the password service to store or prompt.
 - A suggestion is **all-or-nothing and one-shot**: applied as one tuple,
@@ -439,10 +501,21 @@ not a second credential source, and these rules keep it that way:
   `shareform_qml_test` loads the real `ShareForm.qml` to hold that.
 - When the `smb://` URL names a user, a candidate for another account is
   refused (`acceptCandidate()`), not substituted.
+- Where the share can change (the KCM types it) an imported login is **bound
+  to the share it was found for**. A suggestion is refused unless the Share
+  field still holds the address it was requested for, and an applied one is
+  withdrawn if the address moves to another server or share
+  (`lookupTargetOf()` keys them; a subfolder of the same share keeps it).
+  Without this a password found for one machine could be submitted to another
+  after a retype. Only flags and a key are kept to decide it, never the
+  values; what the user typed since is theirs.
 - It takes no lock - it mutates nothing - and the helper re-validates the
-  result like any typed credential. The KCM's Add form stays manual.
+  result like any typed credential.
 - `NASMOUNT_DEBUG_LOOKUP=1` prints why a lookup missed: reasons only, never a
-  username, password, or length.
+  username, password, or length. It is the one place library code writes to
+  stderr (`Session::CredentialLookup::debugReport()`), because the KCM shares
+  it with the service menu; it is opt-in, and in System Settings it goes to
+  that process's stderr.
 
 ## Conventions
 
@@ -494,9 +567,10 @@ Both native package builds run all of it.
 `tests/*.cpp` are plain `main()` binaries using a local harness (`static int
 passed/failed` plus a `check(label, condition, detail)` helper, `return failed
 == 0 ? 0 : 1`) - **not** QTest. Copy the pattern from an existing test. Code
-that lives in no library (the dialog's `smburl.cpp`, `credentiallookup.cpp`)
-is tested by compiling its translation units straight into the test, without
-`KF6::KIOCore`, so nothing needs a wallet or a NAS. Those tests also link
+that lives in no library (the dialog's `smburl.cpp`) is tested by compiling
+its translation unit straight into the test. The credential lookup's parent
+half is in the session library, so `credentiallookup_test` links that without
+`KF6::KIOCore`, and nothing needs a wallet or a NAS. Those tests also link
 `kde_nasmount-session`, where the `smb://` parser and the domain/user split
 they share with the KCM live. Tests that read the source
 tree (`goldenunits_test`, `shareform_qml_test`) get the path as a compile

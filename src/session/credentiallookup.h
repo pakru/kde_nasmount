@@ -11,6 +11,13 @@
  * a KDE call cannot. Nothing here is privileged or mutating, so no lock is
  * needed; the protocol and policy halves are pure so they are testable
  * without a wallet or a NAS.
+ *
+ * This is the *parent* half, and it lives in the session library so both
+ * front ends can use it: the service-menu dialog runs the child as itself,
+ * and the KCM runs nasmount-dialog by absolute path. The child - the only
+ * code that touches KDE's password service - stays in nasmount-dialog, which
+ * is what keeps KIO out of the KCM and out of every library linked into the
+ * privileged side.
  */
 
 #pragma once
@@ -24,7 +31,7 @@
 
 class QTimer;
 
-namespace Dialog::CredentialLookup
+namespace Session::CredentialLookup
 {
 
 /** Carried in every message, so a malformed one fails as a version mismatch. */
@@ -43,10 +50,18 @@ constexpr int DeadlineMs = 30000;
  *  transport, not a "print my saved password" command. */
 QString internalModeFlag();
 
+/**
+ * Prints why a lookup produced nothing, when NASMOUNT_DEBUG_LOOKUP is set: a
+ * miss shows nothing in the window, which also means there is nothing to look
+ * at when autofill does not work. Reasons only, never a value - a username,
+ * and even a length, say something about a credential.
+ */
+void debugReport(const QString &message);
+
 /** What the parent asks the child to look up. No password travels in argv,
  *  the environment or a URL - only in the child's reply on its pipe. */
 struct Request {
-    QUrl target;              ///< smb://host/share, from SmbUrl::authLookupTarget()
+    QUrl target;              ///< smb://host/share, from ShareAddress::authLookupTarget()
     QString username;         ///< the *explicit* URL identity only, empty if none
     qulonglong windowId = 0;  ///< native parent-window handle, 0 when there is none
     qulonglong userTime = 0;  ///< X11 user time, 0 when unknown
@@ -129,14 +144,18 @@ Q_SIGNALS:
     void failed(const QString &reason);
 };
 
-/** The real transport: one invocation of this executable in its private
+/** The real transport: one invocation of nasmount-dialog in its private
  *  lookup mode, spoken to over pipes. */
 class ProcessTransport : public Transport
 {
     Q_OBJECT
 
 public:
-    explicit ProcessTransport(QObject *parent = nullptr);
+    /** `program` is the executable to run, by absolute path; empty means the
+     *  running executable, which is what the service-menu dialog wants. Never
+     *  looked up on PATH: which program runs must not depend on the
+     *  caller's environment. */
+    explicit ProcessTransport(const QString &program = QString(), QObject *parent = nullptr);
     ~ProcessTransport() override;
 
     void send(const QByteArray &request) override;
@@ -164,6 +183,12 @@ public:
 
     /** Replaces how children are made; tests inject a fake transport. */
     void setTransportFactory(std::function<Transport *(QObject *)> factory);
+
+    /** The executable the default transport starts, by absolute path; empty
+     *  (the default) is the running executable. The KCM, which is not
+     *  nasmount-dialog, names it here. A program that is missing or will not
+     *  start is an ordinary miss. */
+    void setProgram(const QString &program);
 
     /** Shortens the deadline so its expiry is testable in milliseconds. The
      *  product never calls it. */
@@ -197,9 +222,10 @@ private:
     QTimer *m_deadline = nullptr;
     Request m_request;
     int m_deadlineMs = DeadlineMs;
+    QString m_program;
     quint64 m_generation = 0;
     bool m_started = false;
     bool m_delivered = false;
 };
 
-} // namespace Dialog::CredentialLookup
+} // namespace Session::CredentialLookup

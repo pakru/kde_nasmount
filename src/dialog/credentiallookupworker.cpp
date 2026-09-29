@@ -20,6 +20,10 @@ namespace Dialog::CredentialLookupWorker
 namespace
 {
 
+// The protocol lives in the session library, shared by both front ends; only
+// this file, the child, talks to the password service.
+namespace CredentialLookup = ::Session::CredentialLookup;
+
 /** The parent reads only stdout; these keep a hand-run invocation honest. */
 constexpr int ExitOk = 0;
 constexpr int ExitRefused = 2;

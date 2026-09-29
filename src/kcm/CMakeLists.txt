@@ -18,11 +18,18 @@ kcmutils_add_qml_kcm(kcm_nasmount
         kcmnasmount.h
 )
 target_include_directories(kcm_nasmount PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+# The credential lookup child is nasmount-dialog in its private mode; this
+# module is not that executable, so it names it. Fixed when built, from the
+# same install directory the dialog is installed to, and never a PATH lookup:
+# which program runs must not depend on System Settings' environment.
+target_compile_definitions(kcm_nasmount PRIVATE
+    NASMOUNT_DIALOG_PROGRAM="${KDE_INSTALL_FULL_BINDIR}/nasmount-dialog")
 target_link_libraries(kcm_nasmount PRIVATE
     kde_nasmount-core
     kde_nasmount-session
     Qt6::Core
     Qt6::DBus
+    Qt6::Gui
     Qt6::Quick
     KF6::KCMUtilsQuick
     KF6::CoreAddons
