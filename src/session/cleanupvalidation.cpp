@@ -26,13 +26,13 @@ bool validateInstallManifest(const QString &manifestPath, QStringList *targets, 
 
     static const QRegularExpression allowed(QStringLiteral(
         "^/usr/(?:"
-        "bin/nasmount-(?:dialog|cleanup|uninstall)|"
+        "bin/nasmount(?:-(?:dialog|cleanup|uninstall))?|"
         "(?:lib/[^/]+/libexec/kf6/kauth|lib/kf6/kauth/libexec|libexec/kf6/kauth)/nasmount-helper|"
         "(?:lib/[^/]+/libexec|lib64/libexec|libexec)/nasmount-(?:boot|package-guard)|"
         "(?:lib/[^/]+|lib64)/qt6/plugins/plasma/kcms/systemsettings/kcm_nasmount\\.so|"
         "lib/systemd/system/nasmount-boot\\.service|"
         "lib/systemd/system-preset/90-nasmount\\.preset|"
-        "share/applications/kcm_nasmount\\.desktop|"
+        "share/applications/(?:kcm_nasmount|nasmount-manager)\\.desktop|"
         "share/polkit-1/actions/io\\.github\\.pakru\\.nasmount\\.policy|"
         "share/dbus-1/system\\.d/io\\.github\\.pakru\\.nasmount\\.conf|"
         "share/dbus-1/system-services/io\\.github\\.pakru\\.nasmount\\.service|"
@@ -68,12 +68,14 @@ bool validateInstallManifest(const QString &manifestPath, QStringList *targets, 
         QStringLiteral("^/usr/bin/nasmount-dialog$"),
         QStringLiteral("^/usr/bin/nasmount-cleanup$"),
         QStringLiteral("^/usr/bin/nasmount-uninstall$"),
+        QStringLiteral("^/usr/bin/nasmount$"),
         QStringLiteral("^/usr/(?:lib/[^/]+/libexec/kf6/kauth|lib/kf6/kauth/libexec|libexec/kf6/kauth)/nasmount-helper$"),
         QStringLiteral("^/usr/(?:lib/[^/]+/libexec|lib64/libexec|libexec)/nasmount-boot$"),
         QStringLiteral("^/usr/(?:lib/[^/]+/libexec|lib64/libexec|libexec)/nasmount-package-guard$"),
         QStringLiteral("^/usr/(?:lib/[^/]+|lib64)/qt6/plugins/plasma/kcms/systemsettings/kcm_nasmount\\.so$"),
         QStringLiteral("^/usr/lib/systemd/system/nasmount-boot\\.service$"),
         QStringLiteral("^/usr/share/applications/kcm_nasmount\\.desktop$"),
+        QStringLiteral("^/usr/share/applications/nasmount-manager\\.desktop$"),
         QStringLiteral("^/usr/share/polkit-1/actions/io\\.github\\.pakru\\.nasmount\\.policy$"),
         QStringLiteral("^/usr/share/dbus-1/system\\.d/io\\.github\\.pakru\\.nasmount\\.conf$"),
         QStringLiteral("^/usr/share/dbus-1/system-services/io\\.github\\.pakru\\.nasmount\\.service$"),

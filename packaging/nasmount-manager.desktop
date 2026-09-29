@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SMB Network Mounts
+GenericName=SMB Network Mounts Manager
+Comment=Add and remove SMB network mounts
+Icon=drive-network
+Exec=nasmount
+Terminal=false
+Categories=Qt;KDE;System;
+Keywords=cifs;smb;samba;network;mount;share;drive;nas;

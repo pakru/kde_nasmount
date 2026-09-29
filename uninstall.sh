@@ -29,13 +29,13 @@ fi
 # The manifest is user-writable, so resolve it into a checked array before
 # any privileged operation. The installed cleanup executable independently
 # applies the same finite allowlist before it requests purge authorization.
-allowed_pattern='^/usr/(bin/nasmount-(dialog|cleanup|uninstall)'
+allowed_pattern='^/usr/(bin/nasmount(-(dialog|cleanup|uninstall))?'
 allowed_pattern+='|((lib/[^/]+/libexec|libexec)/kf6/kauth|lib/kf6/kauth/libexec)/nasmount-helper'
 allowed_pattern+='|(lib/[^/]+/libexec|lib64/libexec|libexec)/nasmount-(boot|package-guard)'
 allowed_pattern+='|(lib/[^/]+|lib64)/qt6/plugins/plasma/kcms/systemsettings/kcm_nasmount\.so'
 allowed_pattern+='|lib/systemd/system/nasmount-boot\.service'
 allowed_pattern+='|lib/systemd/system-preset/90-nasmount\.preset'
-allowed_pattern+='|share/applications/kcm_nasmount\.desktop'
+allowed_pattern+='|share/applications/(kcm_nasmount|nasmount-manager)\.desktop'
 allowed_pattern+='|share/polkit-1/actions/io\.github\.pakru\.nasmount\.policy'
 allowed_pattern+='|share/dbus-1/system\.d/io\.github\.pakru\.nasmount\.conf'
 allowed_pattern+='|share/dbus-1/system-services/io\.github\.pakru\.nasmount\.service'

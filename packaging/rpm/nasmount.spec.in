@@ -258,6 +258,7 @@ fi
 
 %files
 %license %{_licensedir}/nasmount/LICENSE
+%{_bindir}/nasmount
 %{_bindir}/nasmount-cleanup
 %{_bindir}/nasmount-dialog
 %{_bindir}/nasmount-uninstall
@@ -268,6 +269,7 @@ fi
 %{_unitdir}/nasmount-boot.service
 %{_presetdir}/90-nasmount.preset
 %{_datadir}/applications/kcm_nasmount.desktop
+%{_datadir}/applications/nasmount-manager.desktop
 %{_datadir}/dbus-1/system-services/io.github.pakru.nasmount.service
 %{_datadir}/dbus-1/system.d/io.github.pakru.nasmount.conf
 %{_datadir}/kio/servicemenus/nasmount.desktop

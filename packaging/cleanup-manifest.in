@@ -7,9 +7,11 @@
 @NASMOUNT_FULL_BINDIR@/nasmount-dialog
 @NASMOUNT_FULL_BINDIR@/nasmount-cleanup
 @NASMOUNT_FULL_BINDIR@/nasmount-uninstall
+@NASMOUNT_FULL_BINDIR@/nasmount
 @NASMOUNT_FULL_LIBEXECDIR@/nasmount-package-guard
 @NASMOUNT_FULL_PLUGINDIR@/plasma/kcms/systemsettings/kcm_nasmount.so
 @NASMOUNT_FULL_DATADIR@/applications/kcm_nasmount.desktop
+@NASMOUNT_FULL_DATADIR@/applications/nasmount-manager.desktop
 @NASMOUNT_FULL_DATADIR@/kio/servicemenus/nasmount.desktop
 @NASMOUNT_FULL_DATADIR@/nasmount/cleanup-manifest.txt
 @NASMOUNT_FULL_DATADIR@/nasmount/package-family

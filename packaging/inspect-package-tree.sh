@@ -51,6 +51,8 @@ if find "$root" -path '*/usr/local*' -print -quit | grep -q .; then
 fi
 
 [ -x "$root/usr/bin/nasmount-uninstall" ]
+[ -x "$root/usr/bin/nasmount" ]
+[ -f "$root/usr/share/applications/nasmount-manager.desktop" ]
 guard=$(find "$root/usr" -type f -name nasmount-package-guard -print -quit)
 [ -n "$guard" ] && [ -x "$guard" ]
 [ "$(stat -c '%a' "$root/usr/share/kio/servicemenus/nasmount.desktop")" = 755 ]
