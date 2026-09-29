@@ -51,7 +51,7 @@ HelperOutcome classifyOutcome(bool execSucceeded, int jobError)
         return HelperOutcome::ConfirmedFailure;
     case -1:
         // ActionReply::HelperErrorReply()'s fixed errorCode() (actionreply.h)
-        // — every explicit refusal our own helper.cpp raises. The helper ran
+        // - every explicit refusal our own helper.cpp raises. The helper ran
         // and evaluated the request; it just said no.
         return HelperOutcome::ConfirmedFailure;
     default:

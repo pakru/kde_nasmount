@@ -5,7 +5,7 @@
  *
  * These pin down the encoder's behaviour against what was verified empirically
  * on the real system (systemctl --user show on a loaded unit, not just
- * systemd-analyze verify — see unitvalue.h): outside a leading quote mark,
+ * systemd-analyze verify - see unitvalue.h): outside a leading quote mark,
  * systemd's unit-file parser does not interpret backslashes at all, and '%'
  * is the only character that needs doubling.
  */
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
         in.ownerGid = 1000;
         in.id = QStringLiteral("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
         in.authentication = UnitValue::AuthenticationKind::Credentials;
-        const QString content = QStringLiteral("# Managed by nasmount — do not edit by hand.\n%1"
+        const QString content = QStringLiteral("# Managed by nasmount - do not edit by hand.\n%1"
                                                 "[Unit]\nDescription=nasmount: //host/share\n\n"
                                                 "[Mount]\nWhat=//host/share\nWhere=/mnt/x\n")
                                      .arg(UnitValue::markerComment(in));
@@ -363,7 +363,7 @@ int main(int argc, char **argv)
                   out.access == UnitValue::AccessMode::ReadWriteExecutable);
         }
         {
-            // hasMarker() must still see this as "ours", just broken — never
+            // hasMarker() must still see this as "ours", just broken - never
             // silently treated as an ordinary foreign unit.
             QStringList lines = validLines();
             lines.removeAt(2);

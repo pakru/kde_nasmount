@@ -196,7 +196,7 @@ int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QSt
     }
 
     // Start from the authorized root and never look above it. Because every
-    // component below is opened O_NOFOLLOW, the walk cannot leave this root — so
+    // component below is opened O_NOFOLLOW, the walk cannot leave this root - so
     // the path we operate on is necessarily the path validateMountpoint()
     // authorized.
     int parentFd = ::open(plan.root.toLocal8Bit().constData(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
@@ -262,8 +262,8 @@ int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QSt
         // the caller to already own every component stops root from traversing a
         // foreign ancestor on their behalf: without this, a mode-0711 root-owned
         // /mnt/admin-storage lets any user ask for
-        // /mnt/admin-storage/them/mountpoint and have root create — and hand them
-        // — writable storage inside a tree they cannot write to themselves.
+        // /mnt/admin-storage/them/mountpoint and have root create - and hand them
+        // - writable storage inside a tree they cannot write to themselves.
         if (!created && childStat.st_uid != uid) {
             return bail(QStringLiteral("Path '%1' is owned by uid=%2 mismatched with current user uid=%3. Change owner of this dir.")
                             .arg(plan.path).arg(childStat.st_uid).arg(uid));
@@ -280,7 +280,7 @@ int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QSt
                 return bail(QStringLiteral("%1: %2").arg(plan.path, emptyError));
             }
             if (!empty) {
-                return bail(QStringLiteral("%1 is not empty — refusing to shadow existing data")
+                return bail(QStringLiteral("%1 is not empty - refusing to shadow existing data")
                                 .arg(plan.path));
             }
 
@@ -390,7 +390,7 @@ int openMountpointNoCreate(const MountpointPlan &plan, uid_t expectedUid, gid_t 
                 return bail(QStringLiteral("%1: %2").arg(plan.path, emptyError));
             }
             if (!empty) {
-                return bail(QStringLiteral("%1 is not empty — refusing to arm onto existing data")
+                return bail(QStringLiteral("%1 is not empty - refusing to arm onto existing data")
                                 .arg(plan.path));
             }
             ::close(parentFd);
@@ -513,7 +513,7 @@ bool hasLineContinuation(const QString &content)
  * Extracts every `Key=Value` line found textually inside `[section]` (up to
  * the next `[...]` header or end of file). A key outside `allowedKeys`, a
  * duplicate key, or a non-blank line that is not a well-formed assignment is
- * rejected outright — there is no permissive fallback, and no comment lines
+ * rejected outright - there is no permissive fallback, and no comment lines
  * are tolerated inside a functional section (this tool never generates one).
  */
 bool extractSectionAssignments(const QString &content, const QString &section,
@@ -584,7 +584,14 @@ bool buildMountUnitContent(const UnitValue::Marker &marker, const QString &unc,
     // in practice taking the full systemd default of 90s per stuck share
     // before being force-killed. 30s is long enough for a clean unmount,
     // short enough that one stuck share doesn't meaningfully delay a reboot.
-    *content = QStringLiteral("# Managed by nasmount — do not edit by hand; use the KCM or the dialog.\n%1"
+    //
+    // The first line keeps its em dash (U+2014) while every other dash in the
+    // sources is a plain hyphen: this is the byte string every released
+    // version wrote into /etc/systemd/system, so "normalising" it makes all
+    // existing units differ from what is regenerated, and every share
+    // becomes Tampered. goldenunits_test is the gate; the automount header
+    // below is the same line.
+    *content =QStringLiteral("# Managed by nasmount — do not edit by hand; use the KCM or the dialog.\n%1"
                               "[Unit]\n"
                               "Description=nasmount: %2\n\n"
                               "[Mount]\n"

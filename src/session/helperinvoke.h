@@ -1,5 +1,5 @@
 /*
- * helperinvoke — the one place a KAuth action against the nasmount helper is
+ * helperinvoke - the one place a KAuth action against the nasmount helper is
  * issued from, shared by mountactions and the model (both on worker threads)
  * and nasmount-cleanup (a plain command-line tool, where a blocking call is
  * fine).
@@ -8,12 +8,12 @@
  *
  * A boolean result cannot represent what KAuth actually tells the caller
  * Authorization denial and an explicit error from our own
- * helper.cpp both mean the call provably did not mutate state — a confirmed
+ * helper.cpp both mean the call provably did not mutate state - a confirmed
  * failure. A D-Bus timeout or disconnect after the call may have been
  * dispatched means exactly the opposite: the helper may have already acted,
  * and there is no way to tell from this reply alone. Collapsing that into
  * "false" is how a lost acknowledgement turns into a duplicate share or a
- * silently-orphaned definition — the caller must be able to tell the three
+ * silently-orphaned definition - the caller must be able to tell the three
  * apart and act (or, for Unknown, deliberately not act) accordingly.
  */
 
@@ -33,7 +33,7 @@ enum class HelperOutcome {
 
 /**
  * The full result of one helper call. `message` carries the helper's own
- * text on success, or the error description otherwise — human-readable, not
+ * text on success, or the error description otherwise - human-readable, not
  * meant for programmatic branching. `id` and `activated` are populated only
  * when the helper action returns them; otherwise they stay at their
  * defaults. `data` is the
@@ -44,7 +44,7 @@ struct HelperResult {
     HelperOutcome outcome = HelperOutcome::Unknown;
     /**
      * True only when KAuth's own machinery rejected the call and our helper
-     * code provably never ran — authorization denied, user cancelled, unknown
+     * code provably never ran - authorization denied, user cancelled, unknown
      * or invalid action, helper busy/already started.
      *
      * `outcome == ConfirmedFailure` alone does not imply this: it also covers
@@ -63,19 +63,19 @@ struct HelperResult {
 
 /**
  * Classifies a completed KAuth::ExecuteJob outcome from its raw KJob result,
- * without touching KAuth types directly — a pure function so the
+ * without touching KAuth types directly - a pure function so the
  * classification itself is unit-testable without a live D-Bus transport.
  *
  * `execSucceeded` is `job->exec()`'s own result; `jobError` is `job->error()`
  * when it was false. Authorization denial, user cancellation, an invalid/
  * unknown action id, or an explicit helper-busy/already-started refusal all
- * mean KAuth's own machinery rejected the call before our helper code ran —
+ * mean KAuth's own machinery rejected the call before our helper code ran -
  * ConfirmedFailure. `-1` is what our helper.cpp's own
- * `ActionReply::HelperErrorReply()` always carries — also ConfirmedFailure,
+ * `ActionReply::HelperErrorReply()` always carries - also ConfirmedFailure,
  * since the helper ran and explicitly said no. Anything else (no responder,
  * a D-Bus transport error, an opaque backend error, or any other code this
  * classification does not specifically recognise) cannot be distinguished
- * from a lost reply after the helper may have already started — Unknown.
+ * from a lost reply after the helper may have already started - Unknown.
  */
 HelperOutcome classifyOutcome(bool execSucceeded, int jobError);
 

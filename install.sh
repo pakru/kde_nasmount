@@ -11,7 +11,7 @@
 set -euo pipefail
 
 if [ "$(id -u)" -eq 0 ]; then
-    echo "Do not run this as root — the build should not run as root." >&2
+    echo "Do not run this as root - the build should not run as root." >&2
     echo "It will prompt for authentication when it needs it." >&2
     exit 1
 fi
@@ -28,7 +28,7 @@ for tool in cmake g++ systemd-escape systemctl; do
     command -v "$tool" >/dev/null || { echo "ERROR: $tool not found" >&2; exit 1; }
 done
 [ -x /usr/sbin/mount.cifs ] || command -v mount.cifs >/dev/null || {
-    echo "ERROR: mount.cifs not found — install cifs-utils" >&2; exit 1; }
+    echo "ERROR: mount.cifs not found - install cifs-utils" >&2; exit 1; }
 
 echo "Configuring..."
 cmake -S "$SRC" -B "$BUILD" \

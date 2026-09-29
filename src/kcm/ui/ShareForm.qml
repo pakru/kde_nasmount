@@ -1,11 +1,11 @@
 /*
- * ShareForm — the add-a-share form, shared verbatim by both front ends: the
+ * ShareForm - the add-a-share form, shared verbatim by both front ends: the
  * KCM wraps it in a QQC2.Dialog, nasmount-dialog wraps it in a window.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * This file must stay host-agnostic. It never references `kcm` (or any other
- * host context object) — the MountActions instance arrives through the
+ * host context object) - the MountActions instance arrives through the
  * `actions` property, and every other host difference is a property too. That
  * is what lets one definition serve both entry points; a single `kcm.` here
  * would silently make it KCM-only, and the two front ends would drift apart.
@@ -18,7 +18,7 @@
  * helper and the unit use. When the address names a user, that user fills an
  * empty Username as the address is typed.
  *
- * `readOnly` turns the same form into a view of a saved share — the KCM's
+ * `readOnly` turns the same form into a view of a saved share - the KCM's
  * Details. It is presentation only, not an edit path: there is no in-place
  * Edit anywhere in this codebase, so a read-only form can never submit, and
  * it is sealed against credential suggestions. The password is never shown:
@@ -159,8 +159,8 @@ ColumnLayout {
         objectName: "userField"
         readOnly: form.readOnly
         placeholderText: !form.readOnly ? ""
-            : form.savedAuthentication === "guest" ? "None — guest access"
-            : form.savedAuthentication === "credentials" ? "Unknown — not in your saved settings"
+            : form.savedAuthentication === "guest" ? "None - guest access"
+            : form.savedAuthentication === "credentials" ? "Unknown - not in your saved settings"
             : "Unknown"
         Layout.fillWidth: true
         // Guest selection clears the fields it disables below, not just

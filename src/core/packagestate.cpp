@@ -1,5 +1,5 @@
 /*
- * packagestate — conservative, read-only native-package removal gate.
+ * packagestate - conservative, read-only native-package removal gate.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *

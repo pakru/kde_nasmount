@@ -257,7 +257,7 @@ bool acceptCandidate(const Reply &reply, const QUrl &requestedTarget,
 
     // The answer must not *contradict* the question, which is weaker than
     // repeating it: the service replies with the URL of whichever entry
-    // matched, and a host-level entry — what Dolphin writes by default —
+    // matched, and a host-level entry - what Dolphin writes by default -
     // names no share at all. So scheme and host must match, while
     // the share must match only when the reply names one; an absent URL
     // carries no identity and cannot contradict anything.
@@ -433,7 +433,7 @@ void ProcessTransport::abandon()
 
     // The process owns its own end, because this runs on the GUI thread and
     // must not wait: terminate, escalate to kill after a grace period, and
-    // delete only once it has exited — destroying a running QProcess blocks.
+    // delete only once it has exited - destroying a running QProcess blocks.
     process->setParent(nullptr);
     connect(process, &QProcess::finished, process, &QObject::deleteLater);
     process->terminate();

@@ -1,4 +1,4 @@
-# AGENTS.md — kde_nasmount
+# AGENTS.md - kde_nasmount
 
 A KDE/Plasma 6 tool that mounts CIFS shares by generating **static systemd
 `.mount` / `.automount` unit pairs** in `/etc/systemd/system`. Two front ends
@@ -22,7 +22,7 @@ make                  # configure + build into build/ (RelWithDebInfo, /usr pref
 make test             # build, then ctest --output-on-failure
 ctest --test-dir build --output-on-failure   # tests only
 build/bin/<name>_test                        # one test binary directly
-make install          # runs ./install.sh — NOT with sudo
+make install          # runs ./install.sh - NOT with sudo
 make uninstall        # runs ./uninstall.sh
 make deb              # .deb in dist/deb/, built in the pinned Ubuntu 26.04 image
 make rpm              # .rpm in dist/rpm/, built in the pinned Fedora 44 image
@@ -31,7 +31,7 @@ make clean            # rm -rf build/
 make dist-clean       # rm -rf dist/
 ```
 
-- **Never run `install.sh` as root** — it refuses. It builds as you and
+- **Never run `install.sh` as root** - it refuses. It builds as you and
   elevates only for `cmake --install`.
 - The prefix is **`/usr`**, not `/usr/local`: D-Bus only scans
   `/usr/share/dbus-1/system-services` and polkit only
@@ -40,7 +40,7 @@ make dist-clean       # rm -rf dist/
 - Installing is disruptive (writes system D-Bus/polkit files and enables the
   boot service). Don't install unless asked.
 - `uninstall.sh` reads `build/install_manifest.txt` and refuses to run without
-  it, so **uninstall only works from the build tree that installed** — a clean
+  it, so **uninstall only works from the build tree that installed** - a clean
   checkout, or one where `make clean` has run, cannot uninstall until
   `install.sh` regenerates the manifest. The manifest content is deterministic
   (validated against the hardcoded allowlist in
@@ -67,7 +67,7 @@ make deb                                    # or: make rpm / make packages
 anywhere but their target distribution, which almost no workstation is. They
 delegate to [`build-in-container.sh`](packaging/build-in-container.sh), which
 runs the **same pinned image digests, dependency lists and build scripts as
-CI**, then lints the result — so a local failure is a failure CI would have
+CI**, then lints the result - so a local failure is a failure CI would have
 had. It needs podman or docker (`NASMOUNT_CONTAINER_ENGINE=` overrides the
 choice); on the matching distribution, call the build script directly instead.
 The working tree is copied in, uncommitted changes included, and the source is
@@ -77,7 +77,7 @@ The image digests are pinned in `build-in-container.sh`, and repeated in
 every container job of `ci.yml` and `release.yml`. `packaging_metadata_test.sh`
 compares the helper only against the *first* pin of each distribution in
 `ci.yml`, because a local build against a different image proves nothing about
-CI — the other `ci.yml` copies and all of `release.yml` are unchecked, so bump
+CI - the other `ci.yml` copies and all of `release.yml` are unchecked, so bump
 every copy together. Each target clears only its own `dist/<family>/`
 subdirectory, since the build scripts require an empty output directory.
 
@@ -89,7 +89,7 @@ in. `packaging_metadata_test.sh` checks those lists only for the KIO and
 QML-runtime dependencies the autofill feature added (`libkf6kio-dev`/
 `kf6-kio-devel`, `qml6-module-qtquick-dialogs`); extend it when you add
 another. The password service itself is a weak dependency in both families
-(`Recommends:`), never `Requires:` — a host without it must still install and
+(`Recommends:`), never `Requires:` - a host without it must still install and
 mount with a typed credential.
 
 The package entry points use `dpkg-buildpackage`/debhelper and `rpmbuild`/RPM
@@ -140,19 +140,19 @@ Both families upgrade in place. Five rules govern an upgrade, and
    downgrades are refused there; that file is a template because debhelper does
    not substitute a version into `preinst` and the check needs one. RPM's
    `%pre` receives only an instance count, never the version being replaced, so
-   it has no equivalent — and DNF5 downgrades freely on an exact version spec,
+   it has no equivalent - and DNF5 downgrades freely on an exact version spec,
    which a local `.rpm` is. The RPM therefore has **no downgrade protection at
    any layer**. Don't add a `%pre` version check; it cannot work. If a
    compatibility gate is ever needed, gate on an on-disk format marker under
    `/etc/nasmount`, which works identically in both families.
 4. The generated unit body and the marker schema are a **frozen on-disk
    format**. A share's unit pair survives the upgrade, so new binaries must
-   still accept bytes old ones wrote — and because generation and validation
+   still accept bytes old ones wrote - and because generation and validation
    share the same fixed-value functions, changing one changes both, leaving the
    rest of the suite green while every existing share becomes `Tampered`.
    [`goldenunits_test.cpp`](tests/goldenunits_test.cpp) is the only gate that
    catches this. If it fails, revert the change or design a migration and raise
-   `MIN_UPGRADABLE_VERSION` — **never regenerate
+   `MIN_UPGRADABLE_VERSION` - **never regenerate
    [`tests/golden/units/`](tests/golden/units/)** to make it pass. A release
    that deliberately adds a new shape (as 0.1.4 did) *adds* a
    `v<version>/` directory and registers it in `Corpora` in the test; existing
@@ -165,7 +165,7 @@ Both families upgrade in place. Five rules govern an upgrade, and
    (read-write) value, so every unit pair 0.1.0–0.1.3 wrote still parses,
    still validates, and still regenerates byte-for-byte. A plain new
    *required* field would instead have failed every one of them with `missing
-   marker field:` — `Tampered`, and so unarmed at the next boot.
+   marker field:` - `Tampered`, and so unarmed at the next boot.
 5. Adding, renaming, or removing a KAuth action in
    [`io.github.pakru.nasmount.actions`](io.github.pakru.nasmount.actions) is an
    **upgrade-compatibility change**: a running old front end will call the new
@@ -185,7 +185,7 @@ share that is *currently mounted* takes the `Blocked` branch, so
 expected, not a fault.
 
 Native removal has a strict order. `nasmount-uninstall` runs authenticated
-owner-scoped cleanup while KAuth/polkit are installed, then invokes apt/dnf —
+owner-scoped cleanup while KAuth/polkit are installed, then invokes apt/dnf -
 `apt-get purge` on Debian, so no config-files residue remains, and
 `dnf remove --no-autoremove` on Fedora. Every check that can fail without
 changing anything runs **before** that cleanup; validating `sudo` or the
@@ -207,8 +207,8 @@ state down themselves. This is a deliberate maintainer decision, not drift:
   disarms, `%postun` deletes. Stopping at the DEB's `remove` behaviour would
   strand root-owned credentials with nothing installed that could remove them.
 
-`nasmount-package-guard` still ships and still classifies host state — the CI
-upgrade jobs use it to prove state survived — but it is **diagnostic only**. It
+`nasmount-package-guard` still ships and still classifies host state - the CI
+upgrade jobs use it to prove state survived - but it is **diagnostic only**. It
 must not reappear in any maintainer script, where it would refuse the removal
 this design performs; both test files assert its absence.
 
@@ -218,14 +218,14 @@ any user's `~/.config/nasmountrc` because it has no idea which account owns a
 share. `nasmount-uninstall` remains the complete, owner-scoped path.
 
 Managed units are identified **only** by the exact marker line
-`# X-Nasmount-Managed=1`, never by filename — a user chooses the filename via
+`# X-Nasmount-Managed=1`, never by filename - a user chooses the filename via
 their mount point. The *name* is then checked against the alphabet
 `systemd-escape` can emit (alphanumerics, `:`, `_`, `.`, `-`, and the backslash
 of a `\xNN` escape) and anything else is skipped with a warning. That check is
 load-bearing, not cosmetic: **systemctl expands `*`, `?` and `[...]` in a unit
 argument as a pattern over every loaded unit**, so a marked file named
 `*.mount` would turn `systemctl stop` into "stop every mount unit on the
-system" — and `--` does not help, since it ends option parsing, not globbing.
+system" - and `--` does not help, since it ends option parsing, not globbing.
 
 State directories are removed **non-recursively** by
 `nasmount_remove_state_dir()`, which refuses a symlink, refuses a directory
@@ -239,11 +239,11 @@ still on disk. That shell matcher decides what gets unmounted and deleted,
 so it is the highest-consequence code in the packaging: it is duplicated
 byte-identically in `prerm` and `postrm` (postrm runs after every shipped file
 is gone and cannot source a helper), and `package_scripts_test.sh` diffs the
-two copies and runs the real function against adversarial fixtures — symlinks,
+two copies and runs the real function against adversarial fixtures - symlinks,
 a marker with trailing text, an indented marker, a non-unit filename. The spec
 carries two more copies of the same function; the test extracts them, expands
 `%%` the way rpm would, and requires all four to be identical. **Write a
-literal `%` as `%%` inside a spec scriptlet** — rpm macro-expands scriptlet
+literal `%` as `%%` inside a spec scriptlet** - rpm macro-expands scriptlet
 bodies, so a bare `printf '%s\n'` is handed to the macro expander.
 
 The guard links `kde_nasmount-core` only; never give it mutation or
@@ -274,18 +274,18 @@ The project is called `kde_nasmount`; the thing it installs is called
 
 The rule: anything a user's machine can observe keeps the name `nasmount`;
 anything that exists only in the source tree is `kde_nasmount`. Do not
-"finish" the rename by carrying it across that line — every identifier below
+"finish" the rename by carrying it across that line - every identifier below
 is load-bearing on an installed host, and renaming one destroys existing
 shares rather than failing loudly:
 
-- `# X-Nasmount-Managed=1` and every `X-Nasmount-*` marker key — frozen
+- `# X-Nasmount-Managed=1` and every `X-Nasmount-*` marker key - frozen
   on-disk format (upgrade rule 4). Renaming makes every existing share
   `Tampered`, and so unarmed at the next boot;
   [`goldenunits_test.cpp`](tests/goldenunits_test.cpp) is the only gate that
   catches it.
 - `/etc/nasmount`, `/run/nasmount`, `/run/nasmount-ids`. Upgrade rule 2
   forbids migrating them, and `/etc/nasmount/<id>.cred` is baked into the
-  `Options=` line of every golden unit — frozen by the same gate as the
+  `Options=` line of every golden unit - frozen by the same gate as the
   marker, not merely by policy.
 - `~/.config/nasmountrc`.
 - `nasmount-boot.service` and `90-nasmount.preset`.
@@ -318,7 +318,7 @@ boundary**, not a style preference:
 | Library | Contents | Linked into |
 |---------|----------|-------------|
 | `kde_nasmount-core` | validation, unit-value encoding, read-only state model (`src/core`) | everything, helper included |
-| `kde_nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model, `smb://` address conversion (`src/session`) | dialog, KCM, cleanup — **never the helper** |
+| `kde_nasmount-session` | KConfig store, per-user lock, KAuth call wrapper, async operation controller, display model, `smb://` address conversion (`src/session`) | dialog, KCM, cleanup - **never the helper** |
 | `kde_nasmount-root` | durable fd-based filesystem ops, root lock, systemd execution, credential/runtime stores (`src/root`) | `nasmount-helper`, `nasmount-boot` **only** |
 
 - Everything is **STATIC** on purpose: the privileged helper must not depend on
@@ -331,7 +331,7 @@ boundary**, not a style preference:
 - The helper ([`src/helper/helper.cpp`](src/helper/helper.cpp)) is deliberately
   thin: caller validation, typed argument decoding, root-lock acquisition,
   dispatch into `kde_nasmount-root`, reply conversion. **Do not add filesystem or
-  systemd mutation there** — it belongs in `src/root`.
+  systemd mutation there** - it belongs in `src/root`.
 - Everything in a helper argument map is untrusted. Caller identity comes only
   from `KAuth::HelperSupport::callerUid()`, never from the arguments. Validation
   done in the dialog or KCM is UX feedback and is re-done in the helper.
@@ -352,7 +352,7 @@ The KAuth actions are `definesystem`, `undefinesystem`, `purge` (all
 `auth_admin`) and `inventory` (read-only, `Policy=yes`).
 
 Both front ends render the same form,
-[`src/kcm/ui/ShareForm.qml`](src/kcm/ui/ShareForm.qml) — the KCM picks it up
+[`src/kcm/ui/ShareForm.qml`](src/kcm/ui/ShareForm.qml) - the KCM picks it up
 by directory glob, `nasmount-dialog` embeds it via
 [`src/dialog/dialog.qrc`](src/dialog/dialog.qrc). It must stay host-agnostic:
 no `kcm`/`backend` reference inside it, everything injected as a property
@@ -420,14 +420,14 @@ The dialog pre-fills the credential fields from KDE's password service (README
 not a second credential source, and these rules keep it that way:
 
 - `KF6::KIOCore` (for `KPasswdServerClient`) links into `nasmount-dialog`
-  **only** — never core, session, the KCM, or anything privileged.
+  **only** - never core, session, the KCM, or anything privileged.
 - The lookup runs in a short-lived child process: `nasmount-dialog` re-invoked
   with a private flag, speaking a versioned, size-capped protocol over pipes
   ([`credentiallookup.h`](src/dialog/credentiallookup.h),
   [`credentiallookupworker.cpp`](src/dialog/credentiallookupworker.cpp)). Not a
   thread: `KPasswdServerClient` blocks in a nested event loop with no deadline
   and may show a wallet prompt, and only a process can be abandoned. It is a
-  mode of the existing binary so the installed file set is unchanged —
+  mode of the existing binary so the installed file set is unchanged -
   splitting it out is an installed-file-set change (the synchronized-update rule
   under "Native packages").
 - Only `checkAuthInfo()` is ever called. Never `queryAuthInfo()` or
@@ -439,7 +439,7 @@ not a second credential source, and these rules keep it that way:
   `shareform_qml_test` loads the real `ShareForm.qml` to hold that.
 - When the `smb://` URL names a user, a candidate for another account is
   refused (`acceptCandidate()`), not substituted.
-- It takes no lock — it mutates nothing — and the helper re-validates the
+- It takes no lock - it mutates nothing - and the helper re-validates the
   result like any typed credential. The KCM's Add form stays manual.
 - `NASMOUNT_DEBUG_LOOKUP=1` prints why a lookup missed: reasons only, never a
   username, password, or length.
@@ -450,9 +450,9 @@ not a second credential source, and these rules keep it that way:
   opens with a block comment: what the unit is, then
   `SPDX-License-Identifier: GPL-3.0-or-later`, then the *reasoning* that a
   reader would otherwise have to reconstruct. A `.cpp` that implements a header
-  opens with the SPDX line alone — its unit description lives in the header.
+  opens with the SPDX line alone - its unit description lives in the header.
   Headers carry the API contracts as `/** ... */` doc comments; `.cpp` files
-  carry implementation reasoning beside the code. Match this density — it is
+  carry implementation reasoning beside the code. Match this density - it is
   unusually high and it is intentional.
 - KDE/Qt style: 4 spaces, brace on its own line for functions and attached for
   control flow, `const QString &` parameters, `QStringLiteral` for literals,
@@ -460,7 +460,7 @@ not a second credential source, and these rules keep it that way:
   is no `.clang-format`; follow the surrounding file.
 - Errors are reported through `bool` returns plus a `QString *error`
   out-parameter, not exceptions. There is **no logging framework** (no
-  `qDebug`/`qWarning` anywhere in `src`) — user-facing output goes to
+  `qDebug`/`qWarning` anywhere in `src`) - user-facing output goes to
   `QTextStream(stdout/stderr)` in the standalone binaries only, and nothing
   ever prints credential material.
 - No in-place Edit exists anywhere. Changing a share's UNC, mount point,
@@ -477,7 +477,7 @@ not a second credential source, and these rules keep it that way:
   reintroduce it without answering both. The only residue is the fixed
   `# X-Nasmount-Mode=system` marker line, kept because the format is frozen.
 - Properties of an *existing* definition are still always re-derived from the
-  validated unit marker via `Verify::inspectDefinition()` — never from the
+  validated unit marker via `Verify::inspectDefinition()` - never from the
   Store and never from a caller-supplied flag.
 - Every client mutation runs on a worker thread under `Session::UserLock`; every
   privileged mutation runs under `Root::RootLock`. KAuth calls are unbounded
@@ -493,7 +493,7 @@ Both native package builds run all of it.
 
 `tests/*.cpp` are plain `main()` binaries using a local harness (`static int
 passed/failed` plus a `check(label, condition, detail)` helper, `return failed
-== 0 ? 0 : 1`) — **not** QTest. Copy the pattern from an existing test. Code
+== 0 ? 0 : 1`) - **not** QTest. Copy the pattern from an existing test. Code
 that lives in no library (the dialog's `smburl.cpp`, `credentiallookup.cpp`)
 is tested by compiling its translation units straight into the test, without
 `KF6::KIOCore`, so nothing needs a wallet or a NAS. Those tests also link
@@ -505,10 +505,10 @@ definition rather than a staged copy, which could go stale.
 Adding a C++ test means editing two places:
 
 1. `tests/<name>_test.cpp`;
-2. `CMakeLists.txt` — `add_executable` + `target_link_libraries` + `add_test`.
+2. `CMakeLists.txt` - `add_executable` + `target_link_libraries` + `add_test`.
 
-A new shell gate needs only its `add_test`. `install.sh` runs no tests — it
-only builds and installs — so run `make test` before `make install`.
+A new shell gate needs only its `add_test`. `install.sh` runs no tests - it
+only builds and installs - so run `make test` before `make install`.
 
 The same hand-maintained-list trap exists in CI. `packaging_metadata_test.sh`
 compares both workflows' job names to an **exact set**, and `ci_success`
@@ -517,7 +517,7 @@ of those runs without gating anything. The test asserts that wiring for
 `upgrade_deb` and `upgrade_rpm`.
 
 [`tests/removed_api_gates.sh`](tests/removed_api_gates.sh) is a grep-based gate
-that fails the suite if deleted APIs return — the transaction/recovery engine,
+that fails the suite if deleted APIs return - the transaction/recovery engine,
 tombstones/Forget, automatic partial repair, in-place Edit/Replace, pending-
 transaction presentation roles, runtime coupling in the privileged inventory,
 and stale transaction-storage prose in `README.md`, `src` and the install
@@ -546,11 +546,11 @@ locally and must be validated in a disposable VM.
   one is a symlink bypass.
 - Generation and validation of unit bodies share the same fixed-value functions,
   so any functional deviation becomes `Tampered`. If you change generation,
-  change the shared function — never the two sides separately.
+  change the shared function - never the two sides separately.
 - Every KAuth mutation is `auth_admin` by design, with no passwordless tier:
   nothing is ever invoked unattended, since boot arming runs as root. The
   header of [`io.github.pakru.nasmount.actions`](io.github.pakru.nasmount.actions)
   also explains why `auth_admin_keep` is written as plain `auth_admin`
   (`kauth-policy-gen` cannot emit `_keep`). Adding an action means editing
-  that file — and is upgrade rule 5.
+  that file - and is upgrade rule 5.
 - Requires Linux 6.8+ (`STATX_MNT_ID_UNIQUE`), Plasma 6 / KF6, `cifs-utils`.

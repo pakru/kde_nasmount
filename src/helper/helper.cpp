@@ -1,5 +1,5 @@
 /*
- * nasmount KAuth helper — the privileged half.
+ * nasmount KAuth helper - the privileged half.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -16,7 +16,7 @@
  * argument decoding, root-lock acquisition, dispatch into kde_nasmount-root, and
  * structured reply conversion. Every privileged filesystem/systemd mutation
  * lives in kde_nasmount-root (durablefs, credentialstore, runtimefiles,
- * systemdops, arming, operations) — nothing here writes a file, starts/stops
+ * systemdops, arming, operations) - nothing here writes a file, starts/stops
  * a unit, or touches a credential directly.
  */
 
@@ -47,7 +47,7 @@ namespace
  * Control-character and per-field size checks shared by every call site that
  * accepts credential fields, so no path can apply a looser bound than another.
  * The same limits
- * are enforced again inside Root::CredentialStore::write() — this is the
+ * are enforced again inside Root::CredentialStore::write() - this is the
  * fast, early rejection; that is the one no call path can skip.
  */
 bool validateCredentialFields(const QString &username, const QString &domain, const QString &password,
@@ -151,7 +151,7 @@ namespace
 {
 
 /**
- * The body of `definesystem`. A fresh create only — an existing Partial half
+ * The body of `definesystem`. A fresh create only - an existing Partial half
  * is never repaired; it must be removed first.
  *
  * There is one lifecycle, so the share's mode is fixed by the action itself
@@ -186,7 +186,7 @@ ActionReply doDefine(const QVariantMap &args)
     // Absent must mean read-write, not fail: across an upgrade a still-running
     // old front end calls this new helper and will not send the key at all
     // (AGENTS.md upgrade rule 5), and read-write is exactly what it asked for.
-    // A *present* but unrecognised value is a hard failure — defaulting a typo
+    // A *present* but unrecognised value is a hard failure - defaulting a typo
     // would give the user the opposite of the access they picked, silently.
     UnitValue::AccessMode access = UnitValue::AccessMode::ReadWrite;
     if (args.contains(QStringLiteral("access"))) {
@@ -209,7 +209,7 @@ ActionReply doDefine(const QVariantMap &args)
 
     const auto def = Verify::inspectDefinition(paths, caller.uid, plan.path);
     if (def.state == Verify::Definition::Partial) {
-        return fail(QStringLiteral("cannot define %1: a broken definition already exists here — remove it first")
+        return fail(QStringLiteral("cannot define %1: a broken definition already exists here - remove it first")
                         .arg(plan.path));
     }
     if (def.state != Verify::Definition::None) {
@@ -223,7 +223,7 @@ ActionReply doDefine(const QVariantMap &args)
     // ancestor of another mount's Where=. That unit is `static` and never
     // armed by define alone, but systemd still loads it, and
     // systemd.mount(5) makes any mount unit automatically a dependency of
-    // another mount unit nested beneath it in the filesystem — so a
+    // another mount unit nested beneath it in the filesystem - so a
     // mistakenly-placed, never-armed definition can still break unrelated,
     // already-working mounts the moment daemon-reload runs.
     const int mpFd = UnitSpec::openMountpointNoFollow(plan, caller.uid, caller.gid, &error);

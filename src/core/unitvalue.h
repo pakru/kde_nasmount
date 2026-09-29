@@ -1,5 +1,5 @@
 /*
- * unitvalue — the one encoder every value written into a generated unit file
+ * unitvalue - the one encoder every value written into a generated unit file
  * goes through, plus the unit-naming and marker helpers built on top of it.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -30,8 +30,8 @@ namespace UnitValue
  * parsed as a quoted token only when its first non-whitespace character is a
  * quote mark, in which case C-style escapes and early termination at the
  * matching quote apply (systemd.syntax(7)). So this does not escape a quoting
- * syntax — the fixed option list and root-generated share id never need
- * one — it guarantees the value can never be *mistaken* for one, and doubles
+ * syntax - the fixed option list and root-generated share id never need
+ * one - it guarantees the value can never be *mistaken* for one, and doubles
  * '%' because specifier expansion is confirmed to apply to What=, Where= and
  * Options= alike (a bare Where=…%h-… was expanded to the caller's home
  * directory).
@@ -164,7 +164,7 @@ QString markerComment(const Marker &marker);
 /**
  * Returns true if unit file content contains anything in the managed marker
  * namespace (any `# X-Nasmount-...` line), even if incomplete or malformed.
- * False means an ordinary, non-nasmount unit — "not ours". This is distinct
+ * False means an ordinary, non-nasmount unit - "not ours". This is distinct
  * from parseMarker() succeeding, which additionally proves the marker is a
  * complete, well-formed marker block: callers must treat "hasMarker() true
  * but parseMarker() false" as Tampered, never as absent.
@@ -180,9 +180,9 @@ bool hasMarker(const QString &unitFileContent);
  * at most once; absent, it yields AccessMode::ReadWrite, and an explicit
  * `Access=readwrite` is accepted even though generation never emits one.
  *
- * Any deviation — a duplicate field, a missing required field, an unknown
+ * Any deviation - a duplicate field, a missing required field, an unknown
  * field in the managed marker namespace, an invalid integer, an invalid id, or an
- * unrecognised mode/authentication/access value — fails closed: this returns
+ * unrecognised mode/authentication/access value - fails closed: this returns
  * false and every output is left unmodified. There is exactly one success
  * path.
  */

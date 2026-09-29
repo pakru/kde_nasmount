@@ -1,5 +1,5 @@
 /*
- * packagestate — read-only proof that package removal cannot orphan nasmount
+ * packagestate - read-only proof that package removal cannot orphan nasmount
  * state.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later

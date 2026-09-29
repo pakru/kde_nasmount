@@ -1,11 +1,11 @@
 /*
- * unitspec — mount-point validation and CIFS mount options for nasmount.
+ * unitspec - mount-point validation and CIFS mount options for nasmount.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The helper runs as root and its caller is untrusted, so every function here
  * that validates something is called from the helper. The dialog calls a few of
- * them too, but only to give the user fast feedback — nothing the dialog checks
+ * them too, but only to give the user fast feedback - nothing the dialog checks
  * is relied upon for safety.
  */
 
@@ -54,7 +54,7 @@ bool validateUnc(const QString &unc, QString *normalised, QString *error);
  *
  * Keeping these separate is the whole point: authorization and the subsequent
  * filesystem operations must use the *same* pathname. Canonicalizing a path to
- * authorize it and then operating on the original lexical path is a bypass — a
+ * authorize it and then operating on the original lexical path is a bypass - a
  * caller can point a symlink at an allowed root, pass the check, then replace it
  * with a real directory so the operation lands somewhere else entirely.
  */
@@ -84,7 +84,7 @@ bool validateMountpoint(const QString &rawPath, const QString &homeDir,
  *
  * Also verifies, race-free on descriptors, that the target is not already a
  * mount point (mount id via statx, falling back to st_dev), that it is empty,
- * and — if it already existed — that the caller already owns it. Every failure
+ * and - if it already existed - that the caller already owns it. Every failure
  * is fatal; none of these checks may be skipped.
  *
  * Returns an open fd the caller must close, or -1 on failure.
@@ -98,13 +98,13 @@ int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QSt
  *
  * Walks only the relative suffix, O_NOFOLLOW at each component; a missing
  * component, a symlink, a wrong owner (checked against `expectedUid`, the
- * marker's recorded owner — never a live account's current uid, in case a
+ * marker's recorded owner - never a live account's current uid, in case a
  * recycled/renumbered account has since diverged), a mount-boundary crossing,
  * or a non-empty final directory are all fatal, exactly like
  * openMountpointNoFollow()'s checks, but ENOENT gets its own distinguishable
  * message: boot must leave the share unarmed and report it, never invent the
  * missing path (a user's home may be encrypted/remote and not yet mounted, or
- * a removable backing filesystem for /media may be absent — creating the
+ * a removable backing filesystem for /media may be absent - creating the
  * apparent path on the underlying root filesystem would arm onto the wrong
  * place and could hide later-mounted data).
  *
@@ -161,7 +161,7 @@ QString mountOptionsFor(const UnitValue::Marker &marker);
  * Builds the complete `.mount` unit content for `marker` at `mountPoint`,
  * mounting `unc`. Both must already be validated (validateUnc /
  * validateMountpoint); this only encodes them. Fails only on an encoding
- * rejection (control characters, stray quote, trailing backslash — see
+ * rejection (control characters, stray quote, trailing backslash - see
  * UnitValue::encodeUnitValue()), which validated input never triggers.
  */
 bool buildMountUnitContent(const UnitValue::Marker &marker, const QString &unc,
@@ -172,7 +172,7 @@ bool buildMountUnitContent(const UnitValue::Marker &marker, const QString &unc,
  * `mountPoint`, including `ConditionPathIsDirectory=` so
  * systemd itself refuses to start if the path has vanished since validation.
  * That directive is emitted in `[Unit]`, the only section systemd parses a
- * `Condition*=` out of — in `[Automount]` it is ignored with a log line and
+ * `Condition*=` out of - in `[Automount]` it is ignored with a log line and
  * the guard silently does nothing, which matters because nasmount-boot arms
  * every share before login.
  */
@@ -185,12 +185,12 @@ bool buildAutomountUnitContent(const UnitValue::Marker &marker, const QString &m
  * duplicate or unknown functional directive, any line continuation anywhere
  * in the file, a non-`cifs` `Type=`, a `Where=` that disagrees with
  * `canonicalMountPoint`, an invalid `What=`, and an `Options=` that is not
- * *exactly* what mountOptionsFor() computes for this marker — which is what
+ * *exactly* what mountOptionsFor() computes for this marker - which is what
  * makes a wrong/foreign/absent credential path, or a guest unit carrying
  * one, fail here rather than needing a separate check. `[Unit]`-section
  * descriptive text (Description=, the marker comment) is not inspected here;
  * the marker itself is validated by UnitValue::parseMarker(). On success,
- * `*what` receives the recovered, decoded UNC — the one value this cannot
+ * `*what` receives the recovered, decoded UNC - the one value this cannot
  * derive in advance.
  */
 bool validateMountUnitBody(const QString &content, const UnitValue::Marker &marker,
@@ -201,8 +201,8 @@ bool validateMountUnitBody(const QString &content, const UnitValue::Marker &mark
  * `DirectoryMode=` from `[Automount]`, plus `ConditionPathIsDirectory=` from
  * `[Unit]` where buildAutomountUnitContent() emits it, against the fixed
  * values that function would have produced for the same marker and mount
- * point. Every value here is fully determined — there is no per-share free
- * variable — so any mismatch at all is a rejection. `[Unit]`'s `Description=`
+ * point. Every value here is fully determined - there is no per-share free
+ * variable - so any mismatch at all is a rejection. `[Unit]`'s `Description=`
  * is permitted but not inspected.
  */
 bool validateAutomountUnitBody(const QString &content, const UnitValue::Marker &marker,

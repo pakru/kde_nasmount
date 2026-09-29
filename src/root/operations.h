@@ -1,5 +1,5 @@
 /*
- * operations — define/undefine/purge as direct, checked operations.
+ * operations - define/undefine/purge as direct, checked operations.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -76,7 +76,7 @@ struct DefineOutput {
 };
 
 /**
- * Fresh define, write-forward only (`Definition::None` only — an existing
+ * Fresh define, write-forward only (`Definition::None` only - an existing
  * Partial pair is never repaired; the caller must remove it first). Writes
  * the mount unit, then the automount unit; for an authenticated share, writes
  * the credential only once both halves exist; for a guest share, asserts no

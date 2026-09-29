@@ -1,5 +1,5 @@
 /*
- * credentiallookup — SMB credential autofill: the request/reply protocol, the
+ * credentiallookup - SMB credential autofill: the request/reply protocol, the
  * policy deciding whether a returned credential may be offered, and the
  * controller that runs one lookup in a short-lived child process.
  *
@@ -44,7 +44,7 @@ constexpr int DeadlineMs = 30000;
 QString internalModeFlag();
 
 /** What the parent asks the child to look up. No password travels in argv,
- *  the environment or a URL — only in the child's reply on its pipe. */
+ *  the environment or a URL - only in the child's reply on its pipe. */
 struct Request {
     QUrl target;              ///< smb://host/share, from SmbUrl::authLookupTarget()
     QString username;         ///< the *explicit* URL identity only, empty if none
@@ -93,7 +93,7 @@ bool decodeReply(const QByteArray &raw, Reply *reply, QString *error);
 /**
  * The acceptance policy, in one pure function.
  *
- * Rejects — meaning "leave the form alone" — unless the reply is a candidate
+ * Rejects - meaning "leave the form alone" - unless the reply is a candidate
  * whose URL does not contradict the request, whose fields pass the limits a
  * typed credential passes, whose username is non-empty after `DOMAIN\user`
  * splitting, and which is the same account the smb:// URL named, if it named

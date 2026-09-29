@@ -15,7 +15,7 @@
 /install_manifest.txt
 /Testing/
 
-# Qt/KDE generated sources — normally inside the build tree, listed in case one
+# Qt/KDE generated sources - normally inside the build tree, listed in case one
 # lands beside the sources.
 *_autogen/
 moc_*.cpp

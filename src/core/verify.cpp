@@ -435,7 +435,7 @@ QList<MountEntry> parseMountinfo(const QString &content)
             }
         }
         if (sepIndex < 0 || sepIndex + 2 >= fields.size() || fields.size() <= 4) {
-            continue; // malformed line — skip rather than guess
+            continue; // malformed line - skip rather than guess
         }
         MountEntry entry;
         bool idOk = false;
@@ -541,8 +541,8 @@ RuntimeSnapshot inspectRuntime(const QString &unitName, const QString &mountPoin
 
         // mountinfo (this process's own namespace) is authoritative for what is
         // really there, but cross-check PID 1's bookkeeping: a mismatch means
-        // this process does not see what systemd sees — e.g. a divergent mount
-        // namespace — and that must fail closed rather than silently trust
+        // this process does not see what systemd sees - e.g. a divergent mount
+        // namespace - and that must fail closed rather than silently trust
         // whichever side happened to say "nothing mounted". Failure of this
         // cross-check itself is equally Indeterminate, never a silently
         // omitted check.

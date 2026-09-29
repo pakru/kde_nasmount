@@ -1,5 +1,5 @@
 /*
- * runtimefiles — root-owned runtime records under /run/nasmount-ids: the
+ * runtimefiles - root-owned runtime records under /run/nasmount-ids: the
  * automount instance id recorded at arm time.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -32,7 +32,7 @@ namespace Root::RuntimeFiles
 
 /**
  * Durably records `id` as the trusted automount instance for `unitName`
- * — the only proof, later, that an active trigger is the one this tool
+ * - the only proof, later, that an active trigger is the one this tool
  * started. Overwrites any previous
  * record for the same unit.
  */

@@ -1,5 +1,5 @@
 /*
- * DialogBackend — the service menu window's C++ side: everything the shared
+ * DialogBackend - the service menu window's C++ side: everything the shared
  * QML form cannot know on its own.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -7,10 +7,10 @@
  * The form itself is ShareForm.qml, shared verbatim with the KCM, so this
  * holds only the service-menu-specific context: the UNC, whether that share
  * is already saved, the outcome of the asynchronous action, and the
- * credential lookup — which lives here because the form is host-agnostic and
+ * credential lookup - which lives here because the form is host-agnostic and
  * the KCM has no smb:// URL to look anything up for.
  *
- * Unprivileged. Anything it decides is for the user's benefit only — the
+ * Unprivileged. Anything it decides is for the user's benefit only - the
  * KAuth helper re-checks everything.
  */
 

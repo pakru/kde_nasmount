@@ -82,7 +82,7 @@ bool isInternalInvocation(int argc, char **argv)
 
 int run(int argc, char **argv)
 {
-    // QCoreApplication, never QApplication: no window, no display, no QML —
+    // QCoreApplication, never QApplication: no window, no display, no QML -
     // but an event loop is needed, since the client answers over D-Bus.
     QCoreApplication app(argc, argv);
 
@@ -115,7 +115,7 @@ int run(int argc, char **argv)
 
     KPasswdServerClient client;
     // checkAuthInfo() only reports what is known; queryAuthInfo(), which
-    // would prompt, is never used — autofill must not become a second
+    // would prompt, is never used - autofill must not become a second
     // password dialog. The service may still ask to unlock a
     // wallet, which is why this runs where it can be abandoned.
     const bool answered = client.checkAuthInfo(&info, request.windowId, request.userTime);

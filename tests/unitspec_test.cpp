@@ -552,7 +552,7 @@ int main(int argc, char **argv)
         }
         {
             // Take a genuine guest unit and splice a credential path into its
-            // Options= — must be rejected even though the path itself is
+            // Options= - must be rejected even though the path itself is
             // well-formed for this marker's id.
             UnitValue::Marker guestMarker = marker;
             guestMarker.authentication = UnitValue::AuthenticationKind::Guest;

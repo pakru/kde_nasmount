@@ -1,5 +1,5 @@
 /*
- * systemdops — privileged systemd command execution for kde_nasmount-root.
+ * systemdops - privileged systemd command execution for kde_nasmount-root.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -31,7 +31,7 @@ using CommandRunner = std::function<int(const QString &program, const QStringLis
 int runCommand(const QString &program, const QStringList &args, QString *output);
 
 /**
- * Overrides the runner every function below dispatches through — for tests
+ * Overrides the runner every function below dispatches through - for tests
  * only. Not thread-safe to change
  * concurrently with use; set once before any call, e.g. at the top of a
  * test's main(). Pass an empty std::function to restore runCommand().

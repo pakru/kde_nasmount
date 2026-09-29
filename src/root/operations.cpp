@@ -431,7 +431,7 @@ PurgeOutput purge(uid_t ownerUid)
     // directories at unexpected levels, foreign owners and drifted modes.
     // /run/nasmount-ids is a sibling of /run/nasmount, not nested inside it
     // (runtimefiles.h), so the two are independent, order-insensitive
-    // removals — neither call needs the other's directory open first.
+    // removals - neither call needs the other's directory open first.
     const int etcFd = DurableFs::openSystemRoot(QStringLiteral("/etc"), &out.error);
     if (etcFd < 0) {
         return out;

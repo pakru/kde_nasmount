@@ -1,5 +1,5 @@
 /*
- * Tests for ShareForm.qml — the *real* file from the source tree, not a C++
+ * Tests for ShareForm.qml - the *real* file from the source tree, not a C++
  * model of it: its credential rules, its smb:// input, and its read-only
  * mode (the KCM's Details view).
  *

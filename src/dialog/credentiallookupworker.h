@@ -1,12 +1,12 @@
 /*
- * credentiallookupworker — the child half of credential autofill, and the
+ * credentiallookupworker - the child half of credential autofill, and the
  * only code here that calls KDE's password service.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * It is a second invocation of nasmount-dialog rather than an installed
- * helper, which keeps the installed file set — and so the cleanup manifest
- * and both package payload lists — unchanged. Its restrictions (exact
+ * helper, which keeps the installed file set - and so the cleanup manifest
+ * and both package payload lists - unchanged. Its restrictions (exact
  * argument, pipes only) stop an accidental invocation dumping a credential
  * into a terminal; they are not a boundary against the user themselves.
  */

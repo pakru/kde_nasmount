@@ -1,11 +1,11 @@
 /*
- * nasmount-boot — the root systemd oneshot that arms every share at boot.
+ * nasmount-boot - the root systemd oneshot that arms every share at boot.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Started directly by systemd as root (nasmount-boot.service); there is no
  * D-Bus/KAuth caller to authorize here, since this was always going to run
- * as root the moment the unit is enabled. Installs autofs triggers only —
+ * as root the moment the unit is enabled. Installs autofs triggers only -
  * it never mounts anything itself, so an unreachable NAS costs nothing here.
  * Exits non-zero only if the root lock cannot be acquired; a single share's
  * own failure is logged and skipped, never fatal to the rest.

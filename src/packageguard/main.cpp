@@ -1,5 +1,5 @@
 /*
- * nasmount-package-guard — native package pre-removal safety check.
+ * nasmount-package-guard - native package pre-removal safety check.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *

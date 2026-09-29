@@ -76,10 +76,10 @@ QString describeState(const QString &mountPoint)
     }
     if (snap.automount == Verify::AutomountState::Active) {
         return (snap.activationTrust == Verify::ActivationTrust::Trusted)
-            ? QStringLiteral("armed — mounts on first access")
+            ? QStringLiteral("ready - mounts on first access")
             : QStringLiteral("needs attention");
     }
-    return QStringLiteral("defined, not armed");
+    return QStringLiteral("defined, not active");
 }
 
 } // namespace Dialog::SmbUrl

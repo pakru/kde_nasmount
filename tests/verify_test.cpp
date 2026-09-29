@@ -5,11 +5,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * inspectDefinition's Pair/Partial/NotOurs outcomes require a root-owned unit
- * file, which an unprivileged test cannot create — those are exercised by
+ * file, which an unprivileged test cannot create - those are exercised by
  * manual/integration testing against the real helper. What is covered here is
  * everything reachable without privilege: a missing pair, a symlinked "unit
  * file" refused without ever being read, and a stray drop-in directory
- * refused even with no base unit file — a real bug this catches, since the
+ * refused even with no base unit file - a real bug this catches, since the
  * drop-in check must run before the "both missing" shortcut, not after.
  */
 
@@ -67,8 +67,8 @@ int main(int argc, char **argv)
         }
     }
     {
-        // Escapes: space, tab, backslash, and — the one the original code
-        // dropped — newline. Decoded left-to-right, backslash last, so a
+        // Escapes: space, tab, backslash, and - the one the original code
+        // dropped - newline. Decoded left-to-right, backslash last, so a
         // literal backslash in the name cannot be mistaken for the start of
         // another escape once decoded.
         const QString sample = QStringLiteral(
@@ -245,7 +245,7 @@ int main(int argc, char **argv)
         {
             // Not root-owned (we cannot chown to root as an unprivileged
             // test), so this exercises the ownership-rejection path rather
-            // than a genuine "someone else's unit" scenario — real NotOurs
+            // than a genuine "someone else's unit" scenario - real NotOurs
             // coverage needs root and belongs to integration testing.
             QFile f(paths.mountUnitPath);
             check(QStringLiteral("mount unit written"), f.open(QIODevice::WriteOnly));
@@ -266,7 +266,7 @@ int main(int argc, char **argv)
         }
         {
             // A stray drop-in with no base unit file at all must still be
-            // Tampered, not None — the check has to run before the
+            // Tampered, not None - the check has to run before the
             // "both missing" shortcut.
             QDir().mkpath(paths.mountUnitPath + QStringLiteral(".d"));
             const auto def = Verify::inspectDefinition(paths, ::getuid(), QStringLiteral("/some/path"));

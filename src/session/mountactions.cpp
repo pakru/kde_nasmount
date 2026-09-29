@@ -45,7 +45,7 @@ QString canonicalMountPoint(const QString &raw)
  * only ever Q_EMITs finished() from it: the per-user lock is
  * acquired first thing on the worker thread and held across the Store
  * snapshot read, the helper call and the checked Store commit, all of
- * which now happen on the worker thread too — none of it belongs on the GUI
+ * which now happen on the worker thread too - none of it belongs on the GUI
  * thread, and the lock must cover all of it, not just the KAuth call.
  */
 struct WorkResult {
@@ -57,8 +57,8 @@ struct WorkResult {
 
 /**
  * Renders one helper outcome for display: `successMessage` on
- * ConfirmedSuccess, the helper's own error text on ConfirmedFailure, and —
- * for Unknown — text that says plainly the result could not be confirmed
+ * ConfirmedSuccess, the helper's own error text on ConfirmedFailure, and -
+ * for Unknown - text that says plainly the result could not be confirmed
  * rather than guessing at either success or failure.
  */
 QString describeOutcome(HelperOutcome outcome, const QString &detail, const QString &successMessage)
@@ -69,7 +69,7 @@ QString describeOutcome(HelperOutcome outcome, const QString &detail, const QStr
     case HelperOutcome::ConfirmedFailure:
         return detail;
     case HelperOutcome::Unknown:
-        return QStringLiteral("could not confirm the result (%1) — refresh before retrying")
+        return QStringLiteral("could not confirm the result (%1) - refresh before retrying")
             .arg(detail.isEmpty() ? QStringLiteral("connection to the helper was lost") : detail);
     }
     return detail;
@@ -153,7 +153,7 @@ void MountActions::addShare(const QString &shareInput, const QString &rawMountPo
         QString commitError;
         if (Store::commitShare(share, /*expectedGeneration=*/0, &commitError) != Store::CommitResult::Ok) {
             r.message = QStringLiteral(
-                            "the definition was created, but could not be saved locally (%1) — it exists on this "
+                            "the definition was created, but could not be saved locally (%1) - it exists on this "
                             "machine but will not appear here until this is resolved")
                             .arg(commitError);
             return r;
@@ -162,7 +162,7 @@ void MountActions::addShare(const QString &shareInput, const QString &rawMountPo
         r.success = true;
         r.message = defineResult.activated
             ? QStringLiteral("Share successfuly added and mounted")
-            : QStringLiteral("Share added, but could not be mounted — check setting for more info"); // TODO improve this message
+            : QStringLiteral("Share added, but could not be mounted - check setting for more info"); // TODO improve this message
         return r;
     });
 
@@ -200,18 +200,18 @@ void MountActions::deleteShare(const QString &id)
             QStringLiteral("undefinesystem"), {{QStringLiteral("path"), share.mountPoint}});
         if (undefineResult.outcome != HelperOutcome::ConfirmedSuccess) {
             // Neither a confirmed failure nor an unknown result may remove
-            // the Store record — an unknown removal that actually succeeded
+            // the Store record - an unknown removal that actually succeeded
             // would otherwise leave a root definition with no local record
             // pointing at it.
             r.message = QStringLiteral("could not fully remove %1: %2%3")
                             .arg(share.mountPoint,
-                                 describeOutcome(undefineResult.outcome, undefineResult.message, QString()),  QStringLiteral(" — retry removal later"));
+                                 describeOutcome(undefineResult.outcome, undefineResult.message, QString()),  QStringLiteral(" - retry removal later"));
             return r;
         }
         r.success = Store::removeShare(id);
         r.message = r.success ? QStringLiteral("Removed")
                               : QStringLiteral("removed the definition, but the local record could not be fully "
-                                               "cleared — retry from this list");
+                                               "cleared - retry from this list");
         return r;
     });
 
@@ -243,7 +243,7 @@ void MountActions::removeOrphanedRecord(const QString &id)
         }
         r.success = Store::removeShare(id);
         r.message = r.success ? QStringLiteral("Removed")
-                              : QStringLiteral("could not confirm local-record cleanup — retry");
+                              : QStringLiteral("could not confirm local-record cleanup - retry");
         return r;
     });
     auto *watcher = new QFutureWatcher<WorkResult>(this);

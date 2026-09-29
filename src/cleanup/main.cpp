@@ -1,5 +1,5 @@
 /*
- * nasmount-cleanup — authenticated uninstall coordinator.
+ * nasmount-cleanup - authenticated uninstall coordinator.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -14,7 +14,7 @@
  * failed" is compatible with several shares already being gone; and
  * HelperOutcome::Unknown means the helper may have run and only the
  * acknowledgement was lost. Only HelperResult::rejectedBeforeDispatch proves
- * the helper never ran — ConfirmedFailure alone does not, because it also
+ * the helper never ran - ConfirmedFailure alone does not, because it also
  * covers our own helper refusing after it has already removed shares. Hence:
  *
  *   0  success
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
     const Session::HelperResult purge = Session::invokeHelperAction(QStringLiteral("purge"), {});
     // Not `outcome == ConfirmedFailure`: that also covers the helper running
     // and refusing, and Root::Operations::purge() deletes shares in a loop and
-    // can fail after several are already gone — or after removing everything
+    // can fail after several are already gone - or after removing everything
     // and then failing its daemon-reload. Only a pre-dispatch rejection proves
     // nothing changed.
     if (purge.rejectedBeforeDispatch) {

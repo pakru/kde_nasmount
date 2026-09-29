@@ -5,13 +5,13 @@
  *
  * Every real call site in durablefs.cpp hardcodes uid 0 (root) as the
  * expected owner, so an unprivileged test can never observe the full
- * accept-path of openVerifiedDir()/createAndVerifyDir()/durableReplace() —
+ * accept-path of openVerifiedDir()/createAndVerifyDir()/durableReplace() -
  * exactly like verify_test.cpp's inspectDefinition coverage, that needs
  * root and belongs to integration testing. What is covered here:
  * verifyDescriptor() directly (it takes the expected uid as a parameter,
  * so a real accept-path is testable with the caller's own uid), and every
  * fail-closed rejection path of the higher-level functions reachable
- * without root — symlinks, wrong type, invalid names, and idempotent
+ * without root - symlinks, wrong type, invalid names, and idempotent
  * absence.
  */
 

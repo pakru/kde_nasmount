@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * armShare() and safeStop() read and write below /etc/nasmount and
- * /run/nasmount-ids and call real systemctl, so — like
- * every other kde_nasmount-root test file — a real accept path needs root and
+ * /run/nasmount-ids and call real systemctl, so - like
+ * every other kde_nasmount-root test file - a real accept path needs root and
  * belongs to VM integration testing. evaluateArmPrecheck() is the one piece
  * of this module that is pure decision logic over an already-computed
- * snapshot — the rule that an unrecorded trigger is never blessed; it is
+ * snapshot - the rule that an unrecorded trigger is never blessed; it is
  * exposed specifically so this file can exercise its full decision table
  * without systemctl or mountinfo access.
  */

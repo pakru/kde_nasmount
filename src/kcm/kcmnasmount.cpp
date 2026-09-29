@@ -44,7 +44,7 @@ void KcmNasmount::openMountPoint(const QString &mountPoint)
     // counterpart on the Qt object): under Plasma it hands the URL to KIO's
     // OpenUrlJob inside this process, which examines a local path to pick an
     // application. Examining an automount point triggers the mount, so the
-    // GUI thread would block until it completed — or, for a share that cannot
+    // GUI thread would block until it completed - or, for a share that cannot
     // mount, until the unit's TimeoutSec. The file manager
     // does its own access asynchronously, in its own process. There is
     // deliberately no fallback that would examine the path here.

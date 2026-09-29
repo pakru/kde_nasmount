@@ -14,7 +14,7 @@ Custom build:
 
 Download the latest package for your system with one command. Replace
 `<version>` with the number shown on the
-[latest release](https://github.com/pakru/kde_nasmount/releases/latest) — its
+[latest release](https://github.com/pakru/kde_nasmount/releases/latest) - its
 release notes carry the same commands with the version filled in.
 
 Kubuntu 26.04 LTS amd64:

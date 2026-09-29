@@ -1,5 +1,5 @@
 /*
- * arming — the shared arm and safe-stop routines every privileged caller
+ * arming - the shared arm and safe-stop routines every privileged caller
  * that starts or stops a share's automount goes through.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -17,7 +17,7 @@
  * wrote); a crash or kill leaves whatever was durably written, visible on
  * the next inventory refresh. An active trigger with no matching recorded
  * id is never adopted or stopped automatically regardless of how it got
- * there — that gate does not depend on recovery.
+ * there - that gate does not depend on recovery.
  */
 
 #pragma once
@@ -49,19 +49,19 @@ StopPrecheck evaluateStopPrecheck(const Verify::RuntimeSnapshot &snapshot, QStri
 /**
  * The correlation gate plus the actual stop, as one
  * operation: computes the runtime snapshot for `unitName`/`mountPoint`, and
- * — only if the mount is verified `Match`, or the automount is `Inactive`,
- * or the automount is `Active` with `ActivationTrust::Trusted` — stops both
+ * - only if the mount is verified `Match`, or the automount is `Inactive`,
+ * or the automount is `Active` with `ActivationTrust::Trusted` - stops both
  * halves. Never stops a unit whose active instance cannot be proven to be
  * the one this tool recorded.
  */
 StopResult safeStop(const QString &unitName, const QString &mountPoint, const QString &expectedWhat, QString *error);
 
 // ---------------------------------------------------------------------------
-// Shared single-share arming — used by
+// Shared single-share arming - used by
 // definesystem's immediate arm and by nasmount-boot, so both
 // implement the exact same idempotency and path-safety rules. Never writes a
 // credential (an authenticated share's was durably written by definesystem before
-// this ever runs; a guest share never has one) — only validates it.
+// this ever runs; a guest share never has one) - only validates it.
 // ---------------------------------------------------------------------------
 
 /** How the mount point may be touched while arming. An
@@ -114,7 +114,7 @@ struct ArmShareResult {
 };
 
 /**
- * Arms one share, standalone — used
+ * Arms one share, standalone - used
  * by `definesystem`'s immediate arm and by nasmount-boot for each share it
  * enumerates. Inspects runtime *before* touching the path: a
  * recorded instance id that already matches an active automount is an
@@ -122,7 +122,7 @@ struct ArmShareResult {
  * instance, or a live mount that does not correlate, fails closed without
  * starting or recording anything. Only when the automount is inactive and
  * nothing is mounted does it validate the credential (healthy for
- * Credentials, absent for Guest — never write one), walk the path per
+ * Credentials, absent for Guest - never write one), walk the path per
  * `req.pathPolicy`, start the automount, and durably record its instance id.
  * Any failure after the automount is actually started stops that exact
  * trigger before returning, so a caller's own unit-file/credential cleanup

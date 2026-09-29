@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * A thin host around the shared ShareForm, which is the same file the KCM
- * embeds — the two front ends differ only in chrome and in what each
+ * embeds - the two front ends differ only in chrome and in what each
  * knows up front. Here the share is fixed (it came from the smb:// URL
  * Dolphin was invoked on) and, when that share is already saved, this window
  * offers removal instead of an add form.

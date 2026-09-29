@@ -1,5 +1,5 @@
 /*
- * Tests for Dialog::CredentialLookup — the autofill protocol, its acceptance
+ * Tests for Dialog::CredentialLookup - the autofill protocol, its acceptance
  * policy, and the controller's lifetime.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later

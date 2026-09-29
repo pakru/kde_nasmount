@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Mirrors ShareAddDialog.qml on purpose: a saved share is shown in exactly
- * the form that created it — same fields, same order, same words — so what
+ * the form that created it - same fields, same order, same words - so what
  * the Details view says can be compared with what was typed. It is a view,
  * not an edit path: the form cannot submit in read-only mode, and there is no
  * Save button here to add one. Changing a share is still Delete then Add.

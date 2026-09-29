@@ -1,5 +1,5 @@
 /*
- * mountmodel — the merged view for the KCM.
+ * mountmodel - the merged view for the KCM.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -11,7 +11,7 @@
  * a Store row that disagrees is flagged Broken drift, never silently trusted.
  *
  * Whether a credential problem makes a row unusable is decided only here, in
- * classifyRow() — never by the privileged helper, which returns only raw
+ * classifyRow() - never by the privileged helper, which returns only raw
  * {id, credentialApplicable, credentialHealthy} facts. Everything here is read-only. Three of the four sources need no
  * capability at all (unit files are world-readable; mountinfo/statx need no
  * capability); the fourth, `inventory`, is a passwordless KAuth round trip.
@@ -36,6 +36,11 @@ namespace Session
  * The seven practical presentation states, uniform for every share; the
  * separate boot-coordinator health banner is what explains an Inactive
  * share.
+ *
+ * Armed is the developer's word for "the automount trigger is active"; the
+ * list shows it as "Ready", because a user has no reason to know what a
+ * trigger is. Only presentRow()'s text differs -- the enumerator keeps the
+ * name the root side uses for the same condition.
  */
 enum class DisplayState { Inactive, Armed, Mounted, MissingCredentials, Broken, Busy, Foreign };
 
@@ -116,7 +121,7 @@ struct StoreDefinitionDriftInput {
  *  read-write and matching. */
 bool storeDefinitionDrift(const StoreDefinitionDriftInput &input);
 
-/** "Read only" | "Read & Write" | "Read & Write & Execute" — the access
+/** "Read only" | "Read & Write" | "Read & Write & Execute" - the access
  *  column's text. Must equal ShareForm's radio labels, so a share reads the
  *  same in the list as in the form that created it; mountmodel_test and
  *  shareform_qml_test pin the same three literals. */
@@ -152,7 +157,7 @@ struct RowRemoval {
 
 /**
  * Maps a row's actionability to its single removal. classifyRow() never sets
- * both canRemove flags, so at most one kind ever applies — which is what lets
+ * both canRemove flags, so at most one kind ever applies - which is what lets
  * the KCM show one remove button per row that means different things on
  * different rows.
  */
@@ -191,7 +196,7 @@ struct RowPresentation {
 };
 
 /**
- * The pure presentation of one row — the only place a row's displayed
+ * The pure presentation of one row - the only place a row's displayed
  * meaning is decided, beside classifyRow(), so it can be table-tested.
  *
  * Access and authentication are shown only when the marker behind them was
@@ -200,8 +205,8 @@ struct RowPresentation {
  * had a marker at all. Everywhere else they are "", never a defaulted
  * "Read & Write" that would read as a fact about the share.
  *
- * Username and domain come from Store — the user's own convenience record,
- * since the credential itself is root-only — and only when that record is
+ * Username and domain come from Store - the user's own convenience record,
+ * since the credential itself is root-only - and only when that record is
  * readable. A foreign mount reads "Mounted", with no detail: its section
  * header already says another tool made it.
  */
@@ -261,7 +266,7 @@ public Q_SLOTS:
      * CIFS mounts, and nasmount-boot.service's own health.
      *
      * Runs the actual inspection (Store, systemctl, mountinfo, one KAuth
-     * round trip — all blocking I/O) on a worker thread via QtConcurrent,
+     * round trip - all blocking I/O) on a worker thread via QtConcurrent,
      * never the GUI thread. Calling refresh() again before a
      * previous call has completed simply retargets the single
      * QFutureWatcher at the new future; Qt only ever delivers finished()
@@ -316,7 +321,7 @@ private:
         bool bootHealthy = true;
     };
 
-    /** The blocking inspection pass. Must not touch `this` — it runs on a
+    /** The blocking inspection pass. Must not touch `this` - it runs on a
      *  QtConcurrent worker thread, not the GUI thread. */
     static RefreshResult computeRefresh();
 

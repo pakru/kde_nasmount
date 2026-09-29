@@ -32,8 +32,8 @@ bool parseSmbUrl(const QString &raw, QString *unc, QString *user, QString *error
     // outright ("character ' ' not permitted"), so it cannot be used alone.
     //
     // Parse strictly when the URL is already well-formed, and fall back to
-    // tolerant parsing — which percent-encodes the offending characters rather
-    // than reinterpreting the URL's structure — otherwise. Safety does not rest
+    // tolerant parsing - which percent-encodes the offending characters rather
+    // than reinterpreting the URL's structure - otherwise. Safety does not rest
     // on the parsing mode: the component checks below reject anything unexpected,
     // and the helper re-validates everything regardless.
     QUrl url(raw, QUrl::StrictMode);
@@ -41,7 +41,7 @@ bool parseSmbUrl(const QString &raw, QString *unc, QString *user, QString *error
         // One caveat before falling back: a single malformed %-escape puts Qt
         // into repair mode for *every* percent sign in the URL, so
         // ".../Media%20Library/100%" would yield a literal "Media%20Library"
-        // rather than "Media Library" — a different share name on the same
+        // rather than "Media Library" - a different share name on the same
         // server. A correctly displayed literal percent is already "%25", so
         // refuse rather than guess.
         static const QRegularExpression badEscape(
@@ -88,7 +88,7 @@ bool parseSmbUrl(const QString &raw, QString *unc, QString *user, QString *error
         path.chop(1);
     }
     if (path.isEmpty()) {
-        *error = i18n("This URL points at a server, not a share — open a share first.");
+        *error = i18n("This URL points at a server, not a share - open a share first.");
         return false;
     }
 
@@ -158,8 +158,8 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
     }
 
     // Validated here, and reworded in smb:// terms, so the core's own
-    // "expected //host/share" wording — which names a spelling the user was
-    // never shown — can only surface for input that already passed this.
+    // "expected //host/share" wording - which names a spelling the user was
+    // never shown - can only surface for input that already passed this.
     if (UnitSpec::hasControlChars(candidate)) {
         *error = QStringLiteral("the share address contains control characters");
         return false;
@@ -175,7 +175,7 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
 
     if (!urlUser.isEmpty()) {
         if (username.isEmpty()) {
-            *error = QStringLiteral("the smb:// address names a user — enter it in Username, or remove "
+            *error = QStringLiteral("the smb:// address names a user - enter it in Username, or remove "
                                     "it from the address");
             return false;
         }

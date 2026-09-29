@@ -3,8 +3,8 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * define()/remove() write below /etc/nasmount and /etc/systemd/system, so —
- * exactly like durablefs_test.cpp before it — a
+ * define()/remove() write below /etc/nasmount and /etc/systemd/system, so -
+ * exactly like durablefs_test.cpp before it - a
  * real accept path needs root and belongs to VM integration testing. What
  * this file checks, as an unprivileged process, is that both fail closed
  * rather than silently succeeding or crashing, whether or not a password

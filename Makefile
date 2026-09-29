@@ -1,4 +1,4 @@
-# nasmount — conventional `make` / `make install` front end for the CMake build.
+# nasmount - conventional `make` / `make install` front end for the CMake build.
 #
 # `install`/`uninstall` delegate to install.sh/uninstall.sh rather than
 # reimplementing them. install.sh enables nasmount-boot.service and refreshes

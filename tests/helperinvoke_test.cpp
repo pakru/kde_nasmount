@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * KAuth::ExecuteJob itself is not mockable — it is a concrete class with no
+ * KAuth::ExecuteJob itself is not mockable - it is a concrete class with no
  * injectable transport. classifyOutcome() is the actual decision surface
  * invokeHelperAction() reduces every call to (job->exec()'s bool plus
  * job->error()'s int), so exercising it directly with the codes KAuth's own

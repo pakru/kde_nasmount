@@ -83,9 +83,9 @@ RowClassification classifyRow(const RowClassifyInput &in)
     if (in.drift || in.storeCorrupt) {
         out.state = DisplayState::Broken;
         out.detail = in.drift
-            ? QStringLiteral("saved settings do not match the actual definition — remove the local record, "
+            ? QStringLiteral("saved settings do not match the actual definition - remove the local record, "
                              "then remove the resulting orphan definition")
-            : QStringLiteral("this share's saved convenience data is incomplete — remove the local record");
+            : QStringLiteral("this share's saved convenience data is incomplete - remove the local record");
         out.canRemoveLocalRecord = true;
         return out;
     }
@@ -99,13 +99,13 @@ RowClassification classifyRow(const RowClassifyInput &in)
 
     if (rt.mount == Verify::MountState::Indeterminate || rt.automount == Verify::AutomountState::Indeterminate) {
         out.state = DisplayState::Busy;
-        out.detail = QStringLiteral("runtime state could not be determined — refresh and retry");
+        out.detail = QStringLiteral("runtime state could not be determined - refresh and retry");
         return out;
     }
     if (rt.mount == Verify::MountState::Present && rt.verification != Verify::VerificationState::Match) {
         out.state = DisplayState::Busy;
         out.detail = QStringLiteral(
-            "mounted, but does not correlate with this definition — release it with its owning tool, refresh, "
+            "mounted, but does not correlate with this definition - release it with its owning tool, refresh, "
             "then retry");
         return out;
     }
@@ -113,7 +113,8 @@ RowClassification classifyRow(const RowClassifyInput &in)
         && rt.activationTrust != Verify::ActivationTrust::Trusted) {
         out.state = DisplayState::Broken;
         out.detail = QStringLiteral(
-            "armed, but its instance id does not match what was recorded — reboot or seek administrator help; "
+            "automount is active, but its instance id does not match what was recorded - reboot or seek "
+            "administrator help; "
             "never stopped or adopted automatically");
         out.requiresAdministrator = true;
         return out;
@@ -121,7 +122,7 @@ RowClassification classifyRow(const RowClassifyInput &in)
 
     if (isPartial) {
         out.state = DisplayState::Broken;
-        out.detail = QStringLiteral("only one half of the pair exists — remove it, it is never repaired");
+        out.detail = QStringLiteral("only one half of the pair exists - remove it, it is never repaired");
         out.canRemoveDefinition = true;
         return out;
     }
@@ -206,7 +207,7 @@ RowRemoval rowRemoval(const RowRemovalInput &in)
     } else if (in.requiresAdministrator) {
         out.blockedReason = QStringLiteral("Requires administrator repair");
     } else if (in.state == DisplayState::Foreign) {
-        out.blockedReason = QStringLiteral("Mounted by another tool — unmount it with that tool");
+        out.blockedReason = QStringLiteral("Mounted by another tool - unmount it with that tool");
     } else if (!in.detail.isEmpty()) {
         out.blockedReason = QStringLiteral("Can't be removed right now: %1").arg(in.detail);
     } else {
@@ -228,7 +229,7 @@ RowPresentation presentRow(const RowPresentInput &in)
         out.stateText = QStringLiteral("Inactive");
         break;
     case DisplayState::Armed:
-        out.stateText = QStringLiteral("Armed");
+        out.stateText = QStringLiteral("Ready");
         break;
     case DisplayState::Mounted:
         out.stateText = QStringLiteral("Mounted");
@@ -662,7 +663,7 @@ MountModel::RefreshResult MountModel::computeRefresh()
     // managed row on purpose: the KCM groups rows into ListView sections by
     // presentRow()'s `section`, and a section is one block only while its rows
     // are adjacent. A mountinfo read failure here just means foreign mounts
-    // cannot be discovered this refresh — it must not be mistaken for "there
+    // cannot be discovered this refresh - it must not be mistaken for "there
     // are none", so the augmentation is skipped rather than asserting an
     // empty result. ----------------------------------------------------------
     QList<Verify::MountEntry> mounts;

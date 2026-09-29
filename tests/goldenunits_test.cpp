@@ -1,5 +1,5 @@
 /*
- * Frozen on-disk unit format gate — the upgrade-compatibility test.
+ * Frozen on-disk unit format gate - the upgrade-compatibility test.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -9,14 +9,14 @@
  * the upgrade, so the new binaries must still accept bytes the old ones wrote.
  * Generation and validation share the same fixed-value functions, so changing
  * one changes both in lockstep and the existing suite stays green while every
- * pre-existing share on every user's disk silently becomes Tampered — which
+ * pre-existing share on every user's disk silently becomes Tampered - which
  * unarms it at the next boot.
  *
  * This gate is the only thing that catches that. The corpus under
  * tests/golden/units/<version>/ is a byte-for-byte record of what a released
  * version wrote. It is evidence, not a fixture: if this test fails, the fix is
  * to revert the format change or to design a migration and raise the DEB
- * preinst's MIN_UPGRADABLE_VERSION — never to regenerate the corpus.
+ * preinst's MIN_UPGRADABLE_VERSION - never to regenerate the corpus.
  */
 
 #include "unitspec.h"
@@ -187,7 +187,7 @@ void checkHalf(const QString &version, const Fixture &fixture, bool isMount)
     check(label + QStringLiteral(": generation succeeds"), built, error);
     if (built && regenerated != frozen) {
         check(label + QStringLiteral(": generation is byte-identical"), false,
-              QStringLiteral("format drifted; revert it or design a migration — do not "
+              QStringLiteral("format drifted; revert it or design a migration - do not "
                              "regenerate the corpus"));
     } else {
         check(label + QStringLiteral(": generation is byte-identical"), built);

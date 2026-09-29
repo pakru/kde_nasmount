@@ -1,7 +1,7 @@
 #!/bin/sh
 # Upgrades are supported in place; downgrades and pre-contract versions are not.
 #
-# Debian Policy §6.5 runs this script — the *new* package's — with `upgrade`
+# Debian Policy §6.5 runs this script - the *new* package's - with `upgrade`
 # and the version being replaced. The already-installed package contributes
 # only its prerm/postrm, neither of which blocks, so this file is the single
 # point that decides whether an upgrade proceeds.

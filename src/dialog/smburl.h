@@ -1,5 +1,5 @@
 /*
- * smburl — the service menu's small presentation helpers for the share it
+ * smburl - the service menu's small presentation helpers for the share it
  * was invoked on: a suggested mount point, a coarse state line, and the
  * credential-lookup target.
  *

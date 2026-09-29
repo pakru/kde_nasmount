@@ -646,7 +646,7 @@ int main(int argc, char **argv)
         using Session::RowPresentInput;
         const QList<QPair<DisplayState, QString>> managed = {
             {DisplayState::Inactive, QStringLiteral("Inactive")},
-            {DisplayState::Armed, QStringLiteral("Armed")},
+            {DisplayState::Armed, QStringLiteral("Ready")},
             {DisplayState::Mounted, QStringLiteral("Mounted")},
             {DisplayState::MissingCredentials, QStringLiteral("Missing credentials")},
             {DisplayState::Broken, QStringLiteral("Broken")},

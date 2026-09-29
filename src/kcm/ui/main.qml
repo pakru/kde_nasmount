@@ -10,7 +10,7 @@
  * only when the row has a problem to explain. Rows are not clickable; only
  * the buttons act.
  *
- * Every decision about a row arrives from the model as a finished value —
+ * Every decision about a row arrives from the model as a finished value -
  * its state text and severity, its access text (blank when unknown), which
  * one removal it offers and why none when it offers none. This file never
  * recombines raw facts into a rule of its own, and never mirrors
@@ -103,7 +103,7 @@ KCMUtils.ScrollViewKCM {
         clip: true
 
         // Measured once for the whole list, so every row's access and status
-        // columns line up — that is what makes the list read as a table.
+        // columns line up - that is what makes the list read as a table.
         readonly property real accessColumnWidth: accessMetrics.advanceWidth + Kirigami.Units.largeSpacing
         readonly property real statusColumnWidth:
             statusMetrics.advanceWidth + Kirigami.Units.iconSizes.small + Kirigami.Units.largeSpacing

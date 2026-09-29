@@ -1,10 +1,10 @@
 /*
- * Tests for Session::ShareAddress — the smb:// ⇄ //host/share conversion
+ * Tests for Session::ShareAddress - the smb:// ⇄ //host/share conversion
  * both front ends use.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Pins the behaviour the parser's comments describe — especially the two
+ * Pins the behaviour the parser's comments describe - especially the two
  * non-obvious cases: Dolphin substitutes %u with the URL *as displayed*, so
  * literal spaces must parse, while a malformed %-escape must be refused
  * rather than guessed at (Qt's repair mode would otherwise silently resolve

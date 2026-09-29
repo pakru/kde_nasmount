@@ -1,5 +1,5 @@
 /*
- * kcm_nasmount — System Settings module: list, add and remove
+ * kcm_nasmount - System Settings module: list, add and remove
  * generated network-mount definitions.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later

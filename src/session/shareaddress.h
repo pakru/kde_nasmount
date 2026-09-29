@@ -1,5 +1,5 @@
 /*
- * shareaddress — the user-facing spelling of a share: turning an smb:// URL
+ * shareaddress - the user-facing spelling of a share: turning an smb:// URL
  * or a //host/share UNC into the validated UNC the rest of the tool uses,
  * and a UNC back into the smb:// address people see.
  *
@@ -17,7 +17,7 @@
  * links is what guarantees, structurally, that the helper can never be handed
  * an smb:// value and accept it. removed_api_gates.sh enforces the placement.
  *
- * None of it is a security boundary — the helper re-validates every field —
+ * None of it is a security boundary - the helper re-validates every field -
  * but a wrong UNC here means mounting the wrong share.
  */
 
@@ -62,7 +62,7 @@ bool sameIdentity(const QString &a, const QString &b);
  * Spaces and every other character stay literal, as Dolphin's location bar
  * shows them, except `%`, `#` and `?`, which are percent-encoded. Those three
  * are exactly the ones QUrl::toDisplayString() keeps encoded, because a
- * literal one would be read back as an escape, a fragment or a query — so
+ * literal one would be read back as an escape, a fragment or a query - so
  * without this an address copied from the list could not be pasted into Add.
  * Built by hand rather than through QUrl, which would lowercase the host;
  * the display keeps the host exactly as the unit wrote it.
@@ -80,7 +80,7 @@ QString displayUrl(const QString &unc);
  * is refused. When the smb:// address names a user, `username` (the Username
  * field) must name the same account: an empty one is refused, because the
  * form already fills Username from the address, so an empty field here means
- * the user cleared it deliberately — and filling it silently at submit would
+ * the user cleared it deliberately - and filling it silently at submit would
  * create an account share whose password was never entered.
  */
 bool resolveShareInput(const QString &input, const QString &username, QString *unc, QString *error);

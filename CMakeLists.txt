@@ -60,7 +60,7 @@ configure_file(src/core/nasmountversion.h.in
                @ONLY)
 
 # ---------------------------------------------------------------------------
-# core — validation, unit-value encoding, and the read-only state model.
+# core - validation, unit-value encoding, and the read-only state model.
 # Linked into every binary,
 # including the privileged helper, which is exactly why it stays a STATIC
 # library rather than a shared one: the helper must have no runtime
@@ -79,7 +79,7 @@ target_include_directories(kde_nasmount-core PUBLIC
 target_link_libraries(kde_nasmount-core PUBLIC Qt6::Core)
 
 # ---------------------------------------------------------------------------
-# session — Store (KConfig), the per-user lock, the KAuth call
+# session - Store (KConfig), the per-user lock, the KAuth call
 # wrapper, the async operation controller, and the display model. Linked
 # into the dialog, the KCM and the cleanup tool -- never the helper, which
 # must not act on anything read from a user's own configuration.
@@ -103,11 +103,11 @@ target_link_libraries(kde_nasmount-session PUBLIC
 target_link_libraries(kde_nasmount-session PRIVATE KF6::I18n)
 
 # ---------------------------------------------------------------------------
-# root — the private, privileged library: descriptor-based durable filesystem
+# root - the private, privileged library: descriptor-based durable filesystem
 # primitives, the root lock, systemd command execution, and credential/
 # runtime artifact stores. Linked ONLY into privileged
 # executables (nasmount-helper, nasmount-boot). NEVER linked into
-# kde_nasmount-session, the KCM, or the dialog — those are
+# kde_nasmount-session, the KCM, or the dialog - those are
 # reachable by an unprivileged, potentially hostile local process, and must
 # have no code path that can mutate root-owned state. Enforced below by
 # kde_nasmount_assert_no_root_link(), not just by this comment.
@@ -130,7 +130,7 @@ add_executable(nasmount-helper src/helper/helper.cpp)
 # No Widgets, no I18n, no session library: the root helper produces no UI, no
 # translated strings, and must not link anything that talks to KConfig
 # on the caller's behalf. libQt6Gui still appears in ldd output as a transitive
-# dependency of KF6CoreAddons, which KAuth requires — but nothing here
+# dependency of KF6CoreAddons, which KAuth requires - but nothing here
 # constructs a QGuiApplication, so no GUI machinery is initialised.
 target_link_libraries(nasmount-helper PRIVATE kde_nasmount-core kde_nasmount-root Qt6::Core KF6::AuthCore)
 install(TARGETS nasmount-helper DESTINATION ${KAUTH_HELPER_INSTALL_DIR})
@@ -221,7 +221,7 @@ add_subdirectory(src/kcm)
 # --- Dolphin service menu ---------------------------------------------------
 # Exec= is substituted with the absolute install path rather than relying on
 # PATH. Dolphin launches service-menu actions as transient systemd user units,
-# whose PATH is the systemd user manager's — not a shell's.
+# whose PATH is the systemd user manager's - not a shell's.
 configure_file(servicemenu/nasmount.desktop.in
                ${CMAKE_CURRENT_BINARY_DIR}/nasmount.desktop @ONLY)
 

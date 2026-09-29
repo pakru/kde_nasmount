@@ -13,7 +13,7 @@ namespace Root::RuntimeFiles
 namespace
 {
 
-/** Opens (creating as needed) /run/nasmount-ids, root-owned 0755 — see the
+/** Opens (creating as needed) /run/nasmount-ids, root-owned 0755 - see the
  *  file comment for why this is a sibling of /run/nasmount rather than a
  *  subdirectory of it. */
 int openIdDir(QString *error)

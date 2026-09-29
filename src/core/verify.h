@@ -1,12 +1,12 @@
 /*
- * verify — the axis model: inspects what is actually on disk and
+ * verify - the axis model: inspects what is actually on disk and
  * in the kernel, never what a caller claims.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Everything here is read-only and needs no privilege beyond what the normal
  * permissions on /etc/systemd/system, /proc/self/mountinfo and statx(2) already
- * grant — unit files are world-readable, which is what lets the KCM and dialog
+ * grant - unit files are world-readable, which is what lets the KCM and dialog
  * list mounts without a KAuth round trip. The helper calls the same functions
  * again under its lock immediately before acting; a frontend-computed axis
  * value is never itself an authorisation input.
@@ -34,7 +34,7 @@ enum class VerificationState { NotApplicable, Match, Mismatch, Indeterminate };
  * The full result of inspecting a definition: not just "does it exist" but
  * everything a caller needs to act on it without re-deriving anything from
  * Store or a filename. Every field below `state` is populated
- * only from a *validated* marker — a full agreeing pair for `Pair`, or the
+ * only from a *validated* marker - a full agreeing pair for `Pair`, or the
  * single surviving half's own marker for an owned `Partial` (so removal can
  * use its existing id without trusting a caller-supplied one).
  * They are left at their defaults for `None`, `Tampered` and `NotOurs`,
@@ -79,7 +79,7 @@ struct ScannedHalf {
 
 /**
  * One base name's worth of owned unit(s), after pairing. `state` is one of
- * `Pair`, `Partial` or `Tampered` — enumeration only ever reports units it
+ * `Pair`, `Partial` or `Tampered` - enumeration only ever reports units it
  * has already proven this uid owns, so `None` and `NotOurs` never appear
  * here. A `Tampered` entry's other fields are not populated: internal
  * disagreement (the two halves of one base name disagree) or a collision
@@ -110,30 +110,30 @@ struct OwnedUnit {
 
 /**
  * Pure grouping, pairing and collision logic over already-scanned halves for
- * one uid — no filesystem access, so this is fully unit-testable. Groups by
+ * one uid - no filesystem access, so this is fully unit-testable. Groups by
  * `baseName` into `Pair` (both halves present and agreeing) or `Partial`
  * (exactly one half); a pair whose halves disagree on the marker or on
  * `where` becomes `Tampered`. A second pass then flags any two *different*
  * base names that claim the same `id` or the same canonical mount point as
- * `Tampered` — an invariant violation enumeration must surface, not resolve.
+ * `Tampered` - an invariant violation enumeration must surface, not resolve.
  */
 QList<OwnedUnit> pairScannedHalves(const QList<ScannedHalf> &halves);
 
 /**
  * Scans /etc/systemd/system for every *.mount and *.automount carrying this
  * tool's complete marker with owner-uid == `uid`, and returns one entry per
- * base name via pairScannedHalves() — including either-half `Partial` pairs,
+ * base name via pairScannedHalves() - including either-half `Partial` pairs,
  * which a .mount-only scan would miss entirely.
  *
  * Used by the KCM model and the privileged inventory, which must enumerate
- * every unit this uid owns — not the Store snapshot — so deleting a Store
+ * every unit this uid owns - not the Store snapshot - so deleting a Store
  * record cannot hide an armed unit. Unprivileged: unit files are
  * world-readable.
  */
 QList<OwnedUnit> enumerateOwnedUnits(uid_t uid);
 
 /**
- * Like enumerateOwnedUnits(), but across every owner — used only by
+ * Like enumerateOwnedUnits(), but across every owner - used only by
  * nasmount-boot, which has no single caller uid to scope to
  * and must arm every share on the host, not one user's. Same
  * pairing/collision rules from pairScannedHalves(), applied globally, which
@@ -148,7 +148,7 @@ struct MountEntry {
     qint64 parentId = -1; ///< field 2; a mount stacked on another names it here
     QString mountPoint;
     QString filesystemType;
-    QString mountSource; ///< the "What" — e.g. //host/share
+    QString mountSource; ///< the "What" - e.g. //host/share
 };
 
 /** Exposed for testing; production code should call currentMounts(). */
@@ -165,7 +165,7 @@ struct MountClassification {
  * mount point: our own CIFS mount (`Present`, `Match` or
  * `Mismatch` depending on `What=`), the ordinary idle-autofs resting state
  * (`Absent`, `NotApplicable`), some other filesystem occupying the path
- * entirely (a present foreign mount — `Present`, `Mismatch`, never
+ * entirely (a present foreign mount - `Present`, `Mismatch`, never
  * `Absent`), or nothing at all (`Absent`, `NotApplicable`). Exposed for
  * testing without a real mount; production code reaches this only through
  * inspectRuntime().
@@ -179,7 +179,7 @@ MountClassification classifyMountEntries(const QList<MountEntry> &entries, const
 
 /**
  * Reads and parses /proc/self/mountinfo for the calling process. Returns
- * false on a read failure — the caller must not mistake that for "no mounts
+ * false on a read failure - the caller must not mistake that for "no mounts
  * exist"; `*entries` is left unmodified on failure.
  */
 bool currentMounts(QList<MountEntry> *entries);
@@ -187,7 +187,7 @@ bool currentMounts(QList<MountEntry> *entries);
 /**
  * Whether an `Active` automount's *specific running instance* is the one
  * this tool started, not merely whether systemd currently reports the unit
- * active. `NotApplicable` when automount is not Active — there is nothing to
+ * active. `NotApplicable` when automount is not Active - there is nothing to
  * trust or distrust. A missing, unreadable or mismatched recorded id is
  * `Untrusted`, never silently treated as absent: "the trigger
  * is armed" and "this is the instance we recorded" are different claims, and
@@ -204,21 +204,21 @@ struct RuntimeSnapshot {
 };
 
 /**
- * Combines `systemctl show` (PID 1's bookkeeping — the only way to tell
+ * Combines `systemctl show` (PID 1's bookkeeping - the only way to tell
  * whether the automount is still armed once its trigger has already fired,
  * since the autofs mountinfo entry is superseded by the real one at that
  * point) with /proc/self/mountinfo (the caller's own mount namespace)
  * to compute the Automount, Mount, Verification and ActivationTrust axes.
  *
  * `expectedWhat` is the unit's What= (the UNC path); correlation is
- * best-effort by design — it proves "a CIFS mount of the right
+ * best-effort by design - it proves "a CIFS mount of the right
  * share", never "the mount this helper created". A mount actually present at
  * `mountPoint` under any filesystem other than `cifs` or `autofs` is a
- * present foreign mount (`Mismatch`), not `Absent` — autofs
+ * present foreign mount (`Mismatch`), not `Absent` - autofs
  * alone means "armed but not yet triggered", the ordinary resting state. A
  * failure reading mountinfo, or a disagreement between mountinfo and
  * systemd's own bookkeeping for the `.mount` unit, is `Indeterminate` for
- * both `mount` and `verification` — never silently
+ * both `mount` and `verification` - never silently
  * treated as "nothing mounted".
  */
 RuntimeSnapshot inspectRuntime(const QString &unitName, const QString &mountPoint, const QString &expectedWhat);
@@ -226,7 +226,7 @@ RuntimeSnapshot inspectRuntime(const QString &unitName, const QString &mountPoin
 /**
  * statx(AT_NO_AUTOMOUNT, STATX_MNT_ID_UNIQUE) on `path`. Returns 0 (never a
  * valid id) if the kernel does not support the extended id (pre-6.8) or the
- * call fails for any other reason — callers must treat 0 as "unknown",
+ * call fails for any other reason - callers must treat 0 as "unknown",
  * failing closed exactly like Indeterminate.
  *
  * AT_NO_AUTOMOUNT is what makes this safe to call on an armed automount
@@ -236,13 +236,13 @@ uint64_t uniqueMountId(const QString &path);
 
 /**
  * The automount unique id recorded at `arm` time, under root-owned, world-
- * readable /run/nasmount-ids/ — the one place live-activation identity is
+ * readable /run/nasmount-ids/ - the one place live-activation identity is
  * kept, because only an automount's unique mount id can prove which instance
  * this tool started. Returns 0
  * if absent/unreadable.
  *
  * Writing/removing the record is root-only and lives in
- * Root::RuntimeFiles::writeAutomountId()/removeAutomountId() instead — this
+ * Root::RuntimeFiles::writeAutomountId()/removeAutomountId() instead - this
  * header only ever reads it back, unprivileged.
  */
 uint64_t readRecordedAutomountId(const QString &unitName);

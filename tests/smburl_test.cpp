@@ -1,5 +1,5 @@
 /*
- * Tests for Dialog::SmbUrl — the service menu's own presentation helpers:
+ * Tests for Dialog::SmbUrl - the service menu's own presentation helpers:
  * the suggested mount point and the credential-lookup target.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later

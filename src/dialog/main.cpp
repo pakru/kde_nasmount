@@ -1,11 +1,11 @@
 /*
- * nasmount-dialog — entry point.
+ * nasmount-dialog - entry point.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Dolphin invokes this with the smb:// URL of the right-clicked folder, via
  * the service menu in servicemenu/nasmount.desktop.in. A saved share is armed
- * at boot by nasmount-boot, which runs as root with no session and no UI —
+ * at boot by nasmount-boot, which runs as root with no session and no UI -
  * nothing here participates in that.
  *
  * The window is QML so that its form is literally the KCM's form
@@ -39,7 +39,7 @@ namespace
 {
 
 /** Startup failures happen before any window exists, and this is launched
- *  from a service menu where stderr is usually invisible — so report them the
+ *  from a service menu where stderr is usually invisible - so report them the
  *  only way that always works, and keep the exit code meaningful. */
 void reportStartupFailure(const QString &message)
 {
