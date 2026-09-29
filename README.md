@@ -50,6 +50,8 @@ sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm         # Fedora
 
 ![Network Mounts settings page](docs/img/img2.png)
 
+* Or open the same page in its own window: run `nasmount`, or launch "SMB Network Mounts" from the System section of the application menu.
+
 ## Source-build requirements
 
 A **Plasma 6+ / KF6+** desktop and **Linux 6.8+** (for `STATX_MNT_ID_UNIQUE`).

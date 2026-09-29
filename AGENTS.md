@@ -296,8 +296,9 @@ shares rather than failing loudly:
 - The KAuth/D-Bus/polkit id `io.github.pakru.nasmount` and its action names;
   renaming them is an upgrade-compatibility change (upgrade rule 5) and buys
   nothing.
-- Package names (`nasmount` in both families), the six installed binaries,
+- Package names (`nasmount` in both families), the seven installed binaries,
   `kcm_nasmount.so`, `kcm_nasmount.desktop`, `nasmount.desktop`,
+  `nasmount-manager.desktop`,
   `share/nasmount/`, `share/doc/nasmount/`, and the release asset names
   `nasmount-amd64-<version>.deb` / `nasmount-fedora44-x86_64-<version>.rpm`.
 
@@ -349,6 +350,7 @@ What gets installed:
 | `nasmount-dialog` | user | Dolphin service menu (QML); also the credential-lookup child, below |
 | `kcm_nasmount.so` | user | System Settings module, QML in [`src/kcm/ui/`](src/kcm/ui/) |
 | `nasmount-cleanup` | user | authenticated, owner-scoped purge via the `purge` action |
+| `nasmount` | user | shell script ([`packaging/nasmount.sh`](packaging/nasmount.sh)): `exec kcmshell6 kcm_nasmount`, with the menu entry `nasmount-manager.desktop` |
 | `nasmount-uninstall` | user | shell script ([`packaging/nasmount-uninstall.sh`](packaging/nasmount-uninstall.sh)): cleanup, then apt/dnf |
 | `nasmount-package-guard` | on demand (CI upgrade jobs) | libexec, read-only state classifier; links `kde_nasmount-core` only |
 

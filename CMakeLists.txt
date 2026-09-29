@@ -198,6 +198,14 @@ install(PROGRAMS packaging/nasmount-uninstall.sh
         DESTINATION ${KDE_INSTALL_BINDIR}
         RENAME nasmount-uninstall)
 
+# The command-line launcher and its menu entry open the same KCM System
+# Settings hosts, in a window of its own.
+install(PROGRAMS packaging/nasmount.sh
+        DESTINATION ${KDE_INSTALL_BINDIR}
+        RENAME nasmount)
+install(FILES packaging/nasmount-manager.desktop
+        DESTINATION ${KDE_INSTALL_APPDIR})
+
 configure_file(packaging/package-family.in
                ${CMAKE_CURRENT_BINARY_DIR}/package-family
                @ONLY)

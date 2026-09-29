@@ -36,11 +36,13 @@ QString commonManifest(const QString &helper, const QString &boot, const QString
     return QStringLiteral(
                "/usr/bin/nasmount-dialog\n"
                "/usr/bin/nasmount-cleanup\n"
-               "/usr/bin/nasmount-uninstall\n")
+               "/usr/bin/nasmount-uninstall\n"
+               "/usr/bin/nasmount\n")
         + helper + QLatin1Char('\n') + boot + QLatin1Char('\n') + guard + QLatin1Char('\n')
         + plugin + QStringLiteral(
                        "\n/usr/lib/systemd/system/nasmount-boot.service\n"
                        "/usr/share/applications/kcm_nasmount.desktop\n"
+                       "/usr/share/applications/nasmount-manager.desktop\n"
                        "/usr/share/polkit-1/actions/io.github.pakru.nasmount.policy\n"
                        "/usr/share/dbus-1/system.d/io.github.pakru.nasmount.conf\n"
                        "/usr/share/dbus-1/system-services/io.github.pakru.nasmount.service\n"
@@ -68,7 +70,7 @@ int main(int argc, char **argv)
     QString error;
     check(QStringLiteral("complete allowlist accepted"),
           Session::validateInstallManifest(path, &targets, &error), error);
-    check(QStringLiteral("all Debian/source targets returned"), targets.size() == 16,
+    check(QStringLiteral("all Debian/source targets returned"), targets.size() == 18,
           QString::number(targets.size()));
 
     const QString nativeDeb = commonManifest(
@@ -82,7 +84,7 @@ int main(int argc, char **argv)
     error.clear();
     check(QStringLiteral("Debian package additions accepted"),
           Session::validateInstallManifest(path, &targets, &error), error);
-    check(QStringLiteral("all native Debian targets returned"), targets.size() == 18,
+    check(QStringLiteral("all native Debian targets returned"), targets.size() == 20,
           QString::number(targets.size()));
 
     QString fedora = commonManifest(
@@ -97,7 +99,7 @@ int main(int argc, char **argv)
     error.clear();
     check(QStringLiteral("complete Fedora layout accepted"),
           Session::validateInstallManifest(path, &targets, &error), error);
-    check(QStringLiteral("all Fedora targets returned"), targets.size() == 17,
+    check(QStringLiteral("all Fedora targets returned"), targets.size() == 19,
           QString::number(targets.size()));
 
     const QString mixed = commonManifest(
