@@ -11,9 +11,10 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QProcess>
+#include <QTextStream>
 #include <QTimer>
 
-namespace Dialog::CredentialLookup
+namespace Session::CredentialLookup
 {
 
 namespace
@@ -336,19 +337,29 @@ QString internalModeFlag()
     return InternalModeFlag;
 }
 
+void debugReport(const QString &message)
+{
+    if (qEnvironmentVariableIsEmpty("NASMOUNT_DEBUG_LOOKUP")) {
+        return;
+    }
+    QTextStream(stderr) << "nasmount: credential lookup: " << message << '\n';
+}
+
 class ProcessTransport::Private
 {
 public:
+    QString program;
     QProcess *process = nullptr;
     QByteArray buffer;
     bool abandoned = false;
     bool settled = false;
 };
 
-ProcessTransport::ProcessTransport(QObject *parent)
+ProcessTransport::ProcessTransport(const QString &program, QObject *parent)
     : Transport(parent)
     , d(new Private)
 {
+    d->program = program;
 }
 
 ProcessTransport::~ProcessTransport()
@@ -407,10 +418,11 @@ void ProcessTransport::send(const QByteArray &request)
         Q_EMIT replyReceived(d->buffer);
     });
 
-    // The absolute path of *this* executable, never PATH and never a shell:
-    // which program runs must not depend on a service menu's environment.
-    d->process->start(QCoreApplication::applicationFilePath(), {InternalModeFlag},
-                      QIODevice::ReadWrite);
+    // An absolute path, never PATH and never a shell: which program runs must
+    // not depend on the caller's environment. The service menu runs itself;
+    // the KCM names nasmount-dialog, fixed when it was built.
+    d->process->start(d->program.isEmpty() ? QCoreApplication::applicationFilePath() : d->program,
+                      {InternalModeFlag}, QIODevice::ReadWrite);
     d->process->write(request);
     d->process->closeWriteChannel();
 }
@@ -450,7 +462,7 @@ void ProcessTransport::abandon()
 
 Controller::Controller(QObject *parent)
     : QObject(parent)
-    , m_factory([](QObject *owner) { return new ProcessTransport(owner); })
+    , m_factory([this](QObject *owner) { return new ProcessTransport(m_program, owner); })
 {
 }
 
@@ -462,6 +474,11 @@ Controller::~Controller()
 void Controller::setTransportFactory(std::function<Transport *(QObject *)> factory)
 {
     m_factory = std::move(factory);
+}
+
+void Controller::setProgram(const QString &program)
+{
+    m_program = program;
 }
 
 void Controller::setDeadlineMs(int milliseconds)
@@ -565,4 +582,4 @@ void Controller::cancel()
     }
 }
 
-} // namespace Dialog::CredentialLookup
+} // namespace Session::CredentialLookup

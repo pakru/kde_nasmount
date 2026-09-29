@@ -42,6 +42,10 @@ KCMUtils.ScrollViewKCM {
         Kirigami.Action {
             text: "Add…"
             icon.name: "list-add"
+            // Off while an add is in flight, even after its dialog was
+            // closed: the dialog claims the next finished("add") as its own,
+            // which is only unambiguous with one add at a time.
+            enabled: !addDialog.busy
             onTriggered: addDialog.openForAdd()
         }
     ]
@@ -54,7 +58,13 @@ KCMUtils.ScrollViewKCM {
         }
         function onFinished(id, kind, success, message) {
             busyIndicator.running = false
-            root.showStatus(success, message)
+            // A refused add is shown inside its dialog, which stays open with
+            // the form intact; saying it here too would be a second copy.
+            // Everything else - including an add whose dialog was closed
+            // while it ran - reports here.
+            if (!(kind === "add" && !success && addDialog.opened)) {
+                root.showStatus(success, message)
+            }
             kcm.shareModel.refresh()
         }
     }
@@ -342,9 +352,12 @@ KCMUtils.ScrollViewKCM {
             }
         }
 
-        QQC2.Label {
+        // The label is the dialog's content item, not a loose child. As a
+        // child its width is set after the dialog has sized itself, so under
+        // the desktop style the dialog comes out one wrapped paragraph too
+        // short and the buttons sit on top of the text.
+        contentItem: QQC2.Label {
             id: confirmLabel
-            width: parent.width
             wrapMode: Text.WordWrap
         }
 
@@ -353,8 +366,7 @@ KCMUtils.ScrollViewKCM {
             targetId = id
             targetMountPoint = mountPoint
             if (removalKind === "delete") {
-                confirmLabel.text = "Remove the network mount at " + mountPoint + "?\n\n"
-                                  + "If it is currently mounted, it will be unmounted first."
+                confirmLabel.text = "Remove the network mount at " + mountPoint + "?"
             } else if (removalKind === "removeOrphan") {
                 confirmLabel.text = "Remove the definition at " + mountPoint + "?\n\n"
                                   + "You have no saved settings for it, so adding it again means "

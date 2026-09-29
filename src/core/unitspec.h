@@ -113,6 +113,33 @@ int openMountpointNoFollow(const MountpointPlan &plan, uid_t uid, gid_t gid, QSt
 int openMountpointNoCreate(const MountpointPlan &plan, uid_t expectedUid, gid_t expectedGid, QString *error);
 
 /**
+ * A read-only preview of what openMountpointNoFollow() would refuse, for the
+ * Add form's feedback while the user is still typing. Returns a message
+ * worded for display, or an empty string when nothing would be refused.
+ *
+ * It mirrors that walk's rules -- a symlink, a non-directory, a mount or a
+ * foreign owner at any existing component, and a last component that is not
+ * empty -- and lives beside it so the two stay side by side. Unlike it, it
+ * creates, chowns and chmods nothing, and above all it never triggers an
+ * automount: every component is examined with AT_NO_AUTOMOUNT and descended
+ * into only once it is known not to be a mount or an automount trigger. That
+ * is the reason it exists apart from the real walk, which opens each
+ * component and so mounts whatever it steps on. Looking at another share's
+ * automount point from the interface's process would otherwise mount that
+ * share, and block until it did.
+ *
+ * A path or tail that does not exist yet is fine (the helper creates it). So
+ * is anything this cannot tell -- an unexpected errno, a root it cannot
+ * examine -- because the helper is the authority and this is a courtesy: it
+ * never makes up a refusal. A race between this and the real walk is expected
+ * and harmless for the same reason.
+ *
+ * `uid` is the account the mount point would belong to. The helper never
+ * calls this; it only reads.
+ */
+QString previewMountpointProblem(const MountpointPlan &plan, uid_t uid);
+
+/**
  * The fixed CIFS option list for one owner, credential path and access mode.
  * An empty `credPath` selects `guest`.
  *

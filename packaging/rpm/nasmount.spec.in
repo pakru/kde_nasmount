@@ -46,6 +46,10 @@ Requires:       systemd
 # pull kf6-kio-core-libs, which carries the library but not the D-Bus service,
 # and a host without it simply types credentials by hand.
 Recommends:     kf6-kio-core
+# The smb KIO worker behind the Add dialog's Share "Browse...". Weak for the
+# same reason: without it Browse reports an unknown protocol, and a typed
+# smb:// address still works.
+Recommends:     kio-extras
 Recommends:     dolphin
 Recommends:     plasma-systemsettings
 

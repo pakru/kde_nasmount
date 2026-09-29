@@ -24,6 +24,7 @@
 #pragma once
 
 #include <QString>
+#include <QUrl>
 
 namespace Session::ShareAddress
 {
@@ -88,5 +89,57 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
 /** The user an smb:// input names, or empty (no user, not smb://, or not
  *  parsable yet). Drives the form's fill-Username-from-the-address step. */
 QString userInShareInput(const QString &input);
+
+/**
+ * Why the Add form cannot use this Share text yet, worded for display under
+ * the field; empty when resolveShareInput() would accept it with this
+ * `username`.
+ *
+ * It is resolveShareInput()'s own refusal, not a second set of rules, so the
+ * form and the submit cannot disagree about a value. The pre-filled "smb://"
+ * (or "//") with nothing after it counts as nothing entered, and is explained
+ * as that rather than as a malformed address.
+ */
+QString shareInputProblem(const QString &input, const QString &username);
+
+/** What a folder picked in the Share browser puts into the form. */
+struct BrowsedShare {
+    QString input; ///< the Share field's text, without a user part; empty on error
+    QString user;  ///< the URL's user, if any, for the form's Username fill rule
+    QString error; ///< non-empty when the pick cannot be used at all
+};
+
+/**
+ * Turns a URL returned by the folder picker into Share field text.
+ *
+ * Only smb:// is accepted. A server-only pick still yields "smb://host", so
+ * the ordinary validation explains that a share is missing instead of the
+ * pick being dropped without a word. The text is the display form
+ * (displayUrl()), so `%`, `#` and `?` stay encoded and it resolves back to
+ * the UNC the URL names.
+ *
+ * The user is returned apart from the text, never inside it: the form fills
+ * Username from it under the same rule typing uses, and the address stays
+ * free of a user that a later edit of Username could then contradict.
+ */
+BrowsedShare browsedShareInput(const QUrl &picked);
+
+/**
+ * Where the Share browser starts: the field's address when it names at least
+ * a host (user and path kept, a port, password, query or fragment dropped),
+ * otherwise the network root "smb://". Accepts either spelling.
+ */
+QUrl browseStartUrl(const QString &shareInput);
+
+/**
+ * The credential-lookup target for a share: the server and the *first* path
+ * component only, which is what KDE's SMB worker authenticates against and
+ * therefore what makes a lookup hit an entry Dolphin saved. Built with QUrl's
+ * setters, so a space or percent sign is encoded once. An invalid QUrl means
+ * "no lookup", never a reason to broaden the target.
+ *
+ * Takes a UNC (//host/share[/subdir]), the form the rest of the tool keeps.
+ */
+QUrl authLookupTarget(const QString &unc);
 
 } // namespace Session::ShareAddress

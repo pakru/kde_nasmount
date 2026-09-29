@@ -4,6 +4,7 @@
 
 #include "mountactions.h"
 #include "helperinvoke.h"
+#include "mountpointcheck.h"
 #include "shareaddress.h"
 #include "store.h"
 #include "userlock.h"
@@ -14,6 +15,7 @@
 #include <QtConcurrentRun>
 
 #include <memory>
+#include <pwd.h>
 #include <unistd.h>
 
 using Session::HelperOutcome;
@@ -22,23 +24,6 @@ using Session::UserLock;
 
 namespace
 {
-
-/**
- * The stored record must hold the *same* canonical path the helper derives,
- * because that is what every later check compares against.
- *
- * The helper runs QDir::cleanPath() on whatever it is given and writes the
- * result as Where=. Storing the user's raw text instead means a mount point
- * typed with a trailing slash (or a "//" or "/./") is written as one string
- * and compared as another: inspectDefinition's "effective Where= agrees with
- * the canonical mount point" rule then fails, and a perfectly good share is
- * stuck at NeedsAttention forever with every action refused. Normalising once
- * here covers both frontends, since both go through MountActions.
- */
-QString canonicalMountPoint(const QString &raw)
-{
-    return QDir::cleanPath(raw.trimmed());
-}
 
 /**
  * What the worker thread hands back to the GUI-thread continuation, which
@@ -85,13 +70,43 @@ bool guestFieldsConsistent(const QString &username, const QString &domain, const
     return !username.isEmpty() || (domain.isEmpty() && password.isEmpty());
 }
 
-MountActions::MountActions(QObject *parent) : QObject(parent) { }
+QString localPathFromUrl(const QUrl &url)
+{
+    // A file URL with a host names a path on another machine; toLocalFile()
+    // would render it as a //host/path string, which is not a folder here.
+    if (!url.isLocalFile() || !url.host().isEmpty()) {
+        return QString();
+    }
+    return url.toLocalFile();
+}
+
+MountActions::MountActions(QObject *parent)
+    : QObject(parent)
+    , m_uid(::getuid())
+{
+    // The passwd home, not $HOME or QDir::homePath(): it is what the helper
+    // authorizes the mount point against (it reads the caller's uid), and a
+    // different value here would accept paths the helper then refuses.
+    if (const struct passwd *pw = ::getpwuid(m_uid)) {
+        m_homeDir = QString::fromLocal8Bit(pw->pw_dir);
+    }
+    m_checkPool.setMaxThreadCount(1);
+}
 
 void MountActions::addShare(const QString &shareInput, const QString &rawMountPoint, const QString &username,
                             const QString &domain, const QString &password, const QString &access)
 {
     const QString kind = QStringLiteral("add");
-    const QString mountPoint = canonicalMountPoint(rawMountPoint);
+    // The stored record must hold the *same* canonical path the helper
+    // derives, because that is what every later check compares against. The
+    // helper runs QDir::cleanPath() on whatever it is given and writes the
+    // result as Where=; storing the user's raw text instead means a mount
+    // point typed with a trailing slash (or a "//" or "/./") is written as one
+    // string and compared as another, and a perfectly good share is stuck at
+    // NeedsAttention forever with every action refused. Normalising once here
+    // covers both front ends, since both go through MountActions - and the
+    // live check in the form uses the same function, so it cannot disagree.
+    const QString mountPoint = canonicalMountPoint(rawMountPoint, m_homeDir);
     Q_EMIT started(QString(), kind);
 
     // First, before the helper call *and* the Store commit: Store's UNC is
@@ -301,6 +316,85 @@ QString MountActions::displayUrl(const QString &unc) const
 QString MountActions::userInShareInput(const QString &text) const
 {
     return ShareAddress::userInShareInput(text);
+}
+
+QString MountActions::localPathFromUrl(const QUrl &url) const
+{
+    return Session::localPathFromUrl(url);
+}
+
+QString MountActions::shareInputProblem(const QString &input, const QString &username) const
+{
+    return ShareAddress::shareInputProblem(input, username);
+}
+
+QString MountActions::mountPointProblem(const QString &raw) const
+{
+    return Session::mountPointProblem(raw, m_homeDir);
+}
+
+void MountActions::checkMountPoint(const QString &raw)
+{
+    if (m_checkRunning) {
+        m_checkPending = true;
+        m_pendingRaw = raw;
+        return;
+    }
+    startMountPointCheck(raw);
+}
+
+void MountActions::startMountPointCheck(const QString &raw)
+{
+    m_checkRunning = true;
+    const QString home = m_homeDir;
+    const uid_t uid = m_uid;
+    auto future = QtConcurrent::run(&m_checkPool, [raw, home, uid]() {
+        return Session::mountPointFsProblem(raw, home, uid);
+    });
+
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, raw]() {
+        const QString problem = watcher->future().result();
+        watcher->deleteLater();
+        // Unblocked and the waiting request taken before the signal goes out:
+        // a receiver that asks for another check from its slot starts one
+        // normally instead of finding the slot still occupied.
+        m_checkRunning = false;
+        const bool again = m_checkPending;
+        const QString next = m_pendingRaw;
+        m_checkPending = false;
+        Q_EMIT mountPointChecked(raw, problem);
+        if (again) {
+            checkMountPoint(next);
+        }
+    });
+    watcher->setFuture(future);
+}
+
+QVariantMap MountActions::browsedShareInput(const QUrl &picked) const
+{
+    const ShareAddress::BrowsedShare browsed = ShareAddress::browsedShareInput(picked);
+    return {{QStringLiteral("input"), browsed.input},
+            {QStringLiteral("user"), browsed.user},
+            {QStringLiteral("error"), browsed.error}};
+}
+
+QUrl MountActions::browseStartUrl(const QString &shareInput) const
+{
+    return ShareAddress::browseStartUrl(shareInput);
+}
+
+QString MountActions::lookupTargetOf(const QString &shareInput) const
+{
+    // No Username to check against: this asks which share the text names, and
+    // a text that names a user counts as unusable rather than as some share.
+    QString unc;
+    QString error;
+    if (!ShareAddress::resolveShareInput(shareInput, QString(), &unc, &error)) {
+        return QString();
+    }
+    const QUrl target = ShareAddress::authLookupTarget(unc);
+    return target.isValid() ? target.toString(QUrl::FullyEncoded) : QString();
 }
 
 } // namespace Session

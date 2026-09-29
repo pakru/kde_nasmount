@@ -5,32 +5,12 @@
 #include "dialogbackend.h"
 #include "credentiallookup.h"
 #include "mountactions.h"
+#include "shareaddress.h"
 #include "smburl.h"
 #include "store.h"
 
 #include <QGuiApplication>
-#include <QTextStream>
 #include <QWindow>
-
-namespace
-{
-
-/**
- * Why a lookup produced nothing, on demand: a miss shows nothing in the
- * window, which also means there is nothing to look at when autofill does not
- * work. NASMOUNT_DEBUG_LOOKUP=1 puts the outcome on stderr. It prints
- * reasons, never values - a username and even a length say something about a
- * credential.
- */
-void reportLookup(const QString &message)
-{
-    if (qEnvironmentVariableIsEmpty("NASMOUNT_DEBUG_LOOKUP")) {
-        return;
-    }
-    QTextStream(stderr) << "nasmount: credential lookup: " << message << '\n';
-}
-
-} // namespace
 
 DialogBackend::DialogBackend(const QString &unc, const QString &urlUser, const QString &loginUser,
                              QObject *parent)
@@ -73,25 +53,25 @@ void DialogBackend::startCredentialLookup()
         return;
     }
 
-    const QUrl target = Dialog::SmbUrl::authLookupTarget(m_unc);
+    const QUrl target = Session::ShareAddress::authLookupTarget(m_unc);
     if (!target.isValid()) {
-        reportLookup(QStringLiteral("this share has no lookup target"));
+        Session::CredentialLookup::debugReport(QStringLiteral("this share has no lookup target"));
         return;
     }
 
-    m_lookup = new Dialog::CredentialLookup::Controller(this);
-    connect(m_lookup, &Dialog::CredentialLookup::Controller::candidateReady, this,
+    m_lookup = new Session::CredentialLookup::Controller(this);
+    connect(m_lookup, &Session::CredentialLookup::Controller::candidateReady, this,
             &DialogBackend::credentialSuggestion);
     // missed() reaches nothing user-visible: finding nothing is the ordinary
     // case, and an error box would turn a silent convenience into an
     // interruption. The opt-in diagnostic above is the exception,
     // because "nothing happened and nothing said why" cannot be debugged.
-    connect(m_lookup, &Dialog::CredentialLookup::Controller::missed, this,
-            [](const QString &reason) { reportLookup(QStringLiteral("no credential applied - ") + reason); });
-    connect(m_lookup, &Dialog::CredentialLookup::Controller::candidateReady, this,
-            []() { reportLookup(QStringLiteral("a stored credential was applied")); });
+    connect(m_lookup, &Session::CredentialLookup::Controller::missed, this,
+            [](const QString &reason) { Session::CredentialLookup::debugReport(QStringLiteral("no credential applied - ") + reason); });
+    connect(m_lookup, &Session::CredentialLookup::Controller::candidateReady, this,
+            []() { Session::CredentialLookup::debugReport(QStringLiteral("a stored credential was applied")); });
 
-    Dialog::CredentialLookup::Request request;
+    Session::CredentialLookup::Request request;
     request.target = target;
     // Only the URL's own username, never the local login: only the URL is
     // evidence of which SMB account is meant.
