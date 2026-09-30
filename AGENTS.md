@@ -109,8 +109,8 @@ release workflow independently rebuilds the tag through `validate_release`,
 `verify_release_set`, and `attest_and_publish`; only its last job can publish.
 The publication job renames the verified native build outputs to the
 still-versioned user-facing assets `nasmount-amd64-<version>.deb` and
-`nasmount-fedora44-x86_64-<version>.rpm`. README and generated Release-note
-one-line download commands depend on those exact names.
+`nasmount-fedora44-x86_64-<version>.rpm`. README's one-line download commands and the
+generated Release-note install commands depend on those exact names.
 
 `VERSION` is the sole place where a maintainer enters an application version.
 After committing the version bump, pushing `master`, and obtaining a successful

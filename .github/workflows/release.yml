@@ -351,20 +351,35 @@ jobs:
           [ "$RPM_ASSET" = "nasmount-fedora44-x86_64-${VERSION}.rpm" ]
           [ -f "release/$DEB_ASSET" ]
           [ -f "release/$RPM_ASSET" ]
-          printf '%s\n' \
-            "Supported systems: Kubuntu/Ubuntu 26.04 LTS amd64 with Plasma 6, and Fedora KDE Plasma 44 x86_64." \
-            "Requires Linux 6.8 or newer. Installing over an earlier release upgrades in place and keeps existing shares." \
-            "" \
-            "Ubuntu/Kubuntu download:" \
-            "wget https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${DEB_ASSET}" \
-            "Install: sudo apt install ./${DEB_ASSET}" \
-            "" \
-            "Fedora download:" \
-            "wget https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${RPM_ASSET}" \
-            "Install: sudo dnf install ./${RPM_ASSET}" \
-            "Uninstall: nasmount-uninstall" \
-            "Checksums: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/nasmount-${VERSION}-SHA256SUMS" \
-            "Source: https://github.com/${GITHUB_REPOSITORY}/tree/${TAG}" > release-notes.txt
+          cat > release-notes.txt <<EOF
+          ## Supported systems
+
+          - **Kubuntu / Ubuntu 26.04 LTS** (amd64) with Plasma 6, as a \`.deb\`
+          - **Fedora KDE Plasma 44** (x86_64), as a \`.rpm\`
+
+          Requires Linux 6.8 or newer.
+
+          ## Install
+
+          Download the package for your system from the assets below.
+
+          **Kubuntu / Ubuntu**
+
+          \`\`\`bash
+          sudo apt install ./${DEB_ASSET}
+          \`\`\`
+
+          **Fedora**
+
+          \`\`\`bash
+          sudo dnf install ./${RPM_ASSET}
+          \`\`\`
+
+          ## Upgrade
+
+          Installing over an earlier release upgrades in place and keeps your existing shares.
+
+          EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --draft --title "nasmount $VERSION" --notes-file release-notes.txt
           else
