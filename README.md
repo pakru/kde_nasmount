@@ -1,5 +1,11 @@
 # KDE NAS Mount
 
+[![CI](https://github.com/pakru/kde_nasmount/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/pakru/kde_nasmount/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/pakru/kde_nasmount)](https://github.com/pakru/kde_nasmount/releases/latest)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+[![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-1d99f3)](#install)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+
 Mount SMB network shares from Dolphin in two clicks. No `fstab` editing, and
 mounts come back after reboot.
 
