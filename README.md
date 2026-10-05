@@ -1,60 +1,69 @@
-# KDE NAS Mount 
+# KDE NAS Mount
 
-### Easy network mounts w/out CLI hustle for KDE
-Make your SMB network shares easly connected to your KDE Plasma desktop.
+Mount SMB network shares from Dolphin in two clicks. No `fstab` editing, and
+mounts come back after reboot.
 
-Current builds suppor:
- - deb - Kubuntu 26.04+
- - rpm - Fedora 44+
+![Network Mounts settings page](docs/img/img2.png)
 
-Custom build:
- - KDE Plasma 6.0+ and Linux kernel 6.8+ on any other distro
- 
-## Downloads and Install
+**Supported:** Kubuntu 26.04+ (`.deb`), Fedora KDE 44+ (`.rpm`). Other distros
+can build from source (Plasma 6.0+, Linux 6.8+).
 
-Download the latest package for your system with one command. Replace
-`<version>` with the number shown on the
-[latest release](https://github.com/pakru/kde_nasmount/releases/latest) - its
-release notes carry the same commands with the version filled in.
+## Install
 
-Kubuntu 26.04 LTS amd64:
+Replace `<version>` with the number on the
+[latest release](https://github.com/pakru/kde_nasmount/releases/latest).
 
 ```bash
+# Kubuntu 26.04 amd64
 wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-amd64-<version>.deb
-```
+sudo apt install ./nasmount-amd64-<version>.deb
 
-Fedora KDE 44 x86_64:
-
-```bash
+# Fedora KDE 44 x86_64
 wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-fedora44-x86_64-<version>.rpm
-```
-
-Then install the downloaded package:
-
-```bash
-sudo apt install ./nasmount-amd64-<version>.deb                   # Kubuntu
-sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm         # Fedora
+sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm
 ```
 
 ## Usage
 
-* Start a new Dolphin session. Go to your SMB share, right-click a network folder and choose "Mount as Network Drive…".
+1. In Dolphin, browse to an SMB share, right-click a folder and choose
+   **Mount as Network Drive…**.
 
-![Mount as Network drive in Dolphin](docs/img/img3.png)
+   ![Mount as Network drive in Dolphin](docs/img/img3.png)
 
-* Choose an empty local folder to mount your network folder on, enter your SMB credentials (your current SMB credentials are used by default), choose the chmod access level for mounted folders and files, and click "Mount".
+2. Pick an empty local folder, enter credentials and access level, click **Mount**.
 
-![Mount as Network Drive dialog](docs/img/img1.png)
+   ![Mount as Network Drive dialog](docs/img/img1.png)
 
-* See and manage your network mounts in KDE System Settings:
+3. Manage mounts in **System Settings → Network Mounts**, or run `nasmount`.
 
-![Network Mounts settings page](docs/img/img2.png)
+## How it works
 
-* Or open the same page in its own window: run `nasmount`, or launch "SMB Network Mounts" from the System section of the application menu.
+Each share becomes a systemd `.mount`/`.automount` unit pair, with its
+credentials in a root-owned file, and is armed at boot. A small polkit-
+authenticated helper does all the privileged work.
+
+## Uninstall
+
+Use the package manager. It unmounts and deletes all your shares and their
+saved credentials as well:
+
+```bash
+sudo apt purge nasmount                    # Kubuntu
+sudo dnf remove --no-autoremove nasmount   # Fedora
+```
+
+## Feedback
+
+Bug reports, testing results on other distros and pull requests are welcome:
+[open an issue](https://github.com/pakru/kde_nasmount/issues). See
+[CONTRIBUTING.md](CONTRIBUTING.md) before sending code.
 
 ## Source-build requirements
 
 A **Plasma 6+ / KF6+** desktop and **Linux 6.8+** (for `STATX_MNT_ID_UNIQUE`).
+
+<details>
+<summary>Build dependencies</summary>
 
 On Kubuntu 26.04, install the packages needed to build, test, and run it:
 
@@ -80,15 +89,15 @@ sudo dnf install \
   qt6-qtdeclarative-devel systemd
 ```
 
+</details>
+
 ## Build and install from source
 
 ```bash
-make install
+make install        # or ./install.sh
 ```
-or
-```bash
-./install.sh        
-```
+
+Run it as your own user, not root: it builds as you and elevates only to install.
 
 ## Author and licence
 
