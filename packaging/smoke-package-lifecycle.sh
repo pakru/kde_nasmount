@@ -26,6 +26,8 @@ log_dir=${4:-}
     exit 1
 }
 
+# apt treats a relative path without a leading ./ as a package name.
+package_dir="$(cd "$package_dir" && pwd)"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 corpus="$repo_root/tests/golden/units/v0.1.0"
 mkdir -p -- "$log_dir"
