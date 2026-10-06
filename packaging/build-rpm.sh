@@ -58,7 +58,10 @@ sed -e "s/@VERSION@/$version/g" -e "s/@RELEASE@/$release/g" \
     -e "s/@CHANGELOG_DATE@/$changelog_date/g" \
     "$repo_root/packaging/rpm/nasmount.spec.in" > "$top_dir/SPECS/nasmount.spec"
 
-rpmbuild --define "_topdir $top_dir" -ba "$top_dir/SPECS/nasmount.spec"
+# NASMOUNT_NOCHECK=1 skips %check, the RPM counterpart of DEB_BUILD_OPTIONS=nocheck.
+rpmbuild_args=(--define "_topdir $top_dir")
+[ "${NASMOUNT_NOCHECK:-}" != 1 ] || rpmbuild_args+=(--nocheck)
+rpmbuild "${rpmbuild_args[@]}" -ba "$top_dir/SPECS/nasmount.spec"
 artifact="$top_dir/RPMS/x86_64/nasmount-${version}-${release}.fc44.x86_64.rpm"
 [ -f "$artifact" ] || {
     echo "ERROR: expected package was not produced: $artifact" >&2

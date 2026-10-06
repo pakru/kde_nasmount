@@ -14,8 +14,13 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	cmake --build build --parallel
 
+# An explicit override bypasses debhelper's own nocheck handling, so honour
+# DEB_BUILD_OPTIONS=nocheck here (CI's release-2 upgrade build uses it).
 override_dh_auto_test:
+	@:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	ctest --test-dir build --output-on-failure
+endif
 
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp cmake --install build

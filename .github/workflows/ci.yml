@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request supersedes the older run. Every other run is
+# keyed by its commit and never cancelled or queued behind another: the
+# release script waits for the run of one exact master SHA.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate_packaging:
     name: Validate packaging and source gates
@@ -141,95 +148,8 @@ jobs:
           path: downloaded
       - name: Install, inspect, and remove package
         run: |
-          mkdir -p logs
-          if [ "${{ matrix.family }}" = deb ]; then
-            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-              ./downloaded/artifacts/*.deb
-            dpkg-query -L nasmount > logs/owned-paths.txt
-            bash packaging/smoke-installed-package.sh deb "$(tr -d '[:space:]' < VERSION)" \
-              | tee logs/inspection.txt
-            # Seed managed state. `apt remove` now disarms shares and
-            # succeeds; only `apt purge` deletes their units and credentials.
-            # The container has no running systemd, so prerm's unmount path is
-            # short-circuited here -- that half is covered by the VM checklist,
-            # not by CI.
-            corpus=tests/golden/units/v0.1.0
-            install -d -m 0700 /etc/nasmount
-            install -m 0600 /dev/null /etc/nasmount/0123456789abcdef0123456789abcdef.cred
-            install -m 0644 "$corpus/credentials.mount" \
-              /etc/systemd/system/home-tester-mnt-media.mount
-            install -m 0644 "$corpus/credentials.automount" \
-              /etc/systemd/system/home-tester-mnt-media.automount
-
-            DEBIAN_FRONTEND=noninteractive apt-get remove -y nasmount
-            ! dpkg-query -s nasmount 2>/dev/null \
-              | grep -q '^Status: install ok installed$'
-            # remove is not purge: state must survive for a later purge.
-            [ -f /etc/systemd/system/home-tester-mnt-media.mount ]
-            [ -f /etc/nasmount/0123456789abcdef0123456789abcdef.cred ]
-
-            DEBIAN_FRONTEND=noninteractive apt-get purge -y nasmount
-            for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
-                            /etc/systemd/system/home-tester-mnt-media.automount \
-                            /etc/nasmount; do
-              if [ -e "$leftover" ]; then
-                echo "ERROR: purge left $leftover behind" >&2
-                exit 1
-              fi
-            done
-            if dpkg-query -W -f='${db:Status-Status}\n' nasmount 2>/dev/null | grep -q .; then
-              echo 'ERROR: purge left the package in dpkg state' >&2
-              exit 1
-            fi
-          else
-            dnf install -y --allowerasing --setopt=install_weak_deps=False \
-              ./downloaded/artifacts/*.rpm
-            rpm -ql nasmount > logs/owned-paths.txt
-            bash packaging/smoke-installed-package.sh rpm "$(tr -d '[:space:]' < VERSION)" \
-              | tee logs/inspection.txt
-
-            # Seed managed state. RPM has no remove/purge split, so an erase
-            # does what `apt purge` does on the DEB: disarm and delete. The
-            # container has no running systemd, so the unmount half is
-            # short-circuited -- that is covered by the VM checklist, not here.
-            corpus=tests/golden/units/v0.1.0
-            install -d -m 0700 /etc/nasmount
-            install -m 0600 /dev/null /etc/nasmount/0123456789abcdef0123456789abcdef.cred
-            install -m 0644 "$corpus/credentials.mount" \
-              /etc/systemd/system/home-tester-mnt-media.mount
-            install -m 0644 "$corpus/credentials.automount" \
-              /etc/systemd/system/home-tester-mnt-media.automount
-
-            rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
-              > logs/rpm-packages-before-removal.txt
-            dnf remove -y --no-autoremove nasmount
-            ! rpm -q nasmount >/dev/null 2>&1
-            rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort \
-              > logs/rpm-packages-after-removal.txt
-            # --no-autoremove must leave every dependency in place. Build the
-            # expected after-set by removing exactly the nasmount line and
-            # compare byte for byte. A `diff | grep -v` check cannot work here:
-            # every content line diff emits starts with '<' or '>', so the
-            # filter eats them all and the test passes no matter what changed.
-            [ "$(grep -c '^nasmount-' logs/rpm-packages-before-removal.txt)" -eq 1 ]
-            grep -v '^nasmount-' logs/rpm-packages-before-removal.txt \
-              > logs/rpm-packages-expected-after.txt
-            cmp logs/rpm-packages-expected-after.txt logs/rpm-packages-after-removal.txt || {
-              echo 'ERROR: Fedora removal changed packages other than nasmount' >&2
-              diff logs/rpm-packages-expected-after.txt \
-                   logs/rpm-packages-after-removal.txt >&2 || true
-              exit 1
-            }
-
-            for leftover in /etc/systemd/system/home-tester-mnt-media.mount \
-                            /etc/systemd/system/home-tester-mnt-media.automount \
-                            /etc/nasmount; do
-              if [ -e "$leftover" ]; then
-                echo "ERROR: RPM erase left $leftover behind" >&2
-                exit 1
-              fi
-            done
-          fi
+          bash packaging/smoke-package-lifecycle.sh "${{ matrix.family }}" \
+            "$(tr -d '[:space:]' < VERSION)" downloaded/artifacts logs
           printf '%s smoke install/removal passed\n' '${{ matrix.target }}' > logs/result.txt
       - name: Upload smoke report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -269,10 +189,13 @@ jobs:
           # A packaging-only revision bump is a genuine dpkg upgrade and needs
           # no published release asset. build-deb.sh refuses to run as root and
           # requires an empty output directory, so mirror build_deb's setup.
+          # Only the revision differs from the tree build_deb already tested,
+          # so the test suite is not run a second time.
           printf '2\n' > packaging/RELEASE
           mkdir -p artifacts-r2
           chown -R builder:builder "$GITHUB_WORKSPACE"
-          runuser -u builder -- ./packaging/build-deb.sh artifacts-r2
+          runuser -u builder -- env DEB_BUILD_OPTIONS=nocheck \
+            ./packaging/build-deb.sh artifacts-r2
           printf '1\n' > packaging/RELEASE
       - name: Upgrade in place over seeded managed state
         run: |
@@ -369,10 +292,13 @@ jobs:
           # A packaging-only revision bump is a genuine RPM upgrade and needs no
           # published release asset. build-rpm.sh refuses to run as root and
           # requires an empty output directory, so mirror build_rpm's setup.
+          # Only the revision differs from the tree build_rpm already tested,
+          # so the test suite is not run a second time.
           printf '2\n' > packaging/RELEASE
           mkdir -p artifacts-r2
           chown -R builder:builder "$GITHUB_WORKSPACE"
-          runuser -u builder -- ./packaging/build-rpm.sh artifacts-r2
+          runuser -u builder -- env NASMOUNT_NOCHECK=1 \
+            ./packaging/build-rpm.sh artifacts-r2
           printf '1\n' > packaging/RELEASE
       - name: Upgrade in place over seeded managed state
         run: |

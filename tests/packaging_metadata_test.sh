@@ -92,30 +92,54 @@ grep -Fq 'name: Check out validated tag for publication' \
 grep -A5 -F 'name: Check out validated tag for publication' \
     "$repo_root/.github/workflows/release.yml" | grep -Fq 'persist-credentials: false'
 grep -Fq -- '--no-autoremove nasmount' "$repo_root/packaging/nasmount-uninstall.sh"
-# Every Fedora removal anywhere in the workflows must carry --no-autoremove:
-# DNF can keep removing unused dependencies after a failed transaction, leaving
-# nasmount installed without Qt. Counting is the point -- a bare `dnf remove`
-# added later must not slip past, so compare against the total.
-for workflow in "$repo_root/.github/workflows/ci.yml" "$repo_root/.github/workflows/release.yml"; do
-    guarded=$(grep -Fc 'dnf remove -y --no-autoremove nasmount' "$workflow" || true)
-    total=$(grep -Ec 'dnf remove [^|]*nasmount' "$workflow" || true)
-    [ "$guarded" -eq "$total" ] && [ "$guarded" -ge 1 ] || {
-        echo "ERROR: $workflow has $total Fedora removals but only $guarded" >&2
+# Every Fedora removal anywhere in the workflows and the shared smoke script
+# must carry --no-autoremove: DNF can keep removing unused dependencies after a
+# failed transaction, leaving nasmount installed without Qt. Counting is the
+# point -- a bare `dnf remove` added later must not slip past, so compare
+# against the total.
+smoke_script="$repo_root/packaging/smoke-package-lifecycle.sh"
+for file in "$repo_root/.github/workflows/ci.yml" "$repo_root/.github/workflows/release.yml" \
+    "$smoke_script"; do
+    guarded=$(grep -Fc 'dnf remove -y --no-autoremove nasmount' "$file" || true)
+    total=$(grep -Ec 'dnf remove [^|]*nasmount' "$file" || true)
+    [ "$guarded" -eq "$total" ] || {
+        echo "ERROR: $file has $total Fedora removals but only $guarded" >&2
         echo "       carry --no-autoremove" >&2
         exit 1
     }
-    grep -Fq 'rpm-packages-before-removal.txt' "$workflow"
-    grep -Fq 'rpm-packages-after-removal.txt' "$workflow"
-    # The snapshot comparison must be a cmp against an expected set. Piping
-    # `diff` into `grep -v '^[<>]'` discards every content line, so such a
-    # check passes however many dependencies DNF removed.
-    grep -Fq 'rpm-packages-expected-after.txt' "$workflow"
-    if grep -Eq "diff logs/rpm-packages-before-removal" "$workflow" \
-        && grep -Eq "grep -Ev .\^\[0-9<>-\]" "$workflow"; then
-        echo "ERROR: $workflow uses a diff|grep snapshot check that cannot fail" >&2
-        exit 1
-    fi
 done
+[ "$(grep -Fc 'dnf remove -y --no-autoremove nasmount' "$smoke_script")" -ge 1 ]
+
+# CI and the release workflow run the same smoke script; an inline copy would
+# let the two drift apart.
+for workflow in "$repo_root/.github/workflows/ci.yml" "$repo_root/.github/workflows/release.yml"; do
+    grep -Fq 'packaging/smoke-package-lifecycle.sh' "$workflow" || {
+        echo "ERROR: $workflow does not run the shared smoke script" >&2
+        exit 1
+    }
+done
+
+# The release-2 upgrade builds recompile a tree build_deb/build_rpm already
+# tested, so they skip the test suite; the DEB rules override must honour it.
+grep -Fq 'DEB_BUILD_OPTIONS=nocheck' "$repo_root/.github/workflows/ci.yml"
+grep -Fq 'NASMOUNT_NOCHECK=1' "$repo_root/.github/workflows/ci.yml"
+grep -Fq 'filter nocheck,$(DEB_BUILD_OPTIONS)' "$repo_root/packaging/debian/rules"
+grep -Fq -- '--nocheck' "$repo_root/packaging/build-rpm.sh"
+# Superseded pull-request runs are cancelled; master runs must never be, since
+# the release script waits for the run of one exact SHA.
+grep -Fq 'cancel-in-progress: ${{ github.event_name == '"'"'pull_request'"'"' }}' \
+    "$repo_root/.github/workflows/ci.yml"
+grep -Fq 'rpm-packages-before-removal.txt' "$smoke_script"
+grep -Fq 'rpm-packages-after-removal.txt' "$smoke_script"
+# The snapshot comparison must be a cmp against an expected set. Piping
+# `diff` into `grep -v '^[<>]'` discards every content line, so such a
+# check passes however many dependencies DNF removed.
+grep -Fq 'rpm-packages-expected-after.txt' "$smoke_script"
+if grep -Eq "diff [^ ]*rpm-packages-before-removal" "$smoke_script" \
+    && grep -Eq "grep -Ev .\^\[0-9<>-\]" "$smoke_script"; then
+    echo "ERROR: $smoke_script uses a diff|grep snapshot check that cannot fail" >&2
+    exit 1
+fi
 
 # --- credential autofill build dependencies ----------------------------------
 # Six hand-maintained lists have to agree, and a missing entry fails only in
