@@ -171,6 +171,12 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
         *error = QStringLiteral("the share address contains control characters");
         return false;
     }
+    // Named on its own because the generic message below lists what is allowed, and a comma
+    // looks like it should be; the core refuses it, so this only improves the wording.
+    if (candidate.contains(QLatin1Char(','))) {
+        *error = QStringLiteral("the share address may not contain a comma");
+        return false;
+    }
     QString normalised;
     QString ignored;
     if (!UnitSpec::validateUnc(candidate, &normalised, &ignored)) {

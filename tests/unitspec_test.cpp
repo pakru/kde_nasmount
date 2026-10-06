@@ -92,6 +92,10 @@ int main(int argc, char **argv)
     expectUnc(QStringLiteral("missing leading slashes"), QStringLiteral("192.0.2.10/DATA"), false);
     expectUnc(QStringLiteral("host only, no share"), QStringLiteral("//192.0.2.10/"), false);
     expectUnc(QStringLiteral("dotdot in share"), QStringLiteral("//192.0.2.10/a/../../etc"), false);
+    expectUnc(QStringLiteral("comma in the share name"), QStringLiteral("//192.0.2.10/DA,TA"), false);
+    expectUnc(QStringLiteral("comma in a subdirectory"), QStringLiteral("//192.0.2.10/DATA/a,b"), false);
+    expectUnc(QStringLiteral("comma in the host"), QStringLiteral("//192.0.2.10,x/DATA"), false);
+    expectUnc(QStringLiteral("trailing comma"), QStringLiteral("//192.0.2.10/DATA,"), false);
 
     out << "=== mount point validation ===" << Qt::endl;
     expectMountpoint(QStringLiteral("under home"), home + QStringLiteral("/Documents"), home, true);
@@ -650,6 +654,11 @@ int main(int argc, char **argv)
             QString tampered = baseMount;
             tampered.replace(QStringLiteral("What=//192.0.2.10/DATA"), QStringLiteral("What=not-a-unc"));
             expectMountRejected(QStringLiteral("invalid What= rejected"), tampered);
+        }
+        {
+            QString tampered = baseMount;
+            tampered.replace(QStringLiteral("What=//192.0.2.10/DATA"), QStringLiteral("What=//192.0.2.10/DATA/a,b"));
+            expectMountRejected(QStringLiteral("a comma in What= rejected"), tampered);
         }
         {
             QString tampered = baseMount;

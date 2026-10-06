@@ -43,6 +43,13 @@ bool validateUnc(const QString &unc, QString *normalised, QString *error)
         *error = QStringLiteral("UNC path contains control characters");
         return false;
     }
+    // mount.cifs does not escape a comma in the share or subfolder, so the kernel would read
+    // what follows as further mount options, ahead of or after the fixed Options=. No share
+    // with a comma in this part ever mounted, so refusing it loses nothing.
+    if (unc.contains(QLatin1Char(','))) {
+        *error = QStringLiteral("UNC path may not contain a comma");
+        return false;
+    }
 
     QString value = unc;
     while (value.endsWith(QLatin1Char('/'))) {

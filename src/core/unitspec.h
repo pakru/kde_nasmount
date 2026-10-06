@@ -44,7 +44,9 @@ bool hasControlChars(const QString &value);
  *
  * IPv6 literals are deliberately rejected: mount.cifs wants those in the
  * separate ip= option, and silently building //[::1]/share would produce a unit
- * that fails obscurely at boot.
+ * that fails obscurely at boot. A comma anywhere is rejected too, because it
+ * would end the value and start a new mount option; the unit validator shares
+ * this function, so a unit already carrying one reads as Tampered.
  */
 bool validateUnc(const QString &unc, QString *normalised, QString *error);
 

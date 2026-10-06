@@ -222,6 +222,10 @@ int main(int argc, char **argv)
     expectRefused(QStringLiteral("http:// is refused"), QStringLiteral("http://nas/share"), QString());
     expectRefused(QStringLiteral("no prefix is refused"), QStringLiteral("nas/share"), QString());
     expectRefused(QStringLiteral("'..' is refused"), QStringLiteral("smb://nas/share/../other"), QString());
+    expectRefused(QStringLiteral("a comma in smb:// is refused"), QStringLiteral("smb://nas/share/a,b"), QString());
+    expectRefused(QStringLiteral("a comma in // is refused"), QStringLiteral("//nas/share/a,b"), QString());
+    expectRefused(QStringLiteral("a percent-encoded comma is refused"), QStringLiteral("smb://nas/share/a%2Cb"),
+                  QString());
     {
         QString unc;
         QString error;
@@ -321,6 +325,8 @@ int main(int argc, char **argv)
               !shareInputProblem(QStringLiteral("smb://na$s/DATA"), QString()).contains(QStringLiteral("source was")));
         expectProblem(QStringLiteral("a host that parses but cannot be mounted"),
                       QStringLiteral("//na$s/DATA"), QString(), QStringLiteral("not a valid share address"));
+        expectProblem(QStringLiteral("a comma is named as the cause"), QStringLiteral("smb://nas/share/a,b"),
+                      QString(), QStringLiteral("comma"));
         expectProblem(QStringLiteral("a user in the address needs a Username"),
                       QStringLiteral("smb://alice@nas.local/DATA"), QString(), QStringLiteral("Username"));
         expectProblem(QStringLiteral("a user in the address must match Username"),
