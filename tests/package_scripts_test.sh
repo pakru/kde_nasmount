@@ -361,7 +361,8 @@ if "$tag_test_repo/packaging/tag-release.sh" >"$tag_test_root/dirty.out" 2>&1; t
     echo "ERROR: release helper accepted a dirty worktree" >&2
     exit 1
 fi
-if "$tag_test_repo/packaging/release-next.sh" >"$tag_test_root/next-dirty.out" 2>&1; then
+if "$tag_test_repo/packaging/release-next.sh" \
+    >"$tag_test_root/next-dirty.out" 2>&1 </dev/null; then
     echo "ERROR: automatic release accepted a dirty worktree" >&2
     exit 1
 fi
@@ -445,7 +446,7 @@ git -C "$failure_repo" config user.name 'nasmount release test'
 git -C "$failure_repo" config user.email 'release-test@nasmount.invalid'
 git -C "$failure_repo" switch --quiet -c ci-failure
 if PATH="$tag_test_root:$PATH" TEST_CI_FAIL=1 \
-    "$failure_repo/packaging/release-next.sh" >"$tag_test_root/ci-failure.out" 2>&1; then
+    "$failure_repo/packaging/release-next.sh" >"$tag_test_root/ci-failure.out" 2>&1 </dev/null; then
     echo "ERROR: automatic release continued after CI failed" >&2
     exit 1
 fi
@@ -454,11 +455,22 @@ fi
     exit 1
 }
 
-next_output="$(PATH="$tag_test_root:$PATH" "$tag_test_repo/packaging/release-next.sh")"
+next_output="$(PATH="$tag_test_root:$PATH" "$tag_test_repo/packaging/release-next.sh" </dev/null)"
 [ "$(<"$tag_test_repo/VERSION")" = "$next_version" ]
 [ "$(git --git-dir="$tag_test_origin" show master:VERSION)" = "$next_version" ]
 [ "$(git --git-dir="$tag_test_origin" rev-parse "$next_tag^{commit}")" = \
     "$(git --git-dir="$tag_test_origin" rev-parse master)" ]
 grep -Fq "Published https://github.com/test/nasmount/releases/tag/$next_tag" <<<"$next_output"
+
+# The version is prompted for: a rejected answer asks again, and a chosen
+# version replaces the suggested patch bump.
+custom_version="$expected_major.$((10#$expected_minor + 1)).0"
+custom_output="$(printf '%s\n' "$expected_tag" '0.0.1' "$next_version" 'v1.2' "v$custom_version" |
+    PATH="$tag_test_root:$PATH" "$tag_test_repo/packaging/release-next.sh" 2>&1)"
+grep -Fq "must be higher than the current version $next_version" <<<"$custom_output"
+grep -Fq "tag v$next_version already exists" <<<"$custom_output"
+grep -Fq 'not a MAJOR.MINOR.PATCH version' <<<"$custom_output"
+[ "$(<"$tag_test_repo/VERSION")" = "$custom_version" ]
+grep -Fq "Published https://github.com/test/nasmount/releases/tag/v$custom_version" <<<"$custom_output"
 
 echo "Native package shell checks passed."

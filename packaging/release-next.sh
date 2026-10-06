@@ -1,6 +1,9 @@
 #!/bin/bash
-# Bump the patch version and release the checked-out branch through CI.
+# Bump VERSION and release the checked-out branch through CI.
 # SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The version is asked for interactively; Enter accepts the suggested next
+# patch version, and anything else must be a higher, unused MAJOR.MINOR.PATCH.
 #
 # A tag must name the commit that contains its matching VERSION. Keep that
 # order here: commit and push the bump, run the full CI workflow for that exact
@@ -14,8 +17,10 @@ usage()
     cat <<'EOF'
 Usage: ./packaging/release-next.sh [--sign]
 
-From the current branch, bump VERSION to the next unused patch version,
-commit and push it, run and wait for CI, then tag and push the tested commit.
+From the current branch, ask which version to release (Enter accepts the
+suggested next unused patch version), bump VERSION to it, commit and push it,
+run and wait for CI, then tag and push the tested commit. With no input
+(stdin at end of file) the suggestion is used.
 Wait for the release workflow and report the published GitHub Release.
 Use --sign to sign the annotated tag with your configured Git signing key.
 EOF
@@ -131,14 +136,44 @@ highest_version="$(printf '%s\n' "$version" "${remote_versions[@]}" | sort -V | 
     || fail "VERSION $version is behind existing tag v$highest_version"
 next_patch=$((10#$patch + 1))
 while :; do
-    next_version="$major.$minor.$next_patch"
-    tag="v$next_version"
-    if [ -z "${used_tags[$tag]:-}" ] \
-        && ! git show-ref --verify --quiet "refs/tags/$tag"; then
+    suggested_version="$major.$minor.$next_patch"
+    if [ -z "${used_tags[v$suggested_version]:-}" ] \
+        && ! git show-ref --verify --quiet "refs/tags/v$suggested_version"; then
         break
     fi
     next_patch=$((next_patch + 1))
 done
+
+# Empty when the candidate is acceptable, otherwise the reason it is not.
+version_problem()
+{
+    local candidate="$1"
+    if ! [[ "$candidate" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+        printf 'not a MAJOR.MINOR.PATCH version'
+    elif [ -n "${used_tags[v$candidate]:-}" ] \
+        || git show-ref --verify --quiet "refs/tags/v$candidate"; then
+        printf 'tag v%s already exists' "$candidate"
+    elif [ "$candidate" = "$highest_version" ] \
+        || [ "$(printf '%s\n%s\n' "$candidate" "$highest_version" | sort -V | tail -n 1)" \
+            != "$candidate" ]; then
+        printf 'must be higher than the current version %s' "$highest_version"
+    fi
+}
+
+while :; do
+    eof=false
+    printf 'Version to release [%s]: ' "$suggested_version" >&2
+    IFS= read -r answer || eof=true
+    answer="${answer//[[:space:]]/}"
+    answer="${answer#v}"
+    [ -n "$answer" ] || answer="$suggested_version"
+    problem="$(version_problem "$answer")"
+    [ -n "$problem" ] || break
+    printf 'ERROR: %s: %s\n' "$answer" "$problem" >&2
+    ! "$eof" || fail "no valid version was supplied"
+done
+next_version="$answer"
+tag="v$next_version"
 
 printf '%s\n' "$next_version" > VERSION
 git add -- VERSION
