@@ -153,7 +153,7 @@ QQC2.ApplicationWindow {
             wrapMode: Text.WordWrap
             opacity: 0.7
             font.italic: true
-            text: "To change settings for a saved share, use System Settings → Network Mounts. "
+            text: "To change settings for a saved share, use System Settings → SMB Network Mounts. "
                 + "Remove below deletes it entirely."
             Layout.fillWidth: true
         }

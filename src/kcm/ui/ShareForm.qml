@@ -452,7 +452,7 @@ ColumnLayout {
         QQC2.ToolTip.visible: hovered
         QQC2.ToolTip.delay: 500
         QQC2.ToolTip.timeout: 8000
-        QQC2.ToolTip.text: "Read only access to remote files"            
+        QQC2.ToolTip.text: "Read only access to remote files"
     }
     QQC2.RadioButton {
         id: readWriteRadio
@@ -465,7 +465,7 @@ ColumnLayout {
         QQC2.ToolTip.visible: hovered
         QQC2.ToolTip.delay: 500
         QQC2.ToolTip.timeout: 8000
-        QQC2.ToolTip.text: "Read and Write access to remote files"            
+        QQC2.ToolTip.text: "Read and Write access to remote files"
     }
     QQC2.RadioButton {
         id: executableRadio
@@ -477,13 +477,13 @@ ColumnLayout {
         QQC2.ToolTip.visible: hovered
         QQC2.ToolTip.delay: 500
         QQC2.ToolTip.timeout: 8000
-        QQC2.ToolTip.text: "Read, Write and Execution access to remote files\nAllows programs stored on the share to run"            
+        QQC2.ToolTip.text: "Read, Write and Execution access to remote files\nAllows programs stored on the share to run"
     }
     QQC2.Label {
         wrapMode: Text.WordWrap
         opacity: 0.6
         font.italic: true
-        text: "To change a network mount, remove and add it again in System settings"
+        text: "To change a network mount, remove and add it again in System Settings"
         Layout.fillWidth: true
         Layout.topMargin: 6
     }

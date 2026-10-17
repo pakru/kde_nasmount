@@ -40,7 +40,7 @@ sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm
 
    ![Mount as Network Drive dialog](docs/img/img1.png)
 
-3. Manage mounts in **System Settings → Network Mounts**, or run `nasmount`.
+3. Manage mounts in **System Settings → SMB Network Mounts**, or run `nasmount`.
 
 ## How it works
 

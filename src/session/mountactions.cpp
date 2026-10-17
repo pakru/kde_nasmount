@@ -176,8 +176,8 @@ void MountActions::addShare(const QString &shareInput, const QString &rawMountPo
 
         r.success = true;
         r.message = defineResult.activated
-            ? QStringLiteral("Share successfuly added and mounted")
-            : QStringLiteral("Share added, but could not be mounted - check setting for more info"); // TODO improve this message
+            ? QStringLiteral("Share added and mounted")
+            : QStringLiteral("Share added, but it could not be mounted - see its state in the list");
         return r;
     });
 
