@@ -434,10 +434,14 @@ add_test(NAME credentiallookup COMMAND credentiallookup_test)
 # Loads the *real* ShareForm.qml for the one rule no C++ model can stand in
 # for: that an imported credential is never paired with a typed one. Read
 # from the source tree, since a staged copy can go stale.
+# The form calls i18n(), which exists only in an engine given KI18n's QML
+# context, as both hosts do; the test gives its engine the same one, under the
+# same catalog name, so it loads the form the way a host does.
 add_executable(shareform_qml_test tests/shareform_qml_test.cpp)
-target_link_libraries(shareform_qml_test PRIVATE Qt6::Gui Qt6::Qml Qt6::Quick)
+target_link_libraries(shareform_qml_test PRIVATE Qt6::Gui Qt6::Qml Qt6::Quick KF6::I18n KF6::I18nQml)
 target_compile_definitions(shareform_qml_test
-    PRIVATE NASMOUNT_SHAREFORM_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/kcm/ui/ShareForm.qml")
+    PRIVATE NASMOUNT_SHAREFORM_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/kcm/ui/ShareForm.qml"
+            TRANSLATION_DOMAIN="${NASMOUNT_TRANSLATION_DOMAIN}")
 add_test(NAME shareform_qml COMMAND shareform_qml_test)
 
 add_executable(unitvalue_test tests/unitvalue_test.cpp)

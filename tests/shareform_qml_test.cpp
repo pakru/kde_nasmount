@@ -13,6 +13,8 @@
  * assigns, which pins the distinction the feature rests on.
  */
 
+#include <KLocalizedQmlContext>
+
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QQmlComponent>
@@ -258,6 +260,20 @@ bool radioChecked(QObject *form, const char *name)
     return propertyOf(form, name, "checked").toBool();
 }
 
+/** Whether anything under the form shows exactly this text. The labels carry
+ *  no objectName (nothing else needs to reach them), so they are found the way
+ *  a user finds them: by what they say. */
+bool showsText(QObject *form, const QString &text)
+{
+    const auto children = form->findChildren<QObject *>();
+    for (const QObject *child : children) {
+        if (child->property("text").toString() == text) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -273,6 +289,12 @@ int main(int argc, char **argv)
     out << "shareform_qml_test" << Qt::endl;
 
     QQmlEngine engine;
+    // ShareForm resolves i18n() from its host's context, as it does in the KCM
+    // (KCMUtils sets one up) and in nasmount-dialog (main.cpp does). A bare
+    // engine has none, and the form would throw a ReferenceError the moment a
+    // label binding evaluated. It takes the catalog name from
+    // TRANSLATION_DOMAIN, like the dialog's.
+    KLocalization::setupLocalizedContext(&engine);
     QQmlComponent component(&engine, QUrl::fromLocalFile(QStringLiteral(NASMOUNT_SHAREFORM_QML)));
     if (component.isError()) {
         out << "  FAIL  ShareForm.qml does not load   " << component.errorString() << Qt::endl;
@@ -1071,6 +1093,21 @@ int main(int argc, char **argv)
                   && propertyOf(form, "readWriteRadio", "text").toString() == QStringLiteral("Read & Write")
                   && propertyOf(form, "executableRadio", "text").toString()
                       == QStringLiteral("Read & Write & Execute"));
+        delete form;
+    }
+
+    // --- localization --------------------------------------------------------
+    {
+        // Proves i18n() ran inside the form and returned the source text. The
+        // suite pins LANGUAGE=en_US, so the label reads as its source text.
+        // Without a localization context the binding throws a ReferenceError
+        // and the label stays empty.
+        QObject *form = freshForm();
+        if (!form) {
+            return 1;
+        }
+        check(QStringLiteral("a label is the English source text under a localization context"),
+              showsText(form, QStringLiteral("Mount point:")));
         delete form;
     }
 

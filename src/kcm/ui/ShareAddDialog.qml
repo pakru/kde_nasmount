@@ -39,7 +39,7 @@ import org.kde.kirigami as Kirigami
 QQC2.Dialog {
     id: dialog
     modal: true
-    title: "Add network mount"
+    title: i18nc("@title:window", "Add network mount")
     width: Math.min((parent ? parent.width : 640) - 40, 520)
 
     /** True from Add until the add finishes - also after the dialog was
@@ -117,7 +117,7 @@ QQC2.Dialog {
                 implicitHeight: Kirigami.Units.iconSizes.smallMedium
             }
             QQC2.Label {
-                text: "Adding… confirm in the authentication prompt"
+                text: i18nc("@info:status", "Adding… confirm in the authentication prompt")
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -150,7 +150,7 @@ QQC2.Dialog {
         standardButtons: QQC2.DialogButtonBox.Cancel
 
         QQC2.Button {
-            text: "Add"
+            text: i18nc("@action:button", "Add")
             icon.name: "list-add"
             enabled: form.canSubmit && !dialog.busy
             // ApplyRole, not AcceptRole: the box routes AcceptRole to the

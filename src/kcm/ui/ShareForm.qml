@@ -49,6 +49,17 @@
  *
  * No Kirigami here: shareform_qml_test loads this exact file in the native
  * package builds, whose containers do not have Kirigami installed.
+ *
+ * Every message is wrapped in the plain i18n()/i18nc() calls, which this file
+ * takes from whichever host loads it: KCMUtils gives the KCM's engine the
+ * catalog named after the plugin, and nasmount-dialog's main.cpp gives its
+ * engine that same one. A call that names a catalog would pin the form to one
+ * host, and importing KI18n's QML module for its prefixed form would make that
+ * module a build dependency, because shareform_qml_test loads this exact file
+ * in the package containers. A message is one string literal, never pieces
+ * joined with +, so a translator can reorder the words and the extractor sees
+ * the whole sentence. Values the code compares or hands on (smb://, the access
+ * keys, objectNames, icon names) are data and stay untranslated.
  */
 
 import QtQuick
@@ -271,7 +282,7 @@ ColumnLayout {
     // server.
     QtDialogs.FolderDialog {
         id: shareDialog
-        title: "Choose a network share"
+        title: i18nc("@title:window", "Choose a network share")
         options: QtDialogs.FolderDialog.ReadOnly
         onAccepted: form.applyBrowsedShare(selectedFolder)
     }
@@ -286,7 +297,8 @@ ColumnLayout {
 
     QQC2.Label {
         visible: form.fixedUnc.length === 0
-        text: form.readOnly ? "Share:" : "Share (smb://host/share[/subdir]):"
+        text: form.readOnly ? i18nc("@label:textbox", "Share:")
+                            : i18nc("@label:textbox %1 is an example address", "Share (%1):", "smb://host/share[/subdir]")
     }
     RowLayout {
         visible: form.fixedUnc.length === 0
@@ -315,7 +327,7 @@ ColumnLayout {
         QQC2.Button {
             objectName: "shareBrowseButton"
             visible: !form.readOnly
-            text: "Browse…"
+            text: i18nc("@action:button", "Browse…")
             onClicked: {
                 // Decided at the click, not bound: the dialog opens where the
                 // address in the field points now.
@@ -330,13 +342,14 @@ ColumnLayout {
         color: form.errorColor
     }
 
-    QQC2.Label { text: "Mount point:" }
+    QQC2.Label { text: i18nc("@label:textbox", "Mount point:") }
     RowLayout {
         Layout.fillWidth: true
         QQC2.TextField {
             id: pathField
             objectName: "pathField"
-            placeholderText: form.readOnly ? "" : "/home/you/ShareName"
+            placeholderText: form.readOnly ? ""
+                : i18nc("@info:placeholder example mount point; keep it an absolute path", "/home/you/ShareName")
             readOnly: form.readOnly
             Layout.fillWidth: true
             Accessible.description: form.mountPointShown
@@ -361,7 +374,7 @@ ColumnLayout {
         QQC2.Button {
             objectName: "browseButton"
             visible: !form.readOnly
-            text: "Browse…"
+            text: i18nc("@action:button", "Browse…")
             onClicked: folderDialog.open()
         }
     }
@@ -371,7 +384,10 @@ ColumnLayout {
         color: form.errorColor
     }
 
-    QQC2.Label { text: form.readOnly ? "Username:" : "Username (leave empty for guest access):" }
+    QQC2.Label {
+        text: form.readOnly ? i18nc("@label:textbox", "Username:")
+                            : i18nc("@label:textbox", "Username (leave empty for guest access):")
+    }
     QQC2.TextField {
         id: userField
         // The fields, the access radios and Browse carry objectNames so
@@ -380,9 +396,9 @@ ColumnLayout {
         objectName: "userField"
         readOnly: form.readOnly
         placeholderText: !form.readOnly ? ""
-            : form.savedAuthentication === "guest" ? "None - guest access"
-            : form.savedAuthentication === "credentials" ? "Unknown - not in your saved settings"
-            : "Unknown"
+            : form.savedAuthentication === "guest" ? i18nc("@info:placeholder", "None - guest access")
+            : form.savedAuthentication === "credentials" ? i18nc("@info:placeholder", "Unknown - not in your saved settings")
+            : i18nc("@info:placeholder", "Unknown")
         Layout.fillWidth: true
         // Guest selection clears the fields it disables below, not just
         // visually hides them -- otherwise stale text
@@ -400,7 +416,7 @@ ColumnLayout {
         }
     }
 
-    QQC2.Label { text: "Password:" }
+    QQC2.Label { text: i18nc("@label:textbox", "Password:") }
     QQC2.TextField {
         id: passwordField
         objectName: "passwordField"
@@ -410,7 +426,7 @@ ColumnLayout {
         placeholderText: !form.readOnly ? ""
             : form.savedAuthentication === "credentials" ? "****"
             : form.savedAuthentication === "guest" ? ""
-            : "Unknown"
+            : i18nc("@info:placeholder", "Unknown")
         Layout.fillWidth: true
         onTextEdited: {
             form.credentialsSealed = true
@@ -418,13 +434,16 @@ ColumnLayout {
         }
     }
 
-    QQC2.Label { text: form.readOnly ? "Domain:" : "Domain (optional):" }
+    QQC2.Label {
+        text: form.readOnly ? i18nc("@label:textbox", "Domain:")
+                            : i18nc("@label:textbox", "Domain (optional):")
+    }
     QQC2.TextField {
         id: domainField
         objectName: "domainField"
         enabled: userField.text.length > 0 || form.savedUsernameUnknown
         readOnly: form.readOnly
-        placeholderText: form.savedUsernameUnknown ? "Unknown" : ""
+        placeholderText: form.savedUsernameUnknown ? i18nc("@info:placeholder", "Unknown") : ""
         Layout.fillWidth: true
         onTextEdited: {
             form.credentialsSealed = true
@@ -433,7 +452,7 @@ ColumnLayout {
     }
 
     QQC2.Label {
-        text: "Access:"
+        text: i18nc("@label", "Access:")
         Layout.topMargin: 6
     }
     QQC2.ButtonGroup { id: accessGroup }
@@ -441,7 +460,8 @@ ColumnLayout {
         id: readOnlyRadio
         objectName: "readOnlyRadio"
         enabled: !form.readOnly
-        text: "Read only"
+        // i18n: Keep identical to the access shown in the list of network mounts.
+        text: i18nc("@option:radio", "Read only")
         QQC2.ButtonGroup.group: accessGroup
         // hoverEnabled is required: `hovered` stays false without it, so the
         // tip would never appear (QtQuick.Controls ToolTip, "Delay and
@@ -452,38 +472,42 @@ ColumnLayout {
         QQC2.ToolTip.visible: hovered
         QQC2.ToolTip.delay: 500
         QQC2.ToolTip.timeout: 8000
-        QQC2.ToolTip.text: "Read only access to remote files"
+        QQC2.ToolTip.text: i18nc("@info:tooltip", "Read only access to remote files")
     }
     QQC2.RadioButton {
         id: readWriteRadio
         objectName: "readWriteRadio"
         enabled: !form.readOnly
         checked: true
-        text: "Read & Write"
+        // i18n: Keep identical to the access shown in the list of network mounts.
+        text: i18nc("@option:radio", "Read & Write")
         QQC2.ButtonGroup.group: accessGroup
         hoverEnabled: true
         QQC2.ToolTip.visible: hovered
         QQC2.ToolTip.delay: 500
         QQC2.ToolTip.timeout: 8000
-        QQC2.ToolTip.text: "Read and Write access to remote files"
+        QQC2.ToolTip.text: i18nc("@info:tooltip", "Read and Write access to remote files")
     }
     QQC2.RadioButton {
         id: executableRadio
         objectName: "executableRadio"
         enabled: !form.readOnly
-        text: "Read & Write & Execute"
+        // i18n: Keep identical to the access shown in the list of network mounts.
+        text: i18nc("@option:radio", "Read & Write & Execute")
         QQC2.ButtonGroup.group: accessGroup
         hoverEnabled: true
         QQC2.ToolTip.visible: hovered
         QQC2.ToolTip.delay: 500
         QQC2.ToolTip.timeout: 8000
-        QQC2.ToolTip.text: "Read, Write and Execution access to remote files\nAllows programs stored on the share to run"
+        QQC2.ToolTip.text: i18nc("@info:tooltip", "Read, Write and Execution access to remote files\nAllows programs stored on the share to run")
     }
     QQC2.Label {
         wrapMode: Text.WordWrap
         opacity: 0.6
         font.italic: true
-        text: "To change a network mount, remove and add it again in System Settings"
+        // i18n: "System Settings" is the name of KDE's settings application:
+        // write it as that application is named in your language.
+        text: i18n("To change a network mount, remove and add it again in System Settings")
         Layout.fillWidth: true
         Layout.topMargin: 6
     }
@@ -627,7 +651,7 @@ ColumnLayout {
     function applyBrowsedMountPoint(url) {
         const path = form.actions.localPathFromUrl(url)
         if (path.length === 0) {
-            form.mountBrowseError = "Choose a local folder"
+            form.mountBrowseError = i18n("Choose a local folder")
             return
         }
         form.mountBrowseError = ""

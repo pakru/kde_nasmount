@@ -66,7 +66,9 @@ int main(int argc, char **argv)
     KLocalizedString::setApplicationDomain(QByteArrayLiteral(TRANSLATION_DOMAIN));
     QGuiApplication::setApplicationName(QStringLiteral("nasmount"));
     QGuiApplication::setApplicationVersion(QString::fromLatin1(Nasmount::Version));
-    QGuiApplication::setApplicationDisplayName(i18n("Mount as Network Drive"));
+    // The same call as the window title in main.qml, so the two are one catalog
+    // entry and cannot be translated differently.
+    QGuiApplication::setApplicationDisplayName(i18nc("@title:window", "Mount as Network Drive"));
     QGuiApplication::setDesktopFileName(QStringLiteral("nasmount"));
 
     QCommandLineParser parser;
