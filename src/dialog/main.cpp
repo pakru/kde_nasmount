@@ -24,6 +24,7 @@
 #include "nasmountversion.h"
 #include "shareaddress.h"
 
+#include <KLocalizedQmlContext>
 #include <KLocalizedString>
 
 #include <QApplication>
@@ -59,7 +60,10 @@ int main(int argc, char **argv)
     }
 
     QApplication app(argc, argv);
-    KLocalizedString::setApplicationDomain(QByteArrayLiteral("nasmount"));
+    // One catalog serves the dialog and the KCM, so a call compiled without the
+    // TRANSLATION_DOMAIN macro still lands in it. Only the domain: the
+    // application name set below stays "nasmount".
+    KLocalizedString::setApplicationDomain(QByteArrayLiteral(TRANSLATION_DOMAIN));
     QGuiApplication::setApplicationName(QStringLiteral("nasmount"));
     QGuiApplication::setApplicationVersion(QString::fromLatin1(Nasmount::Version));
     QGuiApplication::setApplicationDisplayName(i18n("Mount as Network Drive"));
@@ -99,6 +103,12 @@ int main(int argc, char **argv)
     DialogBackend backend(unc, urlUser, loginUser);
 
     QQmlApplicationEngine engine;
+    // Without this i18n() is undefined in this engine, and a call to it throws
+    // a ReferenceError the moment a binding evaluates. ShareForm.qml, which the
+    // KCM also loads, depends on it. It must precede load(): a binding
+    // evaluates as soon as its component is created. It takes the domain from
+    // TRANSLATION_DOMAIN.
+    KLocalization::setupLocalizedContext(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("backend"), &backend);
     engine.load(QUrl(QStringLiteral("qrc:/nasmount/main.qml")));
     if (engine.rootObjects().isEmpty()) {

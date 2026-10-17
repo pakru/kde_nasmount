@@ -50,10 +50,23 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Concurrent Quick QuickCont
 # linked into nasmount-dialog only, never into core and so never into the
 # privileged helper.
 find_package(KF6 6.0 REQUIRED COMPONENTS Auth I18n WidgetsAddons Config CoreAddons KCMUtils KIO)
+# KLocalizedQmlContext (KF6::I18nQml) appeared in KI18n 6.8. The service-menu
+# dialog needs it to make i18n() callable from its QML, including the shared
+# ShareForm.qml.
+find_package(KF6I18n 6.8 REQUIRED)
 
 set(CMAKE_AUTOMOC ON)
 
 set(NASMOUNT_HELPER_ID "io.github.pakru.nasmount")
+
+# One catalog for everything translatable. KCMUtils sets the KCM's QML
+# translation domain to the plugin id, and ShareForm.qml is loaded by both the
+# KCM and nasmount-dialog, so the only domain the shared form can use under
+# both hosts is the plugin id. The installed file name
+# (share/locale/<lang>/LC_MESSAGES/kcm_nasmount.mo) is then visible on users'
+# machines: never rename it. C++ never spells the name: it reaches the
+# translating targets as the TRANSLATION_DOMAIN macro.
+set(NASMOUNT_TRANSLATION_DOMAIN "kcm_nasmount")
 
 configure_file(src/core/nasmountversion.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/generated/nasmountversion.h
@@ -101,8 +114,16 @@ target_link_libraries(kde_nasmount-session PUBLIC
     Qt6::Core Qt6::Concurrent
     KF6::AuthCore KF6::ConfigCore
 )
-# i18n() is used only by the smb:// parser's user-facing errors.
+# This library is where the text both front ends show is composed (share
+# address and mount-point problems, row states, operation results), so it is
+# the one library that translates. Core and everything privileged never do:
+# see kde_nasmount_assert_no_i18n_link() below.
 target_link_libraries(kde_nasmount-session PRIVATE KF6::I18n)
+# Without the macro, i18n() looks in the *application's* catalog, which inside
+# System Settings is System Settings' own, so none of these messages would ever
+# be found in ours.
+target_compile_definitions(kde_nasmount-session PRIVATE
+    TRANSLATION_DOMAIN="${NASMOUNT_TRANSLATION_DOMAIN}")
 
 # ---------------------------------------------------------------------------
 # root - the private, privileged library: descriptor-based durable filesystem
@@ -131,9 +152,10 @@ target_link_libraries(kde_nasmount-root PUBLIC kde_nasmount-core Qt6::Core)
 add_executable(nasmount-helper src/helper/helper.cpp)
 # No Widgets, no I18n, no session library: the root helper produces no UI, no
 # translated strings, and must not link anything that talks to KConfig
-# on the caller's behalf. libQt6Gui still appears in ldd output as a transitive
-# dependency of KF6CoreAddons, which KAuth requires - but nothing here
-# constructs a QGuiApplication, so no GUI machinery is initialised.
+# on the caller's behalf. The I18n and session-library exclusions are enforced
+# below by kde_nasmount_assert_no_i18n_link(). libQt6Gui still appears in ldd
+# output as a transitive dependency of KF6CoreAddons, which KAuth requires - but
+# nothing here constructs a QGuiApplication, so no GUI machinery is initialised.
 target_link_libraries(nasmount-helper PRIVATE kde_nasmount-core kde_nasmount-root Qt6::Core KF6::AuthCore)
 install(TARGETS nasmount-helper DESTINATION ${KAUTH_HELPER_INSTALL_DIR})
 
@@ -175,8 +197,13 @@ add_executable(nasmount-dialog
 target_link_libraries(nasmount-dialog
     PRIVATE kde_nasmount-core kde_nasmount-session
             Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Quick Qt6::QuickControls2
-            KF6::I18n KF6::KIOCore
+            KF6::I18n KF6::I18nQml KF6::KIOCore
 )
+# The dialog shares the KCM's catalog: KLocalization::setupLocalizedContext()
+# reads this macro to give the dialog's QML (and the shared ShareForm.qml) the
+# same domain that KCMUtils gives the KCM's.
+target_compile_definitions(nasmount-dialog PRIVATE
+    TRANSLATION_DOMAIN="${NASMOUNT_TRANSLATION_DOMAIN}")
 install(TARGETS nasmount-dialog DESTINATION ${KDE_INSTALL_BINDIR})
 
 # --- authenticated uninstall coordinator -----------------------------------
@@ -240,6 +267,13 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/nasmount.desktop
                     GROUP_READ GROUP_EXECUTE
                     WORLD_READ WORLD_EXECUTE)
 
+# Compiles po/<lang>/kcm_nasmount.po into build/locale/<lang>/LC_MESSAGES and
+# installs that whole tree under share/locale. It produces no catalog while no
+# language exists, and KF_SKIP_PO_PROCESSING turns it off entirely. Because the
+# whole build/locale directory is installed, a .mo left there by a language
+# that was since deleted is installed too.
+ki18n_install(po)
+
 # The authenticated cleanup client accepts only a complete, configure-time
 # manifest. Generate it from the same KDEInstallDirs values used above so
 # Debian multiarch and Fedora libexec/plugin layouts cannot drift apart.
@@ -294,6 +328,71 @@ kde_nasmount_assert_no_root_link(nasmount-dialog)
 kde_nasmount_assert_no_root_link(nasmount-cleanup)
 kde_nasmount_assert_no_root_link(nasmount-package-guard)
 kde_nasmount_assert_no_root_link(kcm_nasmount)
+
+# --- translation invariants: only the front ends translate --------------------
+# The helper runs as root with no knowledge of the caller's language, and core
+# is linked into it: messages from these targets are translated by the front end
+# (or not at all), never here.
+#
+# KI18n can reach a privileged or diagnostic target by three routes, and each
+# is refused: a direct link, an INTERFACE-only link (which LINK_LIBRARIES does
+# not list, and which every dependent of core or root would inherit - hence
+# both are checked as targets of their own), and the session library, which
+# carries KF6::I18n PRIVATE and so would bring it along unseen.
+function(kde_nasmount_assert_no_i18n_link target)
+    foreach(_nasmount_prop LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
+        get_target_property(_nasmount_libs ${target} ${_nasmount_prop})
+        if(NOT _nasmount_libs)
+            continue()
+        endif()
+        foreach(_nasmount_lib IN LISTS _nasmount_libs)
+            if("${_nasmount_lib}" STREQUAL "kde_nasmount-session")
+                message(FATAL_ERROR
+                    "${target} must not link kde_nasmount-session: it carries "
+                    "KI18n and reads the caller's configuration, and is "
+                    "linked into front ends only, never privileged or "
+                    "diagnostic code.")
+            endif()
+            if("${_nasmount_lib}" STREQUAL "KF6::I18n"
+               OR "${_nasmount_lib}" STREQUAL "KF6::I18nQml"
+               OR "${_nasmount_lib}" STREQUAL "KF6::I18nLocaleData")
+                message(FATAL_ERROR
+                    "${target} must not link ${_nasmount_lib}: it is, or is "
+                    "linked into, privileged or diagnostic code that cannot "
+                    "know the caller's language. Messages from it are "
+                    "translated by the session library or a front end, or not "
+                    "at all.")
+            endif()
+        endforeach()
+    endforeach()
+endfunction()
+
+kde_nasmount_assert_no_i18n_link(kde_nasmount-core)
+kde_nasmount_assert_no_i18n_link(kde_nasmount-root)
+kde_nasmount_assert_no_i18n_link(nasmount-helper)
+kde_nasmount_assert_no_i18n_link(nasmount-boot)
+kde_nasmount_assert_no_i18n_link(nasmount-package-guard)
+
+# Every target that translates must use the one shared catalog. Without the
+# macro, KI18n falls back to the host application's domain, and the strings are
+# silently never found: nothing fails, they just stay English.
+function(kde_nasmount_assert_translation_domain target)
+    get_target_property(_nasmount_defs ${target} COMPILE_DEFINITIONS)
+    if(NOT _nasmount_defs
+       OR NOT "TRANSLATION_DOMAIN=\"${NASMOUNT_TRANSLATION_DOMAIN}\"" IN_LIST _nasmount_defs)
+        if(NOT _nasmount_defs)
+            set(_nasmount_defs "none")
+        endif()
+        message(FATAL_ERROR
+            "${target} must define TRANSLATION_DOMAIN as "
+            "\"${NASMOUNT_TRANSLATION_DOMAIN}\" (the one shared catalog); "
+            "its compile definitions: ${_nasmount_defs}.")
+    endif()
+endfunction()
+
+kde_nasmount_assert_translation_domain(kde_nasmount-session)
+kde_nasmount_assert_translation_domain(nasmount-dialog)
+kde_nasmount_assert_translation_domain(kcm_nasmount)
 
 # --- tests -------------------------------------------------------------------
 # Not installed; built so `ctest` can exercise the same validation/encoding/
@@ -432,5 +531,15 @@ add_test(NAME version_metadata
         -DEXPECTED_VERSION=${PROJECT_VERSION}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/version_metadata_test.cmake
 )
+
+# Tests assert English text. KI18n would translate it on a workstation whose
+# locale has an installed catalog (after `make install`, or a .mo copied to
+# ~/.local/share/locale), so pin the language for every test. LANGUAGE wins
+# over LANG/LC_ALL for message lookup whenever the locale is not C.
+# Keep this after every add_test(): it pins only the tests defined above it, so
+# a test added below it would run in the caller's language. APPEND, so it never
+# replaces an ENVIRONMENT a test sets for itself.
+get_property(_nasmount_tests DIRECTORY PROPERTY TESTS)
+set_property(TEST ${_nasmount_tests} APPEND PROPERTY ENVIRONMENT "LANGUAGE=en_US")
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
