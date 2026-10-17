@@ -5,6 +5,7 @@
 #include "store.h"
 
 #include <KConfigGroup>
+#include <KLocalizedString>
 #include <KSharedConfig>
 
 #include <QFile>
@@ -115,7 +116,7 @@ CommitResult commitShare(const Share &share, quint64 expectedGeneration, QString
     const KConfigGroup root = config->group(SharesGroup);
     const Snapshot current = readSnapshot(root, share.id);
     if (current.exists != (expectedGeneration != 0) || (current.exists && current.generation != expectedGeneration)) {
-        *error = QStringLiteral("share record changed since it was read; reload and retry");
+        *error = i18n("share record changed since it was read; reload and retry");
         return CommitResult::GenerationConflict;
     }
 
@@ -124,7 +125,7 @@ CommitResult commitShare(const Share &share, quint64 expectedGeneration, QString
     writeShareFields(g, share);
     g.writeEntry("Generation", static_cast<qlonglong>(expectedGeneration + 1));
     if (!config->sync()) {
-        *error = QStringLiteral("could not write configuration to disk");
+        *error = i18n("could not write configuration to disk");
         return CommitResult::SyncFailed;
     }
     return CommitResult::Ok;
@@ -149,6 +150,10 @@ bool removeShare(const QString &id)
 
 bool purgeApplicationData(QString *error)
 {
+    // The errors below are not translated, unlike commitShare()'s: the only
+    // caller is nasmount-cleanup, a command-line tool whose output is English
+    // by design, while commitShare()'s errors reach the front ends' status
+    // line.
     const QString configDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
     if (configDir.isEmpty()) {
         *error = QStringLiteral("the user configuration directory is unavailable");

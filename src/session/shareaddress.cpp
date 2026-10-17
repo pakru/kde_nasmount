@@ -62,7 +62,8 @@ bool parseSmbUrl(const QString &raw, QString *unc, QString *user, QString *error
         return false;
     }
     if (url.scheme() != QStringLiteral("smb")) {
-        *error = i18n("Not an smb:// URL: %1", raw);
+        // i18n: %1 is the URL scheme "smb://", %2 the address as entered.
+        *error = i18n("Not an %1 URL: %2", QStringLiteral("smb://"), raw);
         return false;
     }
     // password().isEmpty() misses "smb://user:@host/share", where the component
@@ -92,8 +93,9 @@ bool parseSmbUrl(const QString &raw, QString *unc, QString *user, QString *error
         path.chop(1);
     }
     if (path.isEmpty()) {
+        // i18n: %1 is an example share address.
         *error = i18n("This points at a server, not a share - add the share name after the server "
-                      "(smb://server/share).");
+                      "(%1).", QStringLiteral("smb://server/share"));
         return false;
     }
 
@@ -160,7 +162,9 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
     } else {
         // The input is not echoed: shown under the field, it is already on
         // screen above the message.
-        *error = QStringLiteral("not a share address (expected smb://host/share)");
+        // i18n: %1 is an example share address. Shown capitalised on a line of
+        // i18n: its own, so start with a word rather than a placeholder.
+        *error = i18n("not a share address (expected %1)", QStringLiteral("smb://host/share"));
         return false;
     }
 
@@ -168,31 +172,47 @@ bool resolveShareInput(const QString &input, const QString &username, QString *u
     // "expected //host/share" wording - which names a spelling the user was
     // never shown - can only surface for input that already passed this.
     if (UnitSpec::hasControlChars(candidate)) {
-        *error = QStringLiteral("the share address contains control characters");
+        // i18n: Shown capitalised on a line of its own, so start with a word
+        // i18n: rather than a placeholder.
+        *error = i18n("the share address contains control characters");
         return false;
     }
     // Named on its own because the generic message below lists what is allowed, and a comma
     // looks like it should be; the core refuses it, so this only improves the wording.
     if (candidate.contains(QLatin1Char(','))) {
-        *error = QStringLiteral("the share address may not contain a comma");
+        // i18n: Shown capitalised on a line of its own, so start with a word
+        // i18n: rather than a placeholder.
+        *error = i18n("the share address may not contain a comma");
         return false;
     }
     QString normalised;
     QString ignored;
     if (!UnitSpec::validateUnc(candidate, &normalised, &ignored)) {
-        *error = QStringLiteral("not a valid share address (expected smb://host/share[/subdir], "
-                                "with no '..' component)");
+        // i18n: %1 is an example share address, %2 the parent-directory path
+        // i18n: component that is refused. Shown capitalised on a line of its
+        // i18n: own, so start with a word rather than a placeholder.
+        *error = i18n("not a valid share address (expected %1, with no '%2' component)",
+                      QStringLiteral("smb://host/share[/subdir]"), QStringLiteral(".."));
         return false;
     }
 
     if (!urlUser.isEmpty()) {
         if (username.isEmpty()) {
-            *error = QStringLiteral("the smb:// address names a user - enter it in Username, or remove "
-                                    "it from the address");
+            // i18n: %1 is the URL scheme "smb://". Username is the Add form's
+            // i18n: field label; use its translation. Shown capitalised on a
+            // i18n: line of its own, so start with a word rather than a
+            // i18n: placeholder.
+            *error = i18n("the %1 address names a user - enter it in Username, or remove it from the address",
+                          QStringLiteral("smb://"));
             return false;
         }
         if (!sameIdentity(urlUser, username)) {
-            *error = QStringLiteral("the smb:// address names a different user than the Username field");
+            // i18n: %1 is the URL scheme "smb://". Username is the Add form's
+            // i18n: field label; use its translation. Shown capitalised on a
+            // i18n: line of its own, so start with a word rather than a
+            // i18n: placeholder.
+            *error = i18n("the %1 address names a different user than the Username field",
+                          QStringLiteral("smb://"));
             return false;
         }
     }
@@ -221,7 +241,8 @@ QString shareInputProblem(const QString &input, const QString &username)
         rest.remove(0, 2);
     }
     if (rest.isEmpty()) {
-        return QStringLiteral("Enter the share address, for example smb://nas/Media");
+        // i18n: %1 is an example share address.
+        return i18n("Enter the share address, for example %1", QStringLiteral("smb://nas/Media"));
     }
 
     QString unc;
@@ -230,7 +251,10 @@ QString shareInputProblem(const QString &input, const QString &username)
         return QString();
     }
     // The refusals are lower-case fragments where they are used in a sentence
-    // ("could not ... : <error>"); shown on their own they start a line.
+    // ("could not ... : <error>"); shown on their own they start a line. The
+    // upper-casing is applied to the translated text, which is why the
+    // translator comments on those messages ask for a word, not a placeholder,
+    // at the start.
     if (!error.isEmpty()) {
         error[0] = error.at(0).toUpper();
     }
@@ -241,25 +265,26 @@ BrowsedShare browsedShareInput(const QUrl &picked)
 {
     BrowsedShare result;
     if (picked.scheme().compare(QStringLiteral("smb"), Qt::CaseInsensitive) != 0) {
-        result.error = QStringLiteral("Choose a folder on a network share (smb://)");
+        // i18n: %1 is the URL scheme "smb://".
+        result.error = i18n("Choose a folder on a network share (%1)", QStringLiteral("smb://"));
         return result;
     }
     // The same parts parseSmbUrl() refuses. KIO does not produce them, but the
     // conversion must not assume it.
     const bool hasPasswordComponent = picked.userInfo(QUrl::FullyEncoded).contains(QLatin1Char(':'));
     if (picked.hasQuery() || picked.hasFragment() || hasPasswordComponent || picked.port() != -1) {
-        result.error = QStringLiteral("This address has parts that are not supported here "
-                                      "(port, password, query or fragment)");
+        result.error = i18n("This address has parts that are not supported here "
+                            "(port, password, query or fragment)");
         return result;
     }
     const QString host = picked.host();
     if (host.isEmpty()) {
         // The network root itself was accepted rather than a server in it.
-        result.error = QStringLiteral("Choose a share on a server, not the network root");
+        result.error = i18n("Choose a share on a server, not the network root");
         return result;
     }
     if (host.contains(QLatin1Char(':'))) {
-        result.error = QStringLiteral("IPv6 hosts are not supported yet");
+        result.error = i18n("IPv6 hosts are not supported yet");
         return result;
     }
 
@@ -273,7 +298,7 @@ BrowsedShare browsedShareInput(const QUrl &picked)
     const QString user = picked.userName(QUrl::FullyDecoded);
     if (UnitSpec::hasControlChars(host) || UnitSpec::hasControlChars(path)
         || UnitSpec::hasControlChars(user)) {
-        result.error = QStringLiteral("The address contains control characters");
+        result.error = i18n("The address contains control characters");
         return result;
     }
 

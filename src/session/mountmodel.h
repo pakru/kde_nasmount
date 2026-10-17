@@ -27,6 +27,7 @@
 #include <QAbstractListModel>
 #include <QFutureWatcher>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 namespace Session
@@ -41,6 +42,10 @@ namespace Session
  * list shows it as "Ready", because a user has no reason to know what a
  * trigger is. Only presentRow()'s text differs -- the enumerator keeps the
  * name the root side uses for the same condition.
+ *
+ * The enumerators are the consecutive values 0, 1, 2, ... (no explicit
+ * values): allStateLabels() walks them by value, so that no second list of
+ * them exists. A new state is labelled in stateLabel() and nowhere else.
  */
 enum class DisplayState { Inactive, Armed, Mounted, MissingCredentials, Broken, Busy, Foreign };
 
@@ -122,10 +127,37 @@ struct StoreDefinitionDriftInput {
 bool storeDefinitionDrift(const StoreDefinitionDriftInput &input);
 
 /** "Read only" | "Read & Write" | "Read & Write & Execute" - the access
- *  column's text. Must equal ShareForm's radio labels, so a share reads the
- *  same in the list as in the form that created it; mountmodel_test and
- *  shareform_qml_test pin the same three literals. */
+ *  column's text, translated for the user's language. Must equal ShareForm's
+ *  radio labels, so a share reads the same in the list as in the form that
+ *  created it; mountmodel_test and shareform_qml_test pin the same three
+ *  English literals. The form's labels are catalog entries of their own (a
+ *  different context), so a translation has to keep the pair identical; the
+ *  translator comments beside the calls say so. */
 QString accessModeLabel(UnitValue::AccessMode mode);
+
+/** The text the list shows for one state: "Inactive" | "Ready" | "Mounted" |
+ *  "Missing credentials" | "Broken" | "Busy" in English, translated for the
+ *  user's language. Foreign reads "Mounted" too, as the same catalog entry as
+ *  Mounted: its section header already says another tool made it.
+ *
+ *  The only place state text is produced. presentRow() and allStateLabels()
+ *  both go through it, so the set of labels the KCM sizes its column for
+ *  cannot drift from what a row can show. */
+QString stateLabel(DisplayState state);
+
+/** The distinct stateLabel() of every DisplayState, in state order: the whole
+ *  vocabulary of the status column, not the labels of whichever rows are on
+ *  screen. The KCM measures the widest of them, because which label is
+ *  widest depends on the user's language.
+ *
+ *  Built by asking stateLabel() about each value from zero until it has no
+ *  label, so it is the enumeration itself, not a second list of it. */
+QStringList allStateLabels();
+
+/** accessModeLabel() of every UnitValue::AccessMode, found the same way: the
+ *  whole vocabulary of the access column, for the same width measurement as
+ *  allStateLabels(). */
+QStringList allAccessLabels();
 
 /** "normal" | "warning" | "error". Busy is a warning (it clears on its own
  *  or after a refresh); MissingCredentials and Broken are errors (they need
@@ -217,6 +249,13 @@ class MountModel : public QAbstractListModel
     Q_OBJECT
     Q_PROPERTY(QString bootHealthText READ bootHealthText NOTIFY refreshed)
     Q_PROPERTY(bool bootHealthy READ bootHealthy NOTIFY refreshed)
+    /** allStateLabels() / allAccessLabels(): every text the list's status and
+     *  access columns can show, for sizing them. CONSTANT because the
+     *  language is fixed for the life of the process. The getters are named
+     *  differently from the free functions so that, inside the class, they do
+     *  not hide them. */
+    Q_PROPERTY(QStringList stateLabels READ stateLabels CONSTANT)
+    Q_PROPERTY(QStringList accessLabels READ accessLabels CONSTANT)
 
 public:
     /**
@@ -259,6 +298,8 @@ public:
 
     QString bootHealthText() const;
     bool bootHealthy() const;
+    QStringList stateLabels() const;
+    QStringList accessLabels() const;
 
 public Q_SLOTS:
     /**

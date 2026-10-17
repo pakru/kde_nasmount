@@ -5,6 +5,8 @@
 #include "mountpointcheck.h"
 #include "unitvalue.h"
 
+#include <KLocalizedString>
+
 #include <QDir>
 #include <QFile>
 
@@ -39,7 +41,7 @@ QString canonicalMountPoint(const QString &raw, const QString &homeDir)
 QString mountPointProblem(const QString &raw, const QString &homeDir)
 {
     if (raw.trimmed().isEmpty()) {
-        return QStringLiteral("Choose a folder to mount the share on");
+        return i18n("Choose a folder to mount the share on");
     }
 
     const QString canonical = canonicalMountPoint(raw, homeDir);
@@ -47,7 +49,8 @@ QString mountPointProblem(const QString &raw, const QString &homeDir)
     // directory is unknown): a relative path the helper would refuse, with a
     // message about absolute paths that would not say what went wrong.
     if (canonical.startsWith(QLatin1Char('~'))) {
-        return QStringLiteral("Only ~ for your own home folder is supported; enter the full path");
+        // i18n: %1 is the tilde character, the shorthand for the home folder.
+        return i18n("Only %1 for your own home folder is supported; enter the full path", QStringLiteral("~"));
     }
 
     UnitSpec::MountpointPlan plan;
@@ -72,7 +75,7 @@ QString unitCollisionProblem(const UnitSpec::MountpointPlan &plan, const UnitFil
     // Existence of the file, whatever it says: the helper refuses on that too
     // and does not look at who wrote it.
     if (hasUnits(plan.path)) {
-        return QStringLiteral("Another mount already uses this folder");
+        return i18n("Another mount already uses this folder");
     }
     // Every folder between the allowed root and the path. The root itself
     // cannot be a mount point of ours, so it is not examined.
@@ -80,7 +83,7 @@ QString unitCollisionProblem(const UnitSpec::MountpointPlan &plan, const UnitFil
     for (int i = 0; i + 1 < plan.suffix.size(); ++i) {
         ancestor += QLatin1Char('/') + plan.suffix.at(i);
         if (hasUnits(ancestor)) {
-            return QStringLiteral("This folder is inside another mount (%1)").arg(ancestor);
+            return i18n("This folder is inside another mount (%1)", ancestor);
         }
     }
     return QString();

@@ -7,6 +7,7 @@
 #include <KAuth/Action>
 #include <KAuth/ActionReply>
 #include <KAuth/ExecuteJob>
+#include <KLocalizedString>
 
 #include <memory>
 
@@ -79,7 +80,9 @@ HelperResult invokeHelperAction(const QString &action, const QVariantMap &args)
         result.id = result.data.value(QStringLiteral("id")).toString();
         result.activated = result.data.value(QStringLiteral("activated")).toBool();
     } else {
-        result.message = job->errorText().isEmpty() ? QStringLiteral("the operation failed") : job->errorText();
+        // Only the fallback is ours to translate: KAuth's own error text
+        // comes from its catalog.
+        result.message = job->errorText().isEmpty() ? i18n("the operation failed") : job->errorText();
     }
     return result;
 }

@@ -6,6 +6,8 @@
 #include "unitvalue.h"
 #include "verify.h"
 
+#include <KLocalizedString>
+
 #include <QDir>
 #include <QUrl>
 
@@ -32,28 +34,32 @@ QString suggestMountpoint(const QString &unc)
 
 QString describeState(const QString &mountPoint)
 {
+    // The state is spelled out for one sentence, "This share is already saved
+    // at ... (<state>).", so it reads as lower-case words in parentheses. It is
+    // not the list's own state label, and the context keeps the two apart in
+    // the catalog.
     UnitValue::UnitPaths paths;
     QString err;
     if (!UnitValue::unitPathsFor(mountPoint, &paths, &err)) {
-        return QStringLiteral("unknown");
+        return i18nc("@info:status share state, in parentheses", "unknown");
     }
     const auto def = Verify::inspectDefinition(paths, ::getuid(), mountPoint);
     if (def.state != Verify::Definition::Pair) {
-        return QStringLiteral("needs attention");
+        return i18nc("@info:status share state, in parentheses", "needs attention");
     }
     const Verify::RuntimeSnapshot snap = Verify::inspectRuntime(paths.unitName, mountPoint, def.what);
     if (snap.mount == Verify::MountState::Present && snap.verification == Verify::VerificationState::Match) {
-        return QStringLiteral("mounted");
+        return i18nc("@info:status share state, in parentheses", "mounted");
     }
     if (snap.mount == Verify::MountState::Indeterminate) {
-        return QStringLiteral("needs attention");
+        return i18nc("@info:status share state, in parentheses", "needs attention");
     }
     if (snap.automount == Verify::AutomountState::Active) {
         return (snap.activationTrust == Verify::ActivationTrust::Trusted)
-            ? QStringLiteral("ready - mounts on first access")
-            : QStringLiteral("needs attention");
+            ? i18nc("@info:status share state, in parentheses", "ready - mounts on first access")
+            : i18nc("@info:status share state, in parentheses", "needs attention");
     }
-    return QStringLiteral("defined, not active");
+    return i18nc("@info:status share state, in parentheses", "defined, not active");
 }
 
 } // namespace Dialog::SmbUrl

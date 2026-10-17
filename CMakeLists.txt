@@ -410,7 +410,12 @@ add_test(NAME unitspec COMMAND unitspec_test)
 # shareaddress_test.
 add_executable(smburl_test tests/smburl_test.cpp src/dialog/smburl.cpp)
 target_include_directories(smburl_test PRIVATE src/dialog)
-target_link_libraries(smburl_test PRIVATE kde_nasmount-core)
+target_link_libraries(smburl_test PRIVATE kde_nasmount-core KF6::I18n)
+# smburl.cpp translates the saved-share state words and is compiled into the
+# dialog and into this test alike, so both build it with the same catalog
+# macro (the test pins its language to English, like every other).
+target_compile_definitions(smburl_test PRIVATE
+    TRANSLATION_DOMAIN="${NASMOUNT_TRANSLATION_DOMAIN}")
 add_test(NAME smburl COMMAND smburl_test)
 
 add_executable(shareaddress_test tests/shareaddress_test.cpp)
