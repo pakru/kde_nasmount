@@ -45,8 +45,14 @@
 #     checklist. A key that exists untranslated needs its translation
 #     everywhere it occurs (the service menu has two Name= lines, and the one
 #     Dolphin shows in its context menu is the second), and each polkit action
-#     needs exactly one Name and one Description, since the Name becomes the
-#     text of the authentication prompt.
+#     needs exactly one Name and one Description: kauth-policy-gen writes the
+#     Name as the policy's description and the Description as its message,
+#     which is the sentence the authentication prompt shows, so an action
+#     missing either would be asked in English. No Name or Description may hold
+#     a comma, semicolon, double quote or backslash either. The generator reads
+#     the file through QSettings and neither fails nor warns: a comma empties
+#     the whole value, a semicolon cuts it there, and the other two are
+#     dropped, so a translator's slip would ship an empty or truncated prompt.
 #  6. The allowlists that admit an installed catalog agree. The language
 #     alphabet is spelled by hand in CMakeLists.txt, in two places in
 #     Session::validateInstallManifest() and in uninstall.sh, and nothing else
@@ -189,6 +195,15 @@ fi
 desktop_files=(servicemenu/nasmount.desktop.in packaging/nasmount-manager.desktop)
 plugin_json=src/kcm/kcm_nasmount.json
 actions=io.github.pakru.nasmount.actions
+# The characters QSettings mangles, in any Name or Description whatever its
+# language (an English one is just as exposed). This holds with no language
+# present too, so it sits outside the loop. The bracket expression takes the
+# backslash literally.
+mangled=$(grep -nE '^(Name|Description)(\[[^]]*\])?=.*[,;"\\]' "$actions" || [ $? -eq 1 ])
+if [ -n "$mangled" ]; then
+    fail "$actions has a Name or Description with a comma, semicolon, double quote or backslash, which kauth-policy-gen would write out empty or truncated:"
+    printf '%s\n' "$mangled" >&2
+fi
 for lang in ${languages[@]+"${languages[@]}"}; do
     # Every occurrence of a key needs its twin: counting both sides catches a
     # language that translated the entry's Name but not the action's.

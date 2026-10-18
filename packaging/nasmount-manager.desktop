@@ -1,10 +1,14 @@
 [Desktop Entry]
 Type=Application
 Name=SMB Network Mounts
+Name[ru]=Сетевые подключения SMB
 GenericName=SMB Network Mounts Manager
+GenericName[ru]=Управление сетевыми подключениями SMB
 Comment=Add and remove SMB network mounts
+Comment[ru]=Добавление и удаление сетевых подключений SMB
 Icon=drive-network
 Exec=nasmount
 Terminal=false
 Categories=Qt;KDE;System;
 Keywords=cifs;smb;samba;network;mount;share;drive;nas;
+Keywords[ru]=cifs;smb;samba;nas;сеть;сетевой;подключение;монтирование;общая папка;папка;диск;

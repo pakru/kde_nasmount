@@ -22,26 +22,42 @@ Icon=drive-network
 # inventory stays Policy=yes: it is read-only, caller-scoped, and the KCM
 # refreshes it constantly -- prompting there would make the module unusable.
 # PolicyInactive=no keeps everything off non-active and remote sessions.
+#
+# Translations are Name[ll]= and Description[ll]= beside the English keys. No
+# Name or Description, translated or not, may contain a comma, semicolon,
+# double quote or backslash: kauth-policy-gen reads this file through QSettings,
+# which turns a comma into a list (the whole value is then written out empty),
+# cuts a value at a semicolon and drops double quotes and backslashes. The
+# generator reports none of it, so tests/translations_gate.sh refuses these
+# characters; the generated .policy is the only other place it shows.
 [io.github.pakru.nasmount.definesystem]
 Name=Define a boot-time network mount
+Name[ru]=Определение сетевого подключения с монтированием при загрузке
 Description=Authentication is required to define a boot-time network mount
+Description[ru]=Для определения сетевого подключения с монтированием при загрузке требуется аутентификация
 Policy=auth_admin
 PolicyInactive=no
 
 [io.github.pakru.nasmount.undefinesystem]
 Name=Remove a boot-time network mount definition
+Name[ru]=Удаление определения сетевого подключения с монтированием при загрузке
 Description=Authentication is required to remove a boot-time network mount definition
+Description[ru]=Для удаления определения сетевого подключения с монтированием при загрузке требуется аутентификация
 Policy=auth_admin
 PolicyInactive=no
 
 [io.github.pakru.nasmount.inventory]
 Name=List network mount health
+Name[ru]=Просмотр состояния сетевых подключений
 Description=Authentication is required to list network mount health
+Description[ru]=Для просмотра состояния сетевых подключений требуется аутентификация
 Policy=yes
 PolicyInactive=no
 
 [io.github.pakru.nasmount.purge]
 Name=Purge all nasmount data
+Name[ru]=Удаление всех данных nasmount
 Description=Administrator authentication is required to remove all nasmount shares and data
+Description[ru]=Для удаления всех общих папок и данных nasmount требуется аутентификация администратора
 Policy=auth_admin
 PolicyInactive=no

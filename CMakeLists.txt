@@ -610,6 +610,37 @@ add_test(NAME version_metadata
 add_test(NAME translations_gate
          COMMAND ${CMAKE_COMMAND} -E env bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/translations_gate.sh)
 
+# Loads the Russian catalog this build compiles into build/locale and checks
+# that the session library and ShareForm.qml read it, which no English test can
+# see. It exists only where that catalog does: ki18n_install() skips
+# everything under KF_SKIP_PO_PROCESSING, and the `pofiles` target it creates
+# exists whenever po/ does, even with no language in it, so the target cannot
+# say whether there is a catalog to load -- the catalog's own source can.
+if(NOT KF_SKIP_PO_PROCESSING
+   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/po/ru/${NASMOUNT_TRANSLATION_DOMAIN}.po")
+    add_executable(i18n_test tests/i18n_test.cpp)
+    target_link_libraries(i18n_test PRIVATE kde_nasmount-session KF6::I18n KF6::I18nQml
+                          Qt6::Gui Qt6::Qml Qt6::Quick)
+    target_compile_definitions(i18n_test PRIVATE
+        TRANSLATION_DOMAIN="${NASMOUNT_TRANSLATION_DOMAIN}"
+        NASMOUNT_SHAREFORM_QML="${CMAKE_CURRENT_SOURCE_DIR}/src/kcm/ui/ShareForm.qml"
+        NASMOUNT_BUILD_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/locale")
+    # The test reads the .mo from the build tree, so building it must compile
+    # the catalogs first.
+    if(TARGET pofiles)
+        add_dependencies(i18n_test pofiles)
+    endif()
+    add_test(NAME i18n COMMAND i18n_test)
+    # glibc ignores the requested language under the C locale, which is all the
+    # package build containers have, so this test needs a real one. Where none
+    # is installed it exits 77 and CTest reports it skipped, not failed. The
+    # language pin below appends LANGUAGE=en_US to this test too, which is
+    # harmless: the test sets its own languages.
+    set_tests_properties(i18n PROPERTIES
+        ENVIRONMENT "LC_ALL=en_US.UTF-8"
+        SKIP_RETURN_CODE 77)
+endif()
+
 # Tests assert English text. KI18n would translate it on a workstation whose
 # locale has an installed catalog (after `make install`, or a .mo copied to
 # ~/.local/share/locale), so pin the language for every test. LANGUAGE wins

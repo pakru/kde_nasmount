@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Service
 Name=Mount as Network Drive
+Name[ru]=Подключить как сетевой диск
 X-KDE-ServiceTypes=KonqPopupMenu/Plugin
 MimeType=inode/directory;
 X-KDE-Protocol=smb
@@ -10,6 +11,8 @@ Actions=mountAsDrive;
 
 [Desktop Action mountAsDrive]
 Name=Mount as Network Drive…
+Name[ru]=Подключить как сетевой диск…
 Comment=Mount this SMB share on demand, available again after a reboot
+Comment[ru]=Подключить эту общую папку SMB по требованию — после перезагрузки она снова будет доступна
 Icon=drive-network
 Exec=@KDE_INSTALL_FULL_BINDIR@/nasmount-dialog %u
