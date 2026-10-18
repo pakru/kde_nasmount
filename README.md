@@ -12,7 +12,7 @@ mounts come back after reboot.
 ![Network Mounts settings page](docs/img/img2.png)
 
 **Supported:** Kubuntu 26.04+ (`.deb`), Fedora KDE 44+ (`.rpm`). Other distros
-can build from source (Plasma 6.0+, Linux 6.8+).
+can build from source (Plasma 6 with KDE Frameworks 6.8+, Linux 6.8+).
 
 ## Install
 
@@ -66,7 +66,8 @@ Bug reports, testing results on other distros and pull requests are welcome:
 
 ## Source-build requirements
 
-A **Plasma 6+ / KF6+** desktop and **Linux 6.8+** (for `STATX_MNT_ID_UNIQUE`).
+A **Plasma 6+** desktop with **KDE Frameworks 6.8+** (KI18n 6.8 is the first with
+`KLocalizedQmlContext`) and **Linux 6.8+** (for `STATX_MNT_ID_UNIQUE`).
 
 <details>
 <summary>Build dependencies</summary>
@@ -76,7 +77,7 @@ On Kubuntu 26.04, install the packages needed to build, test, and run it:
 ```bash
 sudo apt update
 sudo apt install \
-  appstream cifs-utils cmake diffutils extra-cmake-modules findutils g++ git make \
+  appstream cifs-utils cmake diffutils extra-cmake-modules findutils g++ gettext git make \
   libkf6auth-dev libkf6config-dev libkf6coreaddons-dev libkf6i18n-dev \
   libkf6kcmutils-dev libkf6kio-dev libkf6widgetsaddons-dev polkitd \
   qml6-module-org-kde-kcmutils qml6-module-org-kde-kirigami \
@@ -88,7 +89,7 @@ On Fedora KDE 44, use:
 
 ```bash
 sudo dnf install \
-  appstream cifs-utils cmake diffutils extra-cmake-modules findutils gcc-c++ git make \
+  appstream cifs-utils cmake diffutils extra-cmake-modules findutils gcc-c++ gettext git make \
   kf6-kauth-devel kf6-kcmutils kf6-kcmutils-devel kf6-kirigami \
   kf6-kconfig-devel kf6-kcoreaddons-devel kf6-ki18n-devel kf6-kio-devel \
   kf6-kwidgetsaddons-devel polkit qt6-qtbase-devel qt6-qtdeclarative \

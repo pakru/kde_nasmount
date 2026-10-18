@@ -18,10 +18,11 @@ BuildRequires:  appstream
 BuildRequires:  cmake >= 3.20
 BuildRequires:  extra-cmake-modules >= 6.0
 BuildRequires:  gcc-c++
+BuildRequires:  gettext
 BuildRequires:  kf6-kauth-devel >= 6.0
 BuildRequires:  kf6-kconfig-devel >= 6.0
 BuildRequires:  kf6-kcoreaddons-devel >= 6.0
-BuildRequires:  kf6-ki18n-devel >= 6.0
+BuildRequires:  kf6-ki18n-devel >= 6.8
 BuildRequires:  kf6-kcmutils-devel >= 6.0
 BuildRequires:  kf6-kio-devel >= 6.0
 BuildRequires:  kf6-kwidgetsaddons-devel >= 6.0
