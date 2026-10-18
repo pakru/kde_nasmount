@@ -1,0 +1,849 @@
+# Spanish translations for the nasmount package.
+# This file is distributed under the same license as the nasmount package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: nasmount 0.1.11\n"
+"Report-Msgid-Bugs-To: https://github.com/pakru/kde_nasmount/issues\n"
+"POT-Creation-Date: 2026-10-17 20:13-0700\n"
+"PO-Revision-Date: 2026-10-17 20:13-0700\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/dialog/main.cpp:71 src/dialog/qml/main.qml:38
+#, kde-format
+msgctxt "@title:window"
+msgid "Mount as Network Drive"
+msgstr "Montar como unidad de red"
+
+#: src/dialog/main.cpp:76
+#, kde-format
+msgid "Mounts an SMB share on demand, available again after a reboot."
+msgstr ""
+"Monta un recurso compartido SMB bajo demanda y permite volver a acceder a él "
+"tras reiniciar."
+
+#. i18n: %1 is the URL scheme "smb://", which is not translated. Shown in
+#. i18n: --help beside the argument name.
+#: src/dialog/main.cpp:83
+#, kde-format
+msgid "%1 URL of the share to mount"
+msgstr "URL del recurso compartido que se va a montar (con el formato %1)"
+
+#. i18n: %1 is the command line to type, which is not translated.
+#: src/dialog/main.cpp:90
+#, kde-format
+msgid "Usage: %1"
+msgstr "Uso: %1"
+
+#: src/dialog/main.cpp:123
+#, kde-format
+msgid "Could not load the dialog interface."
+msgstr "No se pudo cargar la interfaz del diálogo."
+
+#: src/dialog/smburl.cpp:44
+#, kde-format
+msgctxt "@info:status share state, in parentheses"
+msgid "unknown"
+msgstr "estado desconocido"
+
+#: src/dialog/smburl.cpp:48 src/dialog/smburl.cpp:55 src/dialog/smburl.cpp:60
+#, kde-format
+msgctxt "@info:status share state, in parentheses"
+msgid "needs attention"
+msgstr "requiere atención"
+
+#: src/dialog/smburl.cpp:52
+#, kde-format
+msgctxt "@info:status share state, in parentheses"
+msgid "mounted"
+msgstr "montado"
+
+#: src/dialog/smburl.cpp:59
+#, kde-format
+msgctxt "@info:status share state, in parentheses"
+msgid "ready - mounts on first access"
+msgstr "listo: se montará en el primer acceso"
+
+#: src/dialog/smburl.cpp:62
+#, kde-format
+msgctxt "@info:status share state, in parentheses"
+msgid "defined, not active"
+msgstr "definido, pero inactivo"
+
+#: src/kcm/kcmnasmount.cpp:135
+#, kde-format
+msgid "No file manager answered the request to open the folder (%1)"
+msgstr ""
+"Ningún gestor de archivos respondió a la solicitud de abrir la carpeta (%1)"
+
+#: src/session/helperinvoke.cpp:85
+#, kde-format
+msgid "the operation failed"
+msgstr "la operación ha fallado"
+
+#: src/session/mountactions.cpp:60
+#, kde-format
+msgid "connection to the helper was lost"
+msgstr "se perdió la conexión con el programa auxiliar"
+
+#: src/session/mountactions.cpp:59
+#, kde-format
+msgid "could not confirm the result (%1) - refresh before retrying"
+msgstr ""
+"no se pudo confirmar el resultado (%1); actualice antes de volver a "
+"intentarlo"
+
+#: src/session/mountactions.cpp:126
+#, kde-format
+msgid ""
+"a share with no username is guest, and cannot also have a password or domain"
+msgstr ""
+"un recurso compartido sin nombre de usuario usa acceso de invitado y no "
+"puede tener contraseña ni dominio"
+
+#: src/session/mountactions.cpp:150
+#, kde-format
+msgid "the helper returned an invalid share id"
+msgstr ""
+"el programa auxiliar devolvió un identificador de recurso compartido no "
+"válido"
+
+#: src/session/mountactions.cpp:172
+#, kde-format
+msgid ""
+"the definition was created, but could not be saved locally (%1) - it exists "
+"on this machine but will not appear here until this is resolved"
+msgstr ""
+"la definición se creó, pero no se pudo guardar localmente (%1); existe en "
+"este equipo, pero no aparecerá aquí hasta que se resuelva el problema"
+
+#: src/session/mountactions.cpp:180
+#, kde-format
+msgid "Share added and mounted"
+msgstr "Recurso compartido añadido y montado"
+
+#: src/session/mountactions.cpp:181
+#, kde-format
+msgid "Share added, but it could not be mounted - see its state in the list"
+msgstr ""
+"Recurso compartido añadido, pero no se pudo montar; consulte su estado en la "
+"lista"
+
+#: src/session/mountactions.cpp:211
+#, kde-format
+msgid "no such share"
+msgstr "no existe ese recurso compartido"
+
+#: src/session/mountactions.cpp:222
+#, kde-format
+msgid "could not fully remove %1: %2 - retry removal later"
+msgstr ""
+"no se pudo eliminar por completo %1: %2; vuelva a intentar la eliminación "
+"más tarde"
+
+#: src/session/mountactions.cpp:227 src/session/mountactions.cpp:260
+#: src/session/mountactions.cpp:300
+#, kde-format
+msgctxt "@info:status operation result"
+msgid "Removed"
+msgstr "Eliminado"
+
+#: src/session/mountactions.cpp:228
+#, kde-format
+msgid ""
+"removed the definition, but the local record could not be fully cleared - "
+"retry from this list"
+msgstr ""
+"se eliminó la definición, pero el registro local no se pudo borrar por "
+"completo; vuelva a intentarlo desde esta lista"
+
+#: src/session/mountactions.cpp:261
+#, kde-format
+msgid "could not confirm local-record cleanup - retry"
+msgstr ""
+"no se pudo confirmar la limpieza del registro local; vuelva a intentarlo"
+
+#: src/session/mountactions.cpp:293
+#, kde-format
+msgid "no owned definition exists at %1"
+msgstr ""
+"no existe ninguna definición de su propiedad para el punto de montaje %1"
+
+#: src/session/mountmodel.cpp:67
+#, kde-format
+msgid "this saved record is missing required data"
+msgstr "a este registro guardado le faltan datos obligatorios"
+
+#: src/session/mountmodel.cpp:68
+#, kde-format
+msgid "no definition exists for this saved record"
+msgstr "no existe ninguna definición para este registro guardado"
+
+#: src/session/mountmodel.cpp:75
+#, kde-format
+msgid "requires administrator repair"
+msgstr "requiere reparación por parte de un administrador"
+
+#: src/session/mountmodel.cpp:88
+#, kde-format
+msgid ""
+"saved settings do not match the actual definition - remove the local record, "
+"then remove the resulting orphan definition"
+msgstr ""
+"los ajustes guardados no coinciden con la definición real; elimine el "
+"registro local y, después, la definición huérfana resultante"
+
+#: src/session/mountmodel.cpp:90
+#, kde-format
+msgid ""
+"this share's saved convenience data is incomplete - remove the local record"
+msgstr ""
+"los datos auxiliares guardados de este recurso compartido están incompletos; "
+"elimine el registro local"
+
+#: src/session/mountmodel.cpp:104
+#, kde-format
+msgid "runtime state could not be determined - refresh and retry"
+msgstr ""
+"no se pudo determinar el estado en ejecución; actualice y vuelva a intentarlo"
+
+#: src/session/mountmodel.cpp:110
+#, kde-format
+msgid ""
+"mounted, but does not correlate with this definition - release it with its "
+"owning tool, refresh, then retry"
+msgstr ""
+"montado, pero no se corresponde con esta definición; desmóntelo con la "
+"herramienta que lo montó, actualice y vuelva a intentarlo"
+
+#: src/session/mountmodel.cpp:118
+#, kde-format
+msgid ""
+"automount is active, but its instance id does not match what was recorded - "
+"reboot or seek administrator help; never stopped or adopted automatically"
+msgstr ""
+"el montaje automático está activo, pero su identificador de instancia no "
+"coincide con el registrado; reinicie o pida ayuda a un administrador (nunca "
+"se detiene ni se adopta automáticamente)"
+
+#: src/session/mountmodel.cpp:127
+#, kde-format
+msgid "only one half of the pair exists - remove it, it is never repaired"
+msgstr ""
+"solo existe una mitad del par; elimínela, ya que no se repara "
+"automáticamente"
+
+#: src/session/mountmodel.cpp:135 src/session/mountmodel.cpp:146
+#: src/session/mountmodel.cpp:161
+#, kde-format
+msgid "stored credential is missing or unhealthy"
+msgstr ""
+"falta el archivo de credenciales o no ha superado la comprobación de "
+"seguridad"
+
+#. i18n: Keep identical to the Add form's access radio button.
+#: src/session/mountmodel.cpp:177
+#, kde-format
+msgctxt "@item:inlistbox access mode"
+msgid "Read only"
+msgstr "Solo lectura"
+
+#. i18n: Keep identical to the Add form's access radio button.
+#: src/session/mountmodel.cpp:180
+#, kde-format
+msgctxt "@item:inlistbox access mode"
+msgid "Read & Write"
+msgstr "Lectura y escritura"
+
+#. i18n: Keep identical to the Add form's access radio button.
+#: src/session/mountmodel.cpp:183
+#, kde-format
+msgctxt "@item:inlistbox access mode"
+msgid "Read & Write & Execute"
+msgstr "Lectura, escritura y ejecución"
+
+#: src/session/mountmodel.cpp:196
+#, kde-format
+msgctxt "@item:inlistbox share state"
+msgid "Inactive"
+msgstr "Inactivo"
+
+#: src/session/mountmodel.cpp:198
+#, kde-format
+msgctxt "@item:inlistbox share state"
+msgid "Ready"
+msgstr "Listo"
+
+#: src/session/mountmodel.cpp:201
+#, kde-format
+msgctxt "@item:inlistbox share state"
+msgid "Mounted"
+msgstr "Montado"
+
+#: src/session/mountmodel.cpp:203
+#, kde-format
+msgctxt "@item:inlistbox share state"
+msgid "Missing credentials"
+msgstr "Faltan credenciales"
+
+#: src/session/mountmodel.cpp:205
+#, kde-format
+msgctxt "@item:inlistbox share state"
+msgid "Broken"
+msgstr "Dañado"
+
+#: src/session/mountmodel.cpp:207
+#, kde-format
+msgctxt "@item:inlistbox share state"
+msgid "Busy"
+msgstr "Ocupado"
+
+#: src/session/mountmodel.cpp:277
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Requires administrator repair"
+msgstr "Requiere reparación por parte de un administrador"
+
+#: src/session/mountmodel.cpp:279
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Mounted by another tool - unmount it with that tool"
+msgstr "Montado por otra herramienta – desmóntelo con esa herramienta"
+
+#: src/session/mountmodel.cpp:281
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Can't be removed right now: %1"
+msgstr "No se puede eliminar en este momento: %1"
+
+#: src/session/mountmodel.cpp:283
+#, kde-format
+msgctxt "@info:tooltip"
+msgid "Can't be removed right now"
+msgstr "No se puede eliminar en este momento"
+
+#: src/session/mountmodel.cpp:366 src/session/mountmodel.cpp:384
+#, kde-format
+msgid "service status undefined"
+msgstr "estado del servicio sin definir"
+
+#: src/session/mountmodel.cpp:394
+#, kde-format
+msgid "service disabled - shares will not be armed at boot"
+msgstr ""
+"servicio desactivado; los recursos compartidos no se prepararán para "
+"montarse al arrancar"
+
+#: src/session/mountmodel.cpp:400
+#, kde-format
+msgid "service failed to start - shares may not be armed (check %1)"
+msgstr ""
+"el servicio no pudo iniciarse; puede que no esté activado el montaje bajo "
+"demanda de los recursos compartidos (compruebe %1)"
+
+#: src/session/mountmodel.cpp:405
+#, kde-format
+msgid "service enabled"
+msgstr "servicio activado"
+
+#: src/session/mountmodel.cpp:749
+#, kde-format
+msgid "mounted by another tool"
+msgstr "montado por otra herramienta"
+
+#: src/session/mountpointcheck.cpp:44
+#, kde-format
+msgid "Choose a folder to mount the share on"
+msgstr "Elija la carpeta en la que montar el recurso compartido"
+
+#. i18n: %1 is the tilde character, the shorthand for the home folder.
+#: src/session/mountpointcheck.cpp:53
+#, kde-format
+msgid "Only %1 for your own home folder is supported; enter the full path"
+msgstr ""
+"Solo se admite %1 para su propia carpeta personal; introduzca la ruta "
+"completa"
+
+#: src/session/mountpointcheck.cpp:78
+#, kde-format
+msgid "Another mount already uses this folder"
+msgstr "Otro montaje ya usa esta carpeta"
+
+#: src/session/mountpointcheck.cpp:86
+#, kde-format
+msgid "This folder is inside another mount (%1)"
+msgstr "Esta carpeta está dentro de otro montaje (%1)"
+
+#: src/session/shareaddress.cpp:50
+#, kde-format
+msgid "This URL contains a malformed %1 escape: %2"
+msgstr "Esta URL contiene una secuencia de escape %1 mal formada: %2"
+
+#: src/session/shareaddress.cpp:60
+#, kde-format
+msgid "Not a valid address: %1"
+msgstr "Dirección no válida: %1"
+
+#. i18n: %1 is the URL scheme "smb://", %2 the address as entered.
+#: src/session/shareaddress.cpp:66
+#, kde-format
+msgid "Not an %1 URL: %2"
+msgstr "No es una URL %1: %2"
+
+#: src/session/shareaddress.cpp:74
+#, kde-format
+msgid ""
+"This URL has parts that are not supported here (port, password, query or "
+"fragment): %1"
+msgstr ""
+"Esta URL tiene partes que aquí no se admiten (puerto, contraseña, consulta o "
+"fragmento): %1"
+
+#: src/session/shareaddress.cpp:80
+#, kde-format
+msgid "No host in URL: %1"
+msgstr "La URL no contiene ningún host: %1"
+
+#: src/session/shareaddress.cpp:84
+#, kde-format
+msgid "IPv6 hosts are not supported yet: %1"
+msgstr "Los hosts IPv6 aún no se admiten: %1"
+
+#. i18n: %1 is an example share address.
+#: src/session/shareaddress.cpp:97
+#, kde-format
+msgid ""
+"This points at a server, not a share - add the share name after the server "
+"(%1)."
+msgstr ""
+"Esto apunta a un servidor, no a un recurso compartido; añada el nombre del "
+"recurso compartido tras el servidor (%1)."
+
+#: src/session/shareaddress.cpp:105
+#, kde-format
+msgid "The URL contains control characters."
+msgstr "La URL contiene caracteres de control."
+
+#. i18n: %1 is an example share address. Shown capitalised on a line of
+#. i18n: its own, so start with a word rather than a placeholder.
+#: src/session/shareaddress.cpp:167
+#, kde-format
+msgid "not a share address (expected %1)"
+msgstr "no es una dirección de recurso compartido (se esperaba %1)"
+
+#. i18n: Shown capitalised on a line of its own, so start with a word
+#. i18n: rather than a placeholder.
+#: src/session/shareaddress.cpp:177
+#, kde-format
+msgid "the share address contains control characters"
+msgstr "la dirección del recurso compartido contiene caracteres de control"
+
+#. i18n: Shown capitalised on a line of its own, so start with a word
+#. i18n: rather than a placeholder.
+#: src/session/shareaddress.cpp:185
+#, kde-format
+msgid "the share address may not contain a comma"
+msgstr "la dirección del recurso compartido no puede contener comas"
+
+#. i18n: %1 is an example share address, %2 the parent-directory path
+#. i18n: component that is refused. Shown capitalised on a line of its
+#. i18n: own, so start with a word rather than a placeholder.
+#: src/session/shareaddress.cpp:194
+#, kde-format
+msgid "not a valid share address (expected %1, with no '%2' component)"
+msgstr ""
+"dirección de recurso compartido no válida (se esperaba %1, sin el componente "
+"«%2»)"
+
+#. i18n: %1 is the URL scheme "smb://". Username is the Add form's
+#. i18n: field label; use its translation. Shown capitalised on a
+#. i18n: line of its own, so start with a word rather than a
+#. i18n: placeholder.
+#: src/session/shareaddress.cpp:205
+#, kde-format
+msgid ""
+"the %1 address names a user - enter it in Username, or remove it from the "
+"address"
+msgstr ""
+"la dirección %1 indica un usuario; introdúzcalo en «Nombre de usuario» o "
+"quítelo de la dirección"
+
+#. i18n: %1 is the URL scheme "smb://". Username is the Add form's
+#. i18n: field label; use its translation. Shown capitalised on a
+#. i18n: line of its own, so start with a word rather than a
+#. i18n: placeholder.
+#: src/session/shareaddress.cpp:214
+#, kde-format
+msgid "the %1 address names a different user than the Username field"
+msgstr ""
+"la dirección %1 indica un usuario distinto del indicado en el campo «Nombre "
+"de usuario»"
+
+#. i18n: %1 is an example share address.
+#: src/session/shareaddress.cpp:245
+#, kde-format
+msgid "Enter the share address, for example %1"
+msgstr "Introduzca la dirección del recurso compartido, por ejemplo %1"
+
+#. i18n: %1 is the URL scheme "smb://".
+#: src/session/shareaddress.cpp:269
+#, kde-format
+msgid "Choose a folder on a network share (%1)"
+msgstr "Elija una carpeta de un recurso compartido de red (%1)"
+
+#: src/session/shareaddress.cpp:276
+#, kde-format
+msgid ""
+"This address has parts that are not supported here (port, password, query or "
+"fragment)"
+msgstr ""
+"Esta dirección tiene partes que aquí no se admiten (puerto, contraseña, "
+"consulta o fragmento)"
+
+#: src/session/shareaddress.cpp:283
+#, kde-format
+msgid "Choose a share on a server, not the network root"
+msgstr "Elija un recurso compartido de un servidor, no la raíz de la red"
+
+#: src/session/shareaddress.cpp:287
+#, kde-format
+msgid "IPv6 hosts are not supported yet"
+msgstr "Los hosts IPv6 aún no se admiten"
+
+#: src/session/shareaddress.cpp:301
+#, kde-format
+msgid "The address contains control characters"
+msgstr "La dirección contiene caracteres de control"
+
+#: src/session/store.cpp:119
+#, kde-format
+msgid "share record changed since it was read; reload and retry"
+msgstr ""
+"el registro del recurso compartido cambió desde que se leyó; recargue y "
+"vuelva a intentarlo"
+
+#: src/session/store.cpp:128
+#, kde-format
+msgid "could not write configuration to disk"
+msgstr "no se pudo escribir la configuración en el disco"
+
+#. i18n: %1 is the name of an environment variable.
+#: src/session/userlock.cpp:52
+#, kde-format
+msgid "%1 is not set"
+msgstr "%1 no está definida"
+
+#. i18n: %2 is the C library's description of the error, which the C
+#. i18n: library localizes by itself.
+#: src/session/userlock.cpp:63
+#, kde-format
+msgid "cannot open %1: %2"
+msgstr "no se puede abrir %1: %2"
+
+#. i18n: %2 is the C library's description of the error, which the C
+#. i18n: library localizes by itself.
+#: src/session/userlock.cpp:69
+#, kde-format
+msgid "cannot lock %1: %2"
+msgstr "no se puede bloquear %1: %2"
+
+#: src/dialog/qml/main.qml:79
+msgctxt "@title:window"
+msgid "Added"
+msgstr "Añadido"
+
+#: src/dialog/qml/main.qml:80
+msgctxt "@title:window"
+msgid "Removed"
+msgstr "Eliminado"
+
+#: src/dialog/qml/main.qml:83
+msgctxt "@title:window"
+msgid "Failed"
+msgstr "Error"
+
+#: src/dialog/qml/main.qml:116
+msgctxt "@title:window"
+msgid "Remove this saved share?"
+msgstr "¿Eliminar este recurso compartido guardado?"
+
+#: src/dialog/qml/main.qml:126
+msgid ""
+"If it is currently mounted, it will be unmounted first. The mount point "
+"directory itself is left in place."
+msgstr ""
+"Si está montado en este momento, primero se desmontará. La propia carpeta "
+"del punto de montaje se conserva."
+
+#. i18n: %1 is a folder path. %2 is the share's state, a short phrase that
+#. begins in lower case, such as "mounted".
+#: src/dialog/qml/main.qml:149
+#, kde-format
+msgid "This share is already saved at %1 (%2)."
+msgstr ""
+"Este recurso compartido ya está guardado con el punto de montaje %1 (%2)."
+
+#. i18n: "System Settings" is the name of KDE's settings application and
+#. "SMB Network Mounts" the name of this tool's module in it: write both as
+#. they appear in your language. "Remove" is the button below.
+#: src/dialog/qml/main.qml:160
+msgid ""
+"To change settings for a saved share, use System Settings → SMB Network "
+"Mounts. Remove below deletes it entirely."
+msgstr ""
+"Para cambiar los ajustes de un recurso compartido guardado, use "
+"«Preferencias del sistema» → «Montajes de red SMB». El botón «Eliminar» de "
+"abajo lo borra por completo."
+
+#: src/dialog/qml/main.qml:183
+msgctxt "@action:button"
+msgid "Mount"
+msgstr "Montar"
+
+#: src/dialog/qml/main.qml:193 src/kcm/ui/main.qml:282
+msgctxt "@action:button"
+msgid "Remove"
+msgstr "Eliminar"
+
+#: src/kcm/ui/ShareAddDialog.qml:42
+msgctxt "@title:window"
+msgid "Add network mount"
+msgstr "Añadir montaje de red"
+
+#: src/kcm/ui/ShareAddDialog.qml:120
+msgctxt "@info:status"
+msgid "Adding… confirm in the authentication prompt"
+msgstr "Añadiendo… Confirme en la ventana de autenticación"
+
+#: src/kcm/ui/ShareAddDialog.qml:153
+msgctxt "@action:button"
+msgid "Add"
+msgstr "Añadir"
+
+#: src/kcm/ui/ShareDetailsDialog.qml:21
+msgctxt "@title:window"
+msgid "Network mount details"
+msgstr "Detalles del montaje de red"
+
+#: src/kcm/ui/ShareForm.qml:285
+msgctxt "@title:window"
+msgid "Choose a network share"
+msgstr "Elegir un recurso compartido de red"
+
+#: src/kcm/ui/ShareForm.qml:300
+msgctxt "@label:textbox"
+msgid "Share:"
+msgstr "Recurso compartido:"
+
+#: src/kcm/ui/ShareForm.qml:301
+#, kde-format
+msgctxt "@label:textbox %1 is an example address"
+msgid "Share (%1):"
+msgstr "Recurso compartido (%1):"
+
+#: src/kcm/ui/ShareForm.qml:330 src/kcm/ui/ShareForm.qml:377
+msgctxt "@action:button"
+msgid "Browse…"
+msgstr "Explorar…"
+
+#: src/kcm/ui/ShareForm.qml:345
+msgctxt "@label:textbox"
+msgid "Mount point:"
+msgstr "Punto de montaje:"
+
+#: src/kcm/ui/ShareForm.qml:352
+msgctxt "@info:placeholder example mount point; keep it an absolute path"
+msgid "/home/you/ShareName"
+msgstr "/home/you/ShareName"
+
+#: src/kcm/ui/ShareForm.qml:388
+msgctxt "@label:textbox"
+msgid "Username:"
+msgstr "Nombre de usuario:"
+
+#: src/kcm/ui/ShareForm.qml:389
+msgctxt "@label:textbox"
+msgid "Username (leave empty for guest access):"
+msgstr "Nombre de usuario (déjelo vacío para acceso de invitado):"
+
+#: src/kcm/ui/ShareForm.qml:399
+msgctxt "@info:placeholder"
+msgid "None - guest access"
+msgstr "Ninguno – acceso de invitado"
+
+#: src/kcm/ui/ShareForm.qml:400
+msgctxt "@info:placeholder"
+msgid "Unknown - not in your saved settings"
+msgstr "Desconocido – no está en sus ajustes guardados"
+
+#: src/kcm/ui/ShareForm.qml:401 src/kcm/ui/ShareForm.qml:429
+#: src/kcm/ui/ShareForm.qml:446
+msgctxt "@info:placeholder"
+msgid "Unknown"
+msgstr "Desconocido"
+
+#: src/kcm/ui/ShareForm.qml:419
+msgctxt "@label:textbox"
+msgid "Password:"
+msgstr "Contraseña:"
+
+#: src/kcm/ui/ShareForm.qml:438
+msgctxt "@label:textbox"
+msgid "Domain:"
+msgstr "Dominio:"
+
+#: src/kcm/ui/ShareForm.qml:439
+msgctxt "@label:textbox"
+msgid "Domain (optional):"
+msgstr "Dominio (opcional):"
+
+#: src/kcm/ui/ShareForm.qml:455
+msgctxt "@label"
+msgid "Access:"
+msgstr "Acceso:"
+
+#. i18n: Keep identical to the access shown in the list of network mounts.
+#: src/kcm/ui/ShareForm.qml:464
+msgctxt "@option:radio"
+msgid "Read only"
+msgstr "Solo lectura"
+
+#: src/kcm/ui/ShareForm.qml:475
+msgctxt "@info:tooltip"
+msgid "Read only access to remote files"
+msgstr "Acceso de solo lectura a los archivos remotos"
+
+#. i18n: Keep identical to the access shown in the list of network mounts.
+#: src/kcm/ui/ShareForm.qml:483
+msgctxt "@option:radio"
+msgid "Read & Write"
+msgstr "Lectura y escritura"
+
+#: src/kcm/ui/ShareForm.qml:489
+msgctxt "@info:tooltip"
+msgid "Read and Write access to remote files"
+msgstr "Acceso de lectura y escritura a los archivos remotos"
+
+#. i18n: Keep identical to the access shown in the list of network mounts.
+#: src/kcm/ui/ShareForm.qml:496
+msgctxt "@option:radio"
+msgid "Read & Write & Execute"
+msgstr "Lectura, escritura y ejecución"
+
+#: src/kcm/ui/ShareForm.qml:502
+msgctxt "@info:tooltip"
+msgid ""
+"Read, Write and Execution access to remote files\n"
+"Allows programs stored on the share to run"
+msgstr ""
+"Acceso de lectura, escritura y ejecución a los archivos remotos\n"
+"Permite ejecutar los programas almacenados en el recurso compartido"
+
+#. i18n: "System Settings" is the name of KDE's settings application:
+#. write it as that application is named in your language.
+#: src/kcm/ui/ShareForm.qml:510
+msgid "To change a network mount, remove and add it again in System Settings"
+msgstr ""
+"Para cambiar un montaje de red, elimínelo y vuelva a añadirlo en "
+"«Preferencias del sistema»"
+
+#: src/kcm/ui/ShareForm.qml:654
+msgid "Choose a local folder"
+msgstr "Elija una carpeta local"
+
+#: src/kcm/ui/main.qml:43
+msgctxt "@action:button"
+msgid "Add…"
+msgstr "Añadir…"
+
+#: src/kcm/ui/main.qml:103
+#, kde-format
+msgctxt "@info:status %1 is a service name, %2 its state"
+msgid "%1: %2"
+msgstr "%1: %2"
+
+#: src/kcm/ui/main.qml:142
+msgctxt "@title:group"
+msgid "Mounted by other tools"
+msgstr "Montados por otras herramientas"
+
+#: src/kcm/ui/main.qml:143
+msgctxt "@title:group"
+msgid "Network mounts"
+msgstr "Montajes de red"
+
+#: src/kcm/ui/main.qml:239
+msgctxt "@action:button"
+msgid "Open in file manager"
+msgstr "Abrir en el gestor de archivos"
+
+#: src/kcm/ui/main.qml:249
+msgctxt "@action:button"
+msgid "Details"
+msgstr "Detalles"
+
+#: src/kcm/ui/main.qml:280
+msgctxt "@action:button"
+msgid "Remove the orphan definition"
+msgstr "Eliminar la definición huérfana"
+
+#: src/kcm/ui/main.qml:281
+msgctxt "@action:button"
+msgid "Remove the local record"
+msgstr "Eliminar el registro local"
+
+#: src/kcm/ui/main.qml:299
+msgctxt "@info:placeholder"
+msgid "No network mounts yet"
+msgstr "Aún no hay montajes de red"
+
+#. i18n: "Add…" is the label of the Add button in this window: use
+#. i18n: its translation here.
+#: src/kcm/ui/main.qml:302
+msgid "Click Add… to create one."
+msgstr "Pulse «Añadir…» para crear uno."
+
+#: src/kcm/ui/main.qml:351
+msgctxt "@title:window"
+msgid "Remove saved settings"
+msgstr "Eliminar los ajustes guardados"
+
+#: src/kcm/ui/main.qml:352
+msgctxt "@title:window"
+msgid "Remove network mount"
+msgstr "Eliminar el montaje de red"
+
+#: src/kcm/ui/main.qml:379
+#, kde-format
+msgid "Remove the network mount at %1?"
+msgstr "¿Eliminar el montaje de red con el punto de montaje %1?"
+
+#: src/kcm/ui/main.qml:381
+#, kde-format
+msgid ""
+"Remove the definition at %1?\n"
+"\n"
+"You have no saved settings for it, so adding it again means entering "
+"everything anew."
+msgstr ""
+"¿Eliminar la definición con el punto de montaje %1?\n"
+"\n"
+"No tiene ajustes guardados para ella, así que volver a añadirla implica "
+"introducirlo todo de nuevo."
+
+#: src/kcm/ui/main.qml:383
+#, kde-format
+msgid ""
+"Remove your saved settings for %1?\n"
+"\n"
+"No mount definition is touched and nothing is unmounted."
+msgstr ""
+"¿Eliminar sus ajustes guardados para %1?\n"
+"\n"
+"No se modifica ninguna definición de montaje y no se desmonta nada."

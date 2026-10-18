@@ -75,7 +75,7 @@ msgstr "готова — подключится при первом обраще
 #, kde-format
 msgctxt "@info:status share state, in parentheses"
 msgid "defined, not active"
-msgstr "определена, но не активна"
+msgstr "определена, но неактивна"
 
 #: src/kcm/kcmnasmount.cpp:135
 #, kde-format
@@ -232,14 +232,14 @@ msgstr ""
 #, kde-format
 msgid "only one half of the pair exists - remove it, it is never repaired"
 msgstr ""
-"существует только одна часть пары — удалите её, она никогда не "
-"восстанавливается"
+"существует только одна часть пары — удалите её; автоматическое "
+"восстановление не выполняется"
 
 #: src/session/mountmodel.cpp:135 src/session/mountmodel.cpp:146
 #: src/session/mountmodel.cpp:161
 #, kde-format
 msgid "stored credential is missing or unhealthy"
-msgstr "сохранённые учётные данные отсутствуют или повреждены"
+msgstr "файл учётных данных отсутствует или не прошёл проверку безопасности"
 
 #. i18n: Keep identical to the Add form's access radio button.
 #: src/session/mountmodel.cpp:177
@@ -377,7 +377,7 @@ msgstr "Эта папка находится внутри другого под�
 #: src/session/shareaddress.cpp:50
 #, kde-format
 msgid "This URL contains a malformed %1 escape: %2"
-msgstr "Этот URL содержит некорректную %1-последовательность: %2"
+msgstr "Этот URL содержит некорректную последовательность кодирования с %1: %2"
 
 #: src/session/shareaddress.cpp:60
 #, kde-format

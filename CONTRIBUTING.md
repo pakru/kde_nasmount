@@ -99,10 +99,14 @@ Fix bugs with a test that fails without the fix, where that's practical.
 
 Every message the two front ends show lives in one gettext catalog per
 language, `po/<lang>/kcm_nasmount.po`, built from the template
-`po/kcm_nasmount.pot`. Russian (`po/ru`) is the only language so far. A few
-texts sit outside the catalog and are translated inline in four files, which
-the checklist below names. Messages produced by the privileged helper and by
-the shared validation code are English for now and are not in the catalog.
+`po/kcm_nasmount.pot`. Six languages ship: Russian (`ru`), German (`de`),
+French (`fr`), Spanish (`es`), Brazilian Portuguese (`pt_BR`) and Simplified
+Chinese (`zh_CN`). The German, French, Spanish, Brazilian Portuguese and
+Chinese catalogs were written without a native speaker's review, so fixes to
+their wording are especially welcome. A few texts sit outside the catalog and
+are translated inline in four files, which the checklist below names.
+Messages produced by the privileged helper and by the shared validation code
+are English for now and are not in the catalog.
 
 ### Adding a language
 

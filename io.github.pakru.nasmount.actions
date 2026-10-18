@@ -33,31 +33,71 @@ Icon=drive-network
 [io.github.pakru.nasmount.definesystem]
 Name=Define a boot-time network mount
 Name[ru]=Определение сетевого подключения с монтированием при загрузке
+Name[de]=Ein beim Systemstart eingehängtes Netzwerklaufwerk definieren
+Name[fr]=Définir un montage réseau au démarrage
+Name[es]=Definir un montaje de red en el arranque
+Name[pt_BR]=Definir uma montagem de rede na inicialização
+Name[zh_CN]=定义开机网络挂载
 Description=Authentication is required to define a boot-time network mount
 Description[ru]=Для определения сетевого подключения с монтированием при загрузке требуется аутентификация
+Description[de]=Zum Definieren eines beim Systemstart eingehängten Netzwerklaufwerks ist eine Authentifizierung erforderlich
+Description[fr]=Une authentification est requise pour définir un montage réseau au démarrage
+Description[es]=Se necesita autenticación para definir un montaje de red en el arranque
+Description[pt_BR]=É necessária autenticação para definir uma montagem de rede na inicialização
+Description[zh_CN]=需要身份验证才能定义开机网络挂载
 Policy=auth_admin
 PolicyInactive=no
 
 [io.github.pakru.nasmount.undefinesystem]
 Name=Remove a boot-time network mount definition
 Name[ru]=Удаление определения сетевого подключения с монтированием при загрузке
+Name[de]=Definition eines beim Systemstart eingehängten Netzwerklaufwerks entfernen
+Name[fr]=Supprimer la définition d'un montage réseau au démarrage
+Name[es]=Eliminar la definición de un montaje de red en el arranque
+Name[pt_BR]=Remover a definição de uma montagem de rede na inicialização
+Name[zh_CN]=移除开机网络挂载的定义
 Description=Authentication is required to remove a boot-time network mount definition
 Description[ru]=Для удаления определения сетевого подключения с монтированием при загрузке требуется аутентификация
+Description[de]=Zum Entfernen der Definition eines beim Systemstart eingehängten Netzwerklaufwerks ist eine Authentifizierung erforderlich
+Description[fr]=Une authentification est requise pour supprimer la définition d'un montage réseau au démarrage
+Description[es]=Se necesita autenticación para eliminar la definición de un montaje de red en el arranque
+Description[pt_BR]=É necessária autenticação para remover a definição de uma montagem de rede na inicialização
+Description[zh_CN]=需要身份验证才能移除开机网络挂载的定义
 Policy=auth_admin
 PolicyInactive=no
 
 [io.github.pakru.nasmount.inventory]
 Name=List network mount health
 Name[ru]=Просмотр состояния сетевых подключений
+Name[de]=Zustand der Netzwerklaufwerke auflisten
+Name[fr]=Lister l'état des montages réseau
+Name[es]=Listar el estado de los montajes de red
+Name[pt_BR]=Listar o estado das montagens de rede
+Name[zh_CN]=列出网络挂载的状态
 Description=Authentication is required to list network mount health
 Description[ru]=Для просмотра состояния сетевых подключений требуется аутентификация
+Description[de]=Zum Auflisten des Zustands der Netzwerklaufwerke ist eine Authentifizierung erforderlich
+Description[fr]=Une authentification est requise pour lister l'état des montages réseau
+Description[es]=Se necesita autenticación para listar el estado de los montajes de red
+Description[pt_BR]=É necessária autenticação para listar o estado das montagens de rede
+Description[zh_CN]=需要身份验证才能列出网络挂载的状态
 Policy=yes
 PolicyInactive=no
 
 [io.github.pakru.nasmount.purge]
 Name=Purge all nasmount data
 Name[ru]=Удаление всех данных nasmount
+Name[de]=Alle nasmount-Daten löschen
+Name[fr]=Purger toutes les données de nasmount
+Name[es]=Purgar todos los datos de nasmount
+Name[pt_BR]=Apagar todos os dados do nasmount
+Name[zh_CN]=清除所有 nasmount 数据
 Description=Administrator authentication is required to remove all nasmount shares and data
 Description[ru]=Для удаления всех общих папок и данных nasmount требуется аутентификация администратора
+Description[de]=Zum Entfernen aller nasmount-Freigaben und -Daten ist die Authentifizierung eines Administrators erforderlich
+Description[fr]=L'authentification d'un administrateur est requise pour supprimer tous les partages et données de nasmount
+Description[es]=Se necesita la autenticación de un administrador para eliminar todos los recursos compartidos y datos de nasmount
+Description[pt_BR]=É necessária a autenticação de um administrador para remover todos os compartilhamentos e dados do nasmount
+Description[zh_CN]=需要管理员身份验证才能移除所有 nasmount 共享和数据
 Policy=auth_admin
 PolicyInactive=no

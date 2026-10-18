@@ -565,8 +565,8 @@ that way:
 
 Only the two GUI front ends translate: the KCM and the dialog, with the
 session library they share, plus the metadata files. The privileged side, the
-diagnostics and the command-line tools do not. Russian (`ru`) is the one
-shipped language; the checklist for the next is in
+diagnostics and the command-line tools do not. Six languages ship: `ru`,
+`de`, `fr`, `es`, `pt_BR` and `zh_CN`; the checklist for the next is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md#translating), and
 [`translations_gate.sh`](tests/translations_gate.sh) enforces it.
 
