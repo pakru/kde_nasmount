@@ -48,35 +48,6 @@ Each share becomes a systemd `.mount`/`.automount` unit pair, with its
 credentials in a root-owned file, and is armed at boot. A small polkit-
 authenticated helper does all the privileged work.
 
-## Translations
-
-The System Settings page, the Dolphin dialog, the menu entries and the
-authentication prompts are translated into **Russian** (`ru`). The language
-follows your desktop: choose it on the **Region & Language** page of System
-Settings (search for "language" if your Plasma names it differently) and log in
-again.
-
-To try a language without changing the desktop, start the program from a
-terminal with `LANGUAGE`:
-
-```bash
-LANGUAGE=ru nasmount
-```
-
-This needs a real UTF-8 locale such as `en_US.UTF-8` (`locale` shows yours).
-Under `C` or `C.UTF-8`, which bare containers and some minimal shells use, the
-`LANGUAGE` setting is ignored and the text stays English.
-
-Some messages are still English inside an otherwise translated window: those
-produced by the privileged helper and by the shared validation code (some of
-the reasons a folder is refused as a mount point, the details of a damaged
-share). They are written where the language of the person at the keyboard is
-not known. The command-line tools `nasmount-cleanup` and `nasmount-uninstall`
-are not translated.
-
-Adding a language is a small job and needs no programming; see
-[CONTRIBUTING.md](CONTRIBUTING.md#translating).
-
 ## Uninstall
 
 Use the package manager. It unmounts and deletes all your shares and their
