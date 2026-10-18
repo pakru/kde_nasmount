@@ -18,10 +18,11 @@ BuildRequires:  appstream
 BuildRequires:  cmake >= 3.20
 BuildRequires:  extra-cmake-modules >= 6.0
 BuildRequires:  gcc-c++
+BuildRequires:  gettext
 BuildRequires:  kf6-kauth-devel >= 6.0
 BuildRequires:  kf6-kconfig-devel >= 6.0
 BuildRequires:  kf6-kcoreaddons-devel >= 6.0
-BuildRequires:  kf6-ki18n-devel >= 6.0
+BuildRequires:  kf6-ki18n-devel >= 6.8
 BuildRequires:  kf6-kcmutils-devel >= 6.0
 BuildRequires:  kf6-kio-devel >= 6.0
 BuildRequires:  kf6-kwidgetsaddons-devel >= 6.0
@@ -74,6 +75,14 @@ service-menu dialog.
 
 %install
 %cmake_install
+# The translation catalogs are the one variable-length part of the payload (one
+# per language under po/), so they are collected into kcm_nasmount.lang instead
+# of being listed by hand. The macro marks each catalog with its language,
+# Fedora's convention, and fails when there is no catalog at all, which cannot
+# happen while a language ships. The explicit list under the files section
+# still names every other file. Macro names stay out of these comments on
+# purpose: rpm expands macros inside comments too.
+%find_lang kcm_nasmount
 
 # No %pre. Upgrades are supported in place: the new package's %pre is the only
 # scriptlet that can refuse one, and refusing would strand every user who
@@ -256,7 +265,7 @@ UNITS
 fi
 %systemd_postun_with_restart nasmount-boot.service
 
-%files
+%files -f kcm_nasmount.lang
 %license %{_licensedir}/nasmount/LICENSE
 %{_bindir}/nasmount
 %{_bindir}/nasmount-cleanup

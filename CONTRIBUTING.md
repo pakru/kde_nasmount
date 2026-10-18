@@ -9,6 +9,8 @@ pull requests are all welcome.
   what worked or broke. Include your distro, Plasma version and kernel.
 - **Packaging** for other distributions (AUR, openSUSE, Nix, ...).
 - **Docs**: anything in the README that confused you.
+- **Translations**: add a language or improve one. No programming needed;
+  see [Translating](#translating).
 - **Code**: for anything bigger than a small fix, please open an issue first
   so we can agree on the approach before you spend time on it.
 
@@ -92,6 +94,117 @@ not QTest. Copy an existing one. A new test means editing two places:
 `target_link_libraries`, `add_test`).
 
 Fix bugs with a test that fails without the fix, where that's practical.
+
+## Translating
+
+Every message the two front ends show lives in one gettext catalog per
+language, `po/<lang>/kcm_nasmount.po`, built from the template
+`po/kcm_nasmount.pot`. Six languages ship: Russian (`ru`), German (`de`),
+French (`fr`), Spanish (`es`), Brazilian Portuguese (`pt_BR`) and Simplified
+Chinese (`zh_CN`). The German, French, Spanish, Brazilian Portuguese and
+Chinese catalogs were written without a native speaker's review, so fixes to
+their wording are especially welcome. A few texts sit outside the catalog and
+are translated inline in four files, which the checklist below names.
+Messages produced by the privileged helper and by the shared validation code
+are English for now and are not in the catalog.
+
+### Adding a language
+
+`<lang>` is a locale name: `de`, `pt_BR` or `sr@latin`. Anything else is
+refused at configure time.
+
+1. Create the catalog and translate it:
+
+   ```bash
+   mkdir po/<lang>
+   msginit --no-translator -l <lang> -i po/kcm_nasmount.pot -o po/<lang>/kcm_nasmount.po
+   ```
+
+   A `msgctxt` such as `@action:button` says where a text appears. A note
+   starting `i18n:` is from the developer. Keep every `%1`, `%2` placeholder;
+   they may change order. Paths, addresses and command lines are passed in as
+   placeholders on purpose, so they cannot be altered.
+2. Add `Name[<lang>]`, and `Comment[<lang>]`, `GenericName[<lang>]` and
+   `Keywords[<lang>]` wherever the English key exists, to
+   `servicemenu/nasmount.desktop.in` and `packaging/nasmount-manager.desktop`.
+   The service menu has two `Name=` lines and both need a translation.
+3. Add `"Name[<lang>]"`, `"Description[<lang>]"` and `"X-KDE-Keywords[<lang>]"`
+   to `src/kcm/kcm_nasmount.json`.
+4. Add `Name[<lang>]` and `Description[<lang>]` to every action in
+   `io.github.pakru.nasmount.actions`. The description is the sentence the
+   authentication prompt shows. **No Name or Description may contain a comma,
+   semicolon, double quote or backslash.** The policy generator reads the file
+   as settings and warns about nothing: a comma empties the whole value, a
+   semicolon cuts it there, and quotes and backslashes are dropped.
+5. `make test`. The translations gate checks steps 1 to 4: every catalog
+   compiles with `msgfmt --check`, which rejects a lost placeholder, and no
+   metadata file lacks the new language.
+6. Nothing else needs editing: the install manifest, the uninstaller and both
+   packages find the new catalog by themselves. With podman or docker,
+   `make packages` builds both native packages; CI then checks each package's
+   contents against the install manifest, the new catalog included. Commit the
+   new files.
+
+To improve an existing language, edit its `.po` file and run `make test`.
+
+### When the text in the code changes
+
+Wrapping a message in `i18n()`/`i18nc()` is the developer's part; the rules
+for writing one (whole sentences, no concatenation, identifiers as
+placeholders) are in AGENTS.md under "Translations". Only the front ends
+translate: configure refuses to link KI18n into the privileged targets, and
+`tests/removed_api_gates.sh` refuses translation calls in `src/core`,
+`src/root`, `src/helper`, `src/boot` and `src/packageguard`.
+
+After adding or changing a message, run
+
+```bash
+make pot
+```
+
+It rewrites `po/kcm_nasmount.pot` from the sources and merges the result into
+every language, marking changed messages fuzzy. Commit the result: the suite
+fails when the template is out of date, and that includes a changed translator
+note (`// i18n:`) on a message whose text did not change. A catalog may lag
+behind the template; a message it lacks is shown in English. Needs `xgettext`, `msgcat` and
+`msgmerge` from `gettext`. Changing an English message invalidates every
+translation of it, so fix wording on purpose and in batches.
+
+### Trying a translation without installing it
+
+Build, then copy the compiled catalog to where KDE looks for per-user ones, and
+run the Dolphin dialog with the language set:
+
+```bash
+make
+mkdir -p ~/.local/share/locale/<lang>/LC_MESSAGES
+cp build/locale/<lang>/LC_MESSAGES/kcm_nasmount.mo ~/.local/share/locale/<lang>/LC_MESSAGES/
+LANGUAGE=<lang> build/bin/nasmount-dialog smb://host/share
+```
+
+The dialog shows the same form as the System Settings page, from the same
+catalog. This route does not exercise the System Settings page itself (its
+list rows, column widths and window title), which is best checked on an
+installed build, in a VM. When you are done, remove
+`~/.local/share/locale/<lang>/LC_MESSAGES/kcm_nasmount.mo` (and the
+directories above it, if you created them); copy the file again after every
+rebuild.
+
+**The locale must be a real UTF-8 one.** Under `C` and `C.UTF-8`, which
+containers use, glibc ignores `LANGUAGE`, and the text stays English however
+good the catalog is. Check with `locale`: if the messages locale is `C`,
+`POSIX` or `C.UTF-8`, export `LC_ALL=en_US.UTF-8` (or another UTF-8 locale that
+`locale -a` lists) first. For the same reason the CTest entry `i18n`, which
+loads the Russian catalog from `build/`, runs under `en_US.UTF-8` and is
+reported as skipped wherever that locale is not installed, as in the
+package-build containers.
+
+### Removing a language
+
+Delete `po/<lang>` and its keys in the four metadata files, then **delete
+`build/`** (`make clean`). The build installs the whole of `build/locale`, so
+a compiled catalog left there by the removed language would still be
+installed.
 
 ## Pull requests
 

@@ -40,7 +40,7 @@ KCMUtils.ScrollViewKCM {
 
     actions: [
         Kirigami.Action {
-            text: "Add…"
+            text: i18nc("@action:button", "Add…")
             icon.name: "list-add"
             // Off while an add is in flight, even after its dialog was
             // closed: the dialog claims the next finished("add") as its own,
@@ -100,7 +100,7 @@ KCMUtils.ScrollViewKCM {
             implicitHeight: Kirigami.Units.iconSizes.small
         }
         QQC2.Label {
-            text: "nasmount-boot: " + kcm.shareModel.bootHealthText
+            text: i18nc("@info:status %1 is a service name, %2 its state", "%1: %2", "nasmount-boot", kcm.shareModel.bootHealthText)
             color: Kirigami.Theme.neutralTextColor
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
@@ -113,18 +113,24 @@ KCMUtils.ScrollViewKCM {
         clip: true
 
         // Measured once for the whole list, so every row's access and status
-        // columns line up - that is what makes the list read as a table.
-        readonly property real accessColumnWidth: accessMetrics.advanceWidth + Kirigami.Units.largeSpacing
+        // columns line up - that is what makes the list read as a table. The
+        // widest label is not the same string in every language, so the width
+        // comes from the model's complete label sets (translated, and the
+        // very texts the rows show) rather than from any one literal.
+        readonly property real accessColumnWidth: widest(kcm.shareModel.accessLabels) + Kirigami.Units.largeSpacing
         readonly property real statusColumnWidth:
-            statusMetrics.advanceWidth + Kirigami.Units.iconSizes.small + Kirigami.Units.largeSpacing
+            widest(kcm.shareModel.stateLabels) + Kirigami.Units.iconSizes.small + Kirigami.Units.largeSpacing
 
-        TextMetrics {
-            id: accessMetrics
-            text: "Read & Write & Execute"
+        FontMetrics {
+            id: labelMetrics
         }
-        TextMetrics {
-            id: statusMetrics
-            text: "Missing credentials"
+
+        function widest(labels) {
+            let width = 0
+            for (const label of labels) {
+                width = Math.max(width, labelMetrics.advanceWidth(label))
+            }
+            return width
         }
 
         // Rows arrive with every managed share first and foreign mounts last
@@ -133,7 +139,8 @@ KCMUtils.ScrollViewKCM {
         section.delegate: Kirigami.ListSectionHeader {
             required property string section
             width: ListView.view.width
-            text: section === "foreign" ? "Mounted by other tools" : "Network mounts"
+            text: section === "foreign" ? i18nc("@title:group", "Mounted by other tools")
+                                        : i18nc("@title:group", "Network mounts")
         }
 
         delegate: QQC2.Control {
@@ -229,7 +236,7 @@ KCMUtils.ScrollViewKCM {
 
                 QQC2.ToolButton {
                     icon.name: "document-open-folder"
-                    text: "Open in file manager"
+                    text: i18nc("@action:button", "Open in file manager")
                     display: QQC2.AbstractButton.IconOnly
                     onClicked: kcm.openMountPoint(row.mountPoint)
                     QQC2.ToolTip.visible: hovered
@@ -239,7 +246,7 @@ KCMUtils.ScrollViewKCM {
 
                 QQC2.ToolButton {
                     icon.name: "document-properties"
-                    text: "Details"
+                    text: i18nc("@action:button", "Details")
                     display: QQC2.AbstractButton.IconOnly
                     onClicked: detailsDialog.openFor({
                         remoteUrl: row.remoteUrl,
@@ -270,9 +277,9 @@ KCMUtils.ScrollViewKCM {
                         id: removeButton
                         anchors.fill: parent
                         icon.name: "edit-delete-remove"
-                        text: row.removal === "removeOrphan" ? "Remove the orphan definition"
-                            : row.removal === "removeRecord" ? "Remove the local record"
-                            : "Remove"
+                        text: row.removal === "removeOrphan" ? i18nc("@action:button", "Remove the orphan definition")
+                            : row.removal === "removeRecord" ? i18nc("@action:button", "Remove the local record")
+                            : i18nc("@action:button", "Remove")
                         display: QQC2.AbstractButton.IconOnly
                         enabled: row.removal.length > 0
                         onClicked: removeConfirm.openFor(row.removal, row.shareId, row.mountPoint)
@@ -289,8 +296,10 @@ KCMUtils.ScrollViewKCM {
             anchors.centerIn: parent
             width: parent.width - Kirigami.Units.gridUnit * 4
             visible: listView.count === 0
-            text: "No network mounts yet"
-            explanation: "Click Add… to create one."
+            text: i18nc("@info:placeholder", "No network mounts yet")
+            // i18n: "Add…" is the label of the Add button in this window: use
+            // i18n: its translation here.
+            explanation: i18n("Click Add… to create one.")
         }
     }
 
@@ -339,7 +348,8 @@ KCMUtils.ScrollViewKCM {
         anchors.centerIn: parent
         width: Math.min(root.width - 40, 460)
         modal: true
-        title: kind === "removeRecord" ? "Remove saved settings" : "Remove network mount"
+        title: kind === "removeRecord" ? i18nc("@title:window", "Remove saved settings")
+                                       : i18nc("@title:window", "Remove network mount")
         standardButtons: QQC2.Dialog.Yes | QQC2.Dialog.Cancel
 
         onAccepted: {
@@ -366,14 +376,11 @@ KCMUtils.ScrollViewKCM {
             targetId = id
             targetMountPoint = mountPoint
             if (removalKind === "delete") {
-                confirmLabel.text = "Remove the network mount at " + mountPoint + "?"
+                confirmLabel.text = i18n("Remove the network mount at %1?", mountPoint)
             } else if (removalKind === "removeOrphan") {
-                confirmLabel.text = "Remove the definition at " + mountPoint + "?\n\n"
-                                  + "You have no saved settings for it, so adding it again means "
-                                  + "entering everything anew."
+                confirmLabel.text = i18n("Remove the definition at %1?\n\nYou have no saved settings for it, so adding it again means entering everything anew.", mountPoint)
             } else {
-                confirmLabel.text = "Remove your saved settings for " + mountPoint + "?\n\n"
-                                  + "No mount definition is touched and nothing is unmounted."
+                confirmLabel.text = i18n("Remove your saved settings for %1?\n\nNo mount definition is touched and nothing is unmounted.", mountPoint)
             }
             open()
         }

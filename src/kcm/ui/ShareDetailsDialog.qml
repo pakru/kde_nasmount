@@ -18,7 +18,7 @@ import QtQuick.Controls as QQC2
 QQC2.Dialog {
     id: dialog
     modal: true
-    title: "Network mount details"
+    title: i18nc("@title:window", "Network mount details")
     standardButtons: QQC2.Dialog.Close
     width: Math.min((parent ? parent.width : 640) - 40, 520)
 

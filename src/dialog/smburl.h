@@ -26,7 +26,9 @@ namespace Dialog::SmbUrl
  */
 QString suggestMountpoint(const QString &unc);
 
-/** Coarse state text for a saved share, without needing the full KCM model. */
+/** Coarse state text for a saved share, without needing the full KCM model.
+ *  Translated for the user's language, in lower case: it is shown in
+ *  parentheses inside a sentence, not as a list label. */
 QString describeState(const QString &mountPoint);
 
 } // namespace Dialog::SmbUrl

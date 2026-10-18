@@ -2,10 +2,10 @@
 
 # Prevent the removed transaction/Edit/Forget surface from silently returning,
 # and hold the placement rules that would otherwise rest only on review: which
-# libraries may carry the smb:// address parser, which QML may import
-# Kirigami, and which calls the KCM may use to open a folder. Every check
-# greps comments too, so no comment may spell out a forbidden name -- word
-# explanations around it.
+# libraries may carry the smb:// address parser, which code may translate,
+# which QML may import Kirigami, and which calls the KCM may use to open a
+# folder. Every check greps comments too, so no comment may spell out a
+# forbidden name -- word explanations around it.
 # Run from CTest.
 
 set -euo pipefail
@@ -70,6 +70,14 @@ check_no_matches "smb:// parser placement" \
 check_no_matches "removed dialog parser" \
     'SmbUrl::(parse|splitDomainUser|Identity)\b' \
     src tests
+
+# Core is linked into the root helper, which runs with no knowledge of the
+# caller's language; translation happens in the front ends only. The build
+# refuses the matching link dependency at configure time; this catches a use
+# that needs no new link, such as a header that is already reachable.
+check_no_matches "translation outside the front ends" \
+    '\b(k|kl)?x?i18n[a-z]*\(|\bI18NC?_NOOP|KLocalized|KLazyLocalized|KI18n|klocalizedstring\.h' \
+    src/core src/root src/helper src/boot src/packageguard
 
 # The KCM opens a mount point by asking the file manager over D-Bus. Qt's own
 # URL-opening paths examine a local path inside this process to choose an

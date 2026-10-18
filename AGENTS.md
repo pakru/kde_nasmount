@@ -22,6 +22,7 @@ make                  # configure + build into build/ (RelWithDebInfo, /usr pref
 make test             # build, then ctest --output-on-failure
 ctest --test-dir build --output-on-failure   # tests only
 build/bin/<name>_test                        # one test binary directly
+make pot              # regenerate po/kcm_nasmount.pot, merge it into every language
 make install          # runs ./install.sh - NOT with sudo
 make uninstall        # runs ./uninstall.sh
 make deb              # .deb in dist/deb/, built in the pinned Ubuntu 26.04 image
@@ -44,7 +45,7 @@ make dist-clean       # rm -rf dist/
   checkout, or one where `make clean` has run, cannot uninstall until
   `install.sh` regenerates the manifest. The manifest content is deterministic
   (validated against the hardcoded allowlist in
-  [`cleanupvalidation.cpp`](src/session/cleanupvalidation.cpp#L27), which also
+  [`cleanupvalidation.cpp`](src/session/cleanupvalidation.cpp#L37), which also
   requires it to be complete), so regenerating it is safe.
 - `build/` is the only build directory the tooling knows about; `.gitignore`
   also covers `build-*/` for ad-hoc trees.
@@ -85,16 +86,25 @@ Build dependencies are **six hand-maintained lists** that must agree:
 `packaging/debian/control`, the spec's `BuildRequires`, the DEB and RPM lists
 in `build-in-container.sh`, every Ubuntu/Fedora build block in `ci.yml`, and
 `release.yml`. A missing entry fails only in the distribution it was forgotten
-in. `packaging_metadata_test.sh` checks those lists only for the KIO and
-QML-runtime dependencies the autofill feature added (`libkf6kio-dev`/
-`kf6-kio-devel`, `qml6-module-qtquick-dialogs`); extend it when you add
-another. The password service itself is a weak dependency in both families
-(`Recommends:`), never `Requires:` - a host without it must still install and
-mount with a typed credential. So is `kio-extras`, which ships the smb KIO
-worker behind the Add dialog's Share "Browse…": without it Browse reports an
-unknown protocol and a typed address still works.
-`packaging_metadata_test.sh` asserts both are `Recommends:` and neither is a
-hard dependency.
+in. `packaging_metadata_test.sh` checks those lists only for the following:
+the KIO and QML-runtime dependencies the autofill feature added
+(`libkf6kio-dev`/`kf6-kio-devel`, `qml6-module-qtquick-dialogs`), `gettext`,
+and the KI18n floor; extend it when you add another. `gettext` is named
+although KI18n's CMake config already pulls it in, because the build itself now
+runs `msgfmt` (compiling the catalogs) and the suite runs `xgettext` and
+`msgcat` (the translations gate), and a tool that arrives only through someone
+else's dependency vanishes in whichever distribution stops providing it. The
+test requires it as a whole list entry, so `gettext-base` or `gettext-devel`
+cannot stand in, in every list and every `ci.yml`/`release.yml` build block.
+The KI18n floor (6.8, the first with `KLocalizedQmlContext`) is the version in
+`find_package(KF6I18n ...)`; the test reads it from `CMakeLists.txt` and
+requires `debian/control` and the spec to say the same. The password service
+itself is a weak dependency in both families (`Recommends:`), never
+`Requires:` - a host without it must still install and mount with a typed
+credential. So is `kio-extras`, which ships the smb KIO worker behind the Add
+dialog's Share "Browse…": without it Browse reports an unknown protocol and a
+typed address still works. `packaging_metadata_test.sh` asserts both are
+`Recommends:` and neither is a hard dependency.
 
 The package entry points use `dpkg-buildpackage`/debhelper and `rpmbuild`/RPM
 macros, which call CMake directly with `NASMOUNT_PACKAGE_FAMILY=deb|rpm`.
@@ -262,6 +272,32 @@ generated cleanup manifest, `Session::validateInstallManifest()`, source
 `uninstall.sh`, DEB/RPM file metadata, and cleanup/package inspection tests.
 Debian's KAuth helper directory, Debian multiarch libexec, and Fedora
 `lib64/libexec` layouts are intentionally distinct.
+
+One family of installed files is not named by hand: the translation catalogs,
+`share/locale/<lang>/LC_MESSAGES/kcm_nasmount.mo`. It is the single family whose
+size varies, one per language under `po/`, possibly none. CMake generates their
+manifest lines at configure time from the `po/` tree, not from `build/locale`,
+which is empty before a build and can hold a deleted language's leftovers. Both
+allowlists that decide what a privileged uninstall deletes,
+`validateInstallManifest()` and `uninstall.sh`, admit them by one strict
+pattern: this project's catalog name, inside a directory spelled `ll`, `ll_CC`
+or `ll@variant`, which nothing a path could traverse with can match. A catalog
+counts into the exact-size check but never toward the required components, so a
+manifest cannot trade a missing component for one, and zero catalogs is valid.
+The language alphabet is spelled in four places (CMake's configure-time check,
+twice in `cleanupvalidation.cpp`, and `uninstall.sh`);
+[`translations_gate.sh`](tests/translations_gate.sh) fails when one drifts.
+`uninstall.sh` matches in the C locale (`is_allowed_path()`), because a bracket
+range follows the locale's collation otherwise, admitting `é` under
+`en_US.UTF-8` and refusing a plain `i` under Turkish, and the same manifest
+would be accepted or refused depending on who runs the uninstall; the gate runs
+that allowlist for real under the locales known to differ that the host has.
+The DEB lists nothing (`nasmount.install` is `usr/*`); the RPM collects the
+catalogs with `%find_lang kcm_nasmount` into `kcm_nasmount.lang` and
+`%files -f`, which marks each one `%lang(xx)`. A listed catalog may be absent on
+disk (dpkg `path-exclude`, rpm `%_install_langs`), so nothing that reads the
+manifest may treat that as an error: the validator reads only its text.
+
 Before publishing a draft, run the privileged release checklist on fresh
 Kubuntu 26.04 and Fedora KDE 44 VMs; GitHub container smoke tests do not replace
 KAuth, polkit, D-Bus, CIFS, service enablement, and reboot checks.
@@ -297,7 +333,9 @@ shares rather than failing loudly:
   renaming them is an upgrade-compatibility change (upgrade rule 5) and buys
   nothing.
 - Package names (`nasmount` in both families), the seven installed binaries,
-  `kcm_nasmount.so`, `kcm_nasmount.desktop`, `nasmount.desktop`,
+  `kcm_nasmount.so`, `kcm_nasmount.desktop`, `kcm_nasmount.mo` (the one
+  translation catalog, named after the KCM's plugin id because that is the
+  domain KCMUtils fixes for its QML; see "Translations"), `nasmount.desktop`,
   `nasmount-manager.desktop`,
   `share/nasmount/`, `share/doc/nasmount/`, and the release asset names
   `nasmount-amd64-<version>.deb` / `nasmount-fedora44-x86_64-<version>.rpm`.
@@ -328,11 +366,15 @@ boundary**, not a style preference:
 
 - Everything is **STATIC** on purpose: the privileged helper must not depend on
   a `.so` an unprivileged user could replace. Don't convert these to shared.
-- `kde_nasmount_assert_no_root_link()` in [`CMakeLists.txt`](CMakeLists.txt#L271)
+- `kde_nasmount_assert_no_root_link()` in [`CMakeLists.txt`](CMakeLists.txt#L378)
   fails the configure step if `kde_nasmount-root` ever reaches
   `kde_nasmount-session`, the dialog, the cleanup tool, the package guard, or
   the KCM. Structural placement is the real defence; that check catches
-  accidents. Add any new unprivileged target to that list.
+  accidents. Add any new unprivileged target to that list. Two more checks sit
+  beside it and guard the translation boundary:
+  [`kde_nasmount_assert_no_i18n_link()`](CMakeLists.txt#L404) and
+  [`kde_nasmount_assert_translation_domain()`](CMakeLists.txt#L441); see
+  "Translations".
 - The helper ([`src/helper/helper.cpp`](src/helper/helper.cpp)) is deliberately
   thin: caller validation, typed argument decoding, root-lock acquisition,
   dispatch into `kde_nasmount-root`, reply conversion. **Do not add filesystem or
@@ -519,6 +561,170 @@ that way:
   it with the service menu; it is opt-in, and in System Settings it goes to
   that process's stderr.
 
+### Translations
+
+Only the two GUI front ends translate: the KCM and the dialog, with the
+session library they share, plus the metadata files. The privileged side, the
+diagnostics and the command-line tools do not. Six languages ship: `ru`,
+`de`, `fr`, `es`, `pt_BR` and `zh_CN`; the checklist for the next is in
+[`CONTRIBUTING.md`](CONTRIBUTING.md#translating), and
+[`translations_gate.sh`](tests/translations_gate.sh) enforces it.
+
+- **One catalog, `kcm_nasmount`**, for every translated string:
+  `po/<lang>/kcm_nasmount.po`, installed as
+  `share/locale/<lang>/LC_MESSAGES/kcm_nasmount.mo`. KCMUtils sets its own
+  engine's QML translation domain to the plugin id (`kcm_nasmount`) and this
+  project cannot change that, while `ShareForm.qml` is loaded by two hosts
+  (the KCM and `nasmount-dialog`). The only domain the shared form can use
+  under both is the plugin id, so it uses plain `i18n()` and stays
+  host-agnostic; two catalogs would make it name one (`i18nd`) and so belong to
+  one host. The name is defined once, as `NASMOUNT_TRANSLATION_DOMAIN` in
+  `CMakeLists.txt`, and reaches C++ as `TRANSLATION_DOMAIN`. Don't spell the
+  literal in C++; QML never names a domain. The file name is observable on a
+  user's machine, so it is frozen once shipped (see "Project name vs product
+  name").
+- **`TRANSLATION_DOMAIN` on every translating target**:
+  `kde_nasmount-session`, `nasmount-dialog` and `kcm_nasmount`. Without the
+  macro `i18n()` uses the *application's* catalog, which inside System Settings
+  is System Settings' own, so nothing fails and the strings just stay English.
+  `kde_nasmount_assert_translation_domain()` fails configure for a target that
+  lacks it. A translation unit compiled straight into a test needs it too
+  (`smburl_test` builds the dialog's `smburl.cpp`). The dialog's `main()` also
+  makes the catalog its application domain and calls
+  `KLocalization::setupLocalizedContext()` on its engine *before* `load()`:
+  without that `i18n()` is not defined there and a binding in `ShareForm.qml`
+  throws as soon as it evaluates. `shareform_qml_test` and `i18n_test` give
+  their bare engines the same context for the same reason.
+- **Core, root, helper, boot and the package guard never translate.** The
+  helper runs as root with no knowledge of the caller's language and core is
+  linked into it, so whatever they produce (`UnitSpec` validation errors,
+  `Verify` details, the helper's replies) is English inside the translated UI.
+  That is accepted, not an oversight; translating it needs codes passed across
+  the KAuth boundary, not a call to `i18n()` in code the helper links.
+  `kde_nasmount_assert_no_i18n_link()` fails configure if KI18n, or the session
+  library that carries it, reaches those targets, directly or through an
+  INTERFACE-only link; `removed_api_gates.sh` catches a call that needs no new
+  link. Several more stay English on purpose, though they sit in a library that
+  otherwise translates: the `NASMOUNT_DEBUG_LOOKUP` report and the credential
+  lookup protocol's parse errors (the reason a lookup missed reaches nothing
+  the user sees), `nasmount-cleanup`'s own output, the install-manifest
+  validator's errors (`cleanupvalidation.cpp`) and `purgeApplicationData()`'s
+  errors (only that tool calls either). Wrapping one would pull command-line
+  text into the catalog at the next `make pot`. `nasmount-cleanup` shares
+  `UserLock` and the helper-call fallback with the GUIs, so a couple of its
+  error lines can appear translated; that is a side effect, not a feature to
+  extend.
+- **`ShareForm.qml` uses plain `i18n()`/`i18nc()`, never `i18nd*`, and never
+  `import org.kde.ki18n`.** The prefixed `KI18n.i18n()` form needs that QML
+  module importable wherever the form loads, which includes both package
+  containers because `shareform_qml_test` loads the real form there. It would
+  put a QML runtime module in all six build lists and raise the KDE Frameworks
+  floor to 6.21, for qmllint visibility only. It is the Kirigami rule's reason
+  again: whatever the form imports must exist in the package containers.
+- **Writing a string.**
+  1. Whole sentences with placeholders, never pieces joined with `+`:
+     `i18n("Remove the network mount at %1?", mountPoint)`. Translators must be
+     able to reorder words. In QML a message is one string literal, never two
+     joined with `+` inside the call: the gate's backstop reads line by line and
+     can flag the continuation; a long line is fine.
+  2. Give a short or ambiguous string a context with `i18nc()`, using KDE's
+     semantic markers: `@action:button`, `@title:window`, `@label:textbox`,
+     `@option:radio`, `@item:inlistbox` (a state or access shown in the list),
+     `@title:group`, `@info:tooltip`, `@info:placeholder`, `@info:status`.
+     Sentences take plain `i18n()`. One context per *meaning*: two calls with
+     the same context and text are one catalog entry, which is intended when
+     the meaning matches (a Foreign share and a Mounted one both read
+     "Mounted").
+  3. Identifiers are never translated: paths, `smb://` examples, unit names,
+     command lines, D-Bus names, `nasmount`, option values. Inside a sentence
+     they go in as a placeholder so a translator cannot alter them. KI18n
+     formats an integer argument for the user's locale (digit grouping), so
+     pass an id-like number such as a uid or port as `QString::number(n)`, and
+     use `i18np()` for a real count.
+  4. A translator note is `// i18n: ...` directly above the call, in C++ and
+     QML; the extractor collects it (`--add-comments=i18n`). Nothing may stand
+     between the note and the call: xgettext drops a note that other code
+     separates from it, so put the call in its own statement.
+  5. Changing English source text orphans every translation of it. Fix wording
+     deliberately and in batches, never in passing.
+  6. Never compare displayed text for logic. Branch on an enum, role or key,
+     and translate at the edge.
+- **QML is extracted as JavaScript** (`xgettext -L JavaScript`), never as C++:
+  the C++ scanner stops at the first literal of `i18n("a " + "b")` and records
+  `"a "` as the whole message, silently.
+- **`make pot` and the freshness gate.** `po/extract-messages.sh` rewrites the
+  committed `po/kcm_nasmount.pot` from `src/session`, `src/kcm` and
+  `src/dialog`, then `msgmerge`s every language. `translations_gate.sh`
+  compares the committed template with a fresh extraction message by message
+  (context, `msgid`, plural, translator comment and flags), ignoring only
+  source references, wrapping, order and the header, so an edit that only
+  shifts line numbers demands nothing, while a string added, or a `// i18n:`
+  note reworded, without `make pot` fails the suite. A catalog lagging behind the
+  template is normal: KI18n falls back to English for any message it lacks.
+  The extractor also flags every message that names a `%1`..`%9` placeholder
+  `kde-format`, which xgettext does for C++ (`--kde`) but never for
+  JavaScript, because `msgfmt --check` verifies a translation's placeholders
+  only for a flagged message. `ki18n_install()` runs `msgfmt` without
+  `--check`, so the gate does; otherwise a Russian string that dropped a `%1`
+  would compile, install and ship.
+- **What the gate checks.** Six things, each reported on its own: the `po/`
+  layout and language alphabet; `msgfmt --check` on every catalog and the
+  `kde-format` flag on the template; template freshness; a backstop for QML
+  literals never wrapped (a heuristic: a capitalized literal on a line with no
+  translation call. Where it fires on data rather than text, change the code so
+  the value is not spelled that way; don't loosen the pattern); every
+  language's metadata being complete; and the four spellings of the language
+  alphabet agreeing. Configure refuses the same layout mistakes early: a `.po`
+  other than `po/<lang>/kcm_nasmount.po`, a `.pmap` or a `scripts/` directory
+  (`ki18n_install()` would install them with nothing listing them), and a
+  language directory the allowlists would refuse.
+- **Metadata translations are inline**, as `Name[ru]=` keys in the two
+  `.desktop` files and `io.github.pakru.nasmount.actions` and as
+  `"Name[ru]"` in `kcm_nasmount.json`, edited by hand: nothing in gettext
+  handles the `.actions` file or the KCM JSON, and for a few languages
+  machinery costs more than it saves (revisit at about four). The service menu
+  has two `Name=` lines and Dolphin shows the second in its context menu, so
+  both need a translation. `kauth-policy-gen` writes each action's `Name` as
+  the policy's description and its `Description` as the message the
+  authentication prompt shows, so an action needs exactly one of each per
+  language. It reads the file through `QSettings` and neither fails nor warns:
+  **a comma empties the whole value, a semicolon cuts it there, and double
+  quotes and backslashes are dropped**, so no `Name` or `Description` may
+  contain one of the four. The gate refuses them.
+- **Tests run in English.** `CMakeLists.txt` appends `LANGUAGE=en_US` to every
+  test, because many assertions compare English text, and on a workstation with
+  the catalog installed (`make install`, or a `.mo` copied to
+  `~/.local/share/locale`) and a Russian locale they would see it translated.
+  The line must stay after the last `add_test()`: it pins only the tests
+  defined above it. Catalogs are invisible under the `C` and `C.UTF-8`
+  locales, where glibc's gettext ignores `LANGUAGE` altogether, which is all a
+  package container has. So the one test that needs a real catalog, `i18n`
+  (the shipped Russian catalog from `build/locale`, read by the session
+  library and by `ShareForm.qml` under a context with the shared domain), is
+  registered only while `po/ru/kcm_nasmount.po` exists (the `pofiles` target
+  exists whenever `po/` does, so it cannot say). It pins `LC_ALL=en_US.UTF-8`
+  for itself and exits 77, which CTest reports as *Skipped*, when that locale
+  is not installed and the messages locale therefore still reads as `C`. It is
+  skipped in both package builds, deliberately: running it there would mean
+  installing locales in both containers, which is more list churn for a check
+  the structural ones already cover in part. What runs everywhere is the domain assertion at configure
+  time, `shareform_qml_test` loading the form under a localization context, and
+  the gate.
+- **Column widths** in the KCM list come from `MountModel.stateLabels` and
+  `accessLabels` (CONSTANT properties over `Session::allStateLabels()` and
+  `allAccessLabels()`), the complete translated label sets that `presentRow()`
+  itself draws from, measured with `FontMetrics`. Measuring two English
+  literals would size the columns for the wrong string in any other language.
+  A new `DisplayState` is labelled in `stateLabel()` and nowhere else; the list
+  picks it up by itself.
+- **Stale catalogs.** `ki18n_install(po)` compiles every
+  `po/<lang>/kcm_nasmount.po` into `build/locale/<lang>/LC_MESSAGES/` and
+  installs the *whole* `build/locale` directory. A `.mo` left there by a
+  language since deleted is installed too, so **delete `build/` after removing
+  a language** (the package builds start from a clean tree and
+  `inspect-package-tree.sh` would catch the mismatch). `KF_SKIP_PO_PROCESSING`
+  turns the whole thing off: nothing is compiled, installed or listed.
+
 ## Conventions
 
 - Every header, QML file and standalone `.cpp` (`main.cpp`, `helper.cpp`)
@@ -560,11 +766,12 @@ that way:
 
 ## Tests
 
-The suite is 25 CTest entries: 19 C++ test binaries, four shell gates
+The suite is 27 CTest entries: 20 C++ test binaries, five shell gates
 (`removed_api_gates.sh`, `qml_invokable_gate.sh`, `package_scripts_test.sh`,
-`packaging_metadata_test.sh`), `version_metadata` (a CMake script checking
-`VERSION` against every generated version string), and ECM's `appstreamtest`.
-Both native package builds run all of it.
+`packaging_metadata_test.sh`, `translations_gate.sh`), `version_metadata` (a
+CMake script checking `VERSION` against every generated version string), and
+ECM's `appstreamtest`. Both native package builds run all of it; the `i18n`
+test reports *Skipped* there (see "Translations").
 
 `tests/*.cpp` are plain `main()` binaries using a local harness (`static int
 passed/failed` plus a `check(label, condition, detail)` helper, `return failed
@@ -583,8 +790,11 @@ Adding a C++ test means editing two places:
 1. `tests/<name>_test.cpp`;
 2. `CMakeLists.txt` - `add_executable` + `target_link_libraries` + `add_test`.
 
-A new shell gate needs only its `add_test`. `install.sh` runs no tests - it
-only builds and installs - so run `make test` before `make install`.
+A new shell gate needs only its `add_test`. Either kind goes above the block
+at the end of `CMakeLists.txt` that pins `LANGUAGE=en_US` for every test (see
+"Translations"); a test added below it runs in the caller's language.
+`install.sh` runs no tests - it only builds and installs - so run `make test`
+before `make install`.
 
 The same hand-maintained-list trap exists in CI. `packaging_metadata_test.sh`
 compares both workflows' job names to an **exact set**, and `ci_success`
@@ -597,9 +807,11 @@ that fails the suite if deleted APIs return - the transaction/recovery engine,
 tombstones/Forget, automatic partial repair, in-place Edit/Replace, pending-
 transaction presentation roles, runtime coupling in the privileged inventory,
 and stale transaction-storage prose in `README.md`, `src` and the install
-scripts. It also holds four placement rules:
+scripts. It also holds five placement rules:
 - the `smb://` parser stays out of core, the helper and the root library;
 - the service-menu dialog does not regain its own parser;
+- translation stays in the front ends: no `i18n` call, `KLocalized*` or `KI18n`
+  in core, root, helper, boot or the package guard;
 - ShareForm never imports Kirigami;
 - the KCM never uses Qt's own URL opening.
 

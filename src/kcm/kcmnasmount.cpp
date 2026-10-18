@@ -6,6 +6,7 @@
 #include "credentiallookup.h"
 #include "shareaddress.h"
 
+#include <KLocalizedString>
 #include <KPluginFactory>
 
 #include <QDBusConnection>
@@ -131,8 +132,8 @@ void KcmNasmount::openMountPoint(const QString &mountPoint)
         const QDBusPendingReply<> reply = *w;
         w->deleteLater();
         if (reply.isError()) {
-            Q_EMIT openFailed(QStringLiteral("No file manager answered the request to open the folder (%1)")
-                                  .arg(reply.error().message()));
+            Q_EMIT openFailed(i18n("No file manager answered the request to open the folder (%1)",
+                                   reply.error().message()));
         }
     });
 }

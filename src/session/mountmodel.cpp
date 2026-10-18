@@ -10,6 +10,8 @@
 #include "unitvalue.h"
 #include "verify.h"
 
+#include <KLocalizedString>
+
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -62,15 +64,15 @@ RowClassification classifyRow(const RowClassifyInput &in)
 
     if (in.definitionState == QStringLiteral("none")) {
         out.state = DisplayState::Broken;
-        out.detail = in.storeCorrupt ? QStringLiteral("this saved record is missing required data")
-                                     : QStringLiteral("no definition exists for this saved record");
+        out.detail = in.storeCorrupt ? i18n("this saved record is missing required data")
+                                     : i18n("no definition exists for this saved record");
         out.canRemoveLocalRecord = in.hasStoreRecord;
         return out;
     }
 
     if (in.definitionState == QStringLiteral("tampered") || in.definitionState == QStringLiteral("notOurs")) {
         out.state = DisplayState::Broken;
-        out.detail = QStringLiteral("requires administrator repair");
+        out.detail = i18n("requires administrator repair");
         out.requiresAdministrator = true;
         out.canRemoveLocalRecord = in.hasStoreRecord;
         return out;
@@ -83,9 +85,9 @@ RowClassification classifyRow(const RowClassifyInput &in)
     if (in.drift || in.storeCorrupt) {
         out.state = DisplayState::Broken;
         out.detail = in.drift
-            ? QStringLiteral("saved settings do not match the actual definition - remove the local record, "
-                             "then remove the resulting orphan definition")
-            : QStringLiteral("this share's saved convenience data is incomplete - remove the local record");
+            ? i18n("saved settings do not match the actual definition - remove the local record, "
+                   "then remove the resulting orphan definition")
+            : i18n("this share's saved convenience data is incomplete - remove the local record");
         out.canRemoveLocalRecord = true;
         return out;
     }
@@ -99,12 +101,12 @@ RowClassification classifyRow(const RowClassifyInput &in)
 
     if (rt.mount == Verify::MountState::Indeterminate || rt.automount == Verify::AutomountState::Indeterminate) {
         out.state = DisplayState::Busy;
-        out.detail = QStringLiteral("runtime state could not be determined - refresh and retry");
+        out.detail = i18n("runtime state could not be determined - refresh and retry");
         return out;
     }
     if (rt.mount == Verify::MountState::Present && rt.verification != Verify::VerificationState::Match) {
         out.state = DisplayState::Busy;
-        out.detail = QStringLiteral(
+        out.detail = i18n(
             "mounted, but does not correlate with this definition - release it with its owning tool, refresh, "
             "then retry");
         return out;
@@ -112,7 +114,7 @@ RowClassification classifyRow(const RowClassifyInput &in)
     if (rt.mount != Verify::MountState::Present && rt.automount == Verify::AutomountState::Active
         && rt.activationTrust != Verify::ActivationTrust::Trusted) {
         out.state = DisplayState::Broken;
-        out.detail = QStringLiteral(
+        out.detail = i18n(
             "automount is active, but its instance id does not match what was recorded - reboot or seek "
             "administrator help; "
             "never stopped or adopted automatically");
@@ -122,7 +124,7 @@ RowClassification classifyRow(const RowClassifyInput &in)
 
     if (isPartial) {
         out.state = DisplayState::Broken;
-        out.detail = QStringLiteral("only one half of the pair exists - remove it, it is never repaired");
+        out.detail = i18n("only one half of the pair exists - remove it, it is never repaired");
         out.canRemoveDefinition = true;
         return out;
     }
@@ -130,7 +132,7 @@ RowClassification classifyRow(const RowClassifyInput &in)
     if (rt.mount == Verify::MountState::Present) {
         if (credentialUnhealthy(in)) {
             out.state = DisplayState::MissingCredentials;
-            out.detail = QStringLiteral("stored credential is missing or unhealthy");
+            out.detail = i18n("stored credential is missing or unhealthy");
             out.canRemoveDefinition = true;
             return out;
         }
@@ -141,7 +143,7 @@ RowClassification classifyRow(const RowClassifyInput &in)
     if (rt.automount == Verify::AutomountState::Active) {
         if (credentialUnhealthy(in)) {
             out.state = DisplayState::MissingCredentials;
-            out.detail = QStringLiteral("stored credential is missing or unhealthy");
+            out.detail = i18n("stored credential is missing or unhealthy");
             out.canRemoveDefinition = true;
             return out;
         }
@@ -156,7 +158,7 @@ RowClassification classifyRow(const RowClassifyInput &in)
     // expected present whether or not the trigger is currently armed.
     if (credentialUnhealthy(in)) {
         out.state = DisplayState::MissingCredentials;
-        out.detail = QStringLiteral("stored credential is missing or unhealthy");
+        out.detail = i18n("stored credential is missing or unhealthy");
         out.canRemoveDefinition = true;
         return out;
     }
@@ -167,15 +169,82 @@ RowClassification classifyRow(const RowClassifyInput &in)
 
 QString accessModeLabel(UnitValue::AccessMode mode)
 {
+    // Each call carries its own translator comment: the extractor attaches a
+    // comment only to the call that directly follows it.
     switch (mode) {
     case UnitValue::AccessMode::ReadOnly:
-        return QStringLiteral("Read only");
+        // i18n: Keep identical to the Add form's access radio button.
+        return i18nc("@item:inlistbox access mode", "Read only");
     case UnitValue::AccessMode::ReadWrite:
-        return QStringLiteral("Read & Write");
+        // i18n: Keep identical to the Add form's access radio button.
+        return i18nc("@item:inlistbox access mode", "Read & Write");
     case UnitValue::AccessMode::ReadWriteExecutable:
-        return QStringLiteral("Read & Write & Execute");
+        // i18n: Keep identical to the Add form's access radio button.
+        return i18nc("@item:inlistbox access mode", "Read & Write & Execute");
     }
     return QString();
+}
+
+QString stateLabel(DisplayState state)
+{
+    // Foreign shares Mounted's call: one catalog entry, because it is one
+    // meaning. The switch names every enumerator and has no default, so the
+    // compiler warns about a new DisplayState here; allStateLabels() then
+    // picks it up by itself.
+    switch (state) {
+    case DisplayState::Inactive:
+        return i18nc("@item:inlistbox share state", "Inactive");
+    case DisplayState::Armed:
+        return i18nc("@item:inlistbox share state", "Ready");
+    case DisplayState::Mounted:
+    case DisplayState::Foreign:
+        return i18nc("@item:inlistbox share state", "Mounted");
+    case DisplayState::MissingCredentials:
+        return i18nc("@item:inlistbox share state", "Missing credentials");
+    case DisplayState::Broken:
+        return i18nc("@item:inlistbox share state", "Broken");
+    case DisplayState::Busy:
+        return i18nc("@item:inlistbox share state", "Busy");
+    }
+    return QString();
+}
+
+namespace
+{
+
+// The distinct, non-empty labels of an enumeration, found by asking `label`
+// about each value from zero until it has none. The enumerators are the
+// consecutive values 0, 1, 2, ... and `label` returns an empty string for any
+// other value (both label functions fall out of their switch to
+// QString()), so the list is built from the label function itself and no
+// second list of enumerators exists to fall behind it.
+template<typename Enum>
+QStringList labelsOf(QString (*label)(Enum))
+{
+    QStringList labels;
+    for (int value = 0;; ++value) {
+        const QString text = label(static_cast<Enum>(value));
+        if (text.isEmpty()) {
+            break;
+        }
+        // Foreign repeats Mounted's text.
+        if (!labels.contains(text)) {
+            labels.append(text);
+        }
+    }
+    return labels;
+}
+
+} // namespace
+
+QStringList allStateLabels()
+{
+    return labelsOf<DisplayState>(&stateLabel);
+}
+
+QStringList allAccessLabels()
+{
+    return labelsOf<UnitValue::AccessMode>(&accessModeLabel);
 }
 
 QString stateSeverity(DisplayState state)
@@ -205,13 +274,13 @@ RowRemoval rowRemoval(const RowRemovalInput &in)
     } else if (in.hasStoreRecord && in.canRemoveLocalRecord) {
         out.kind = QStringLiteral("removeRecord");
     } else if (in.requiresAdministrator) {
-        out.blockedReason = QStringLiteral("Requires administrator repair");
+        out.blockedReason = i18nc("@info:tooltip", "Requires administrator repair");
     } else if (in.state == DisplayState::Foreign) {
-        out.blockedReason = QStringLiteral("Mounted by another tool - unmount it with that tool");
+        out.blockedReason = i18nc("@info:tooltip", "Mounted by another tool - unmount it with that tool");
     } else if (!in.detail.isEmpty()) {
-        out.blockedReason = QStringLiteral("Can't be removed right now: %1").arg(in.detail);
+        out.blockedReason = i18nc("@info:tooltip", "Can't be removed right now: %1", in.detail);
     } else {
-        out.blockedReason = QStringLiteral("Can't be removed right now");
+        out.blockedReason = i18nc("@info:tooltip", "Can't be removed right now");
     }
     return out;
 }
@@ -222,31 +291,22 @@ RowPresentation presentRow(const RowPresentInput &in)
     out.remoteUrl = ShareAddress::displayUrl(in.unc);
     out.severity = stateSeverity(in.state);
     out.detail = in.detail;
+    out.stateText = stateLabel(in.state);
     out.section = QStringLiteral("managed");
 
+    // Only Foreign differs beyond its text. Every state is still named, so a
+    // new one has to be decided here rather than silently treated as managed.
     switch (in.state) {
-    case DisplayState::Inactive:
-        out.stateText = QStringLiteral("Inactive");
-        break;
-    case DisplayState::Armed:
-        out.stateText = QStringLiteral("Ready");
-        break;
-    case DisplayState::Mounted:
-        out.stateText = QStringLiteral("Mounted");
-        break;
-    case DisplayState::MissingCredentials:
-        out.stateText = QStringLiteral("Missing credentials");
-        break;
-    case DisplayState::Broken:
-        out.stateText = QStringLiteral("Broken");
-        break;
-    case DisplayState::Busy:
-        out.stateText = QStringLiteral("Busy");
-        break;
     case DisplayState::Foreign:
-        out.stateText = QStringLiteral("Mounted");
         out.detail.clear();
         out.section = QStringLiteral("foreign");
+        break;
+    case DisplayState::Inactive:
+    case DisplayState::Armed:
+    case DisplayState::Mounted:
+    case DisplayState::MissingCredentials:
+    case DisplayState::Broken:
+    case DisplayState::Busy:
         break;
     }
 
@@ -303,7 +363,7 @@ void queryBootHealth(QString *text, bool *healthy)
               {QStringLiteral("show"), QStringLiteral("nasmount-boot.service"),
                QStringLiteral("--property=UnitFileState,ActiveState,Result,ExecMainStatus")});
     if (!proc.waitForFinished(10000) || proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
-        *text = QStringLiteral("service status undefined");
+        *text = i18n("service status undefined");
         *healthy = false;
         return;
     }
@@ -321,7 +381,7 @@ void queryBootHealth(QString *text, bool *healthy)
     }
     if (!properties.contains(QStringLiteral("UnitFileState")) || !properties.contains(QStringLiteral("ActiveState"))
         || !properties.contains(QStringLiteral("Result")) || !properties.contains(QStringLiteral("ExecMainStatus"))) {
-        *text = QStringLiteral("service status undefined");
+        *text = i18n("service status undefined");
         *healthy = false;
         return;
     }
@@ -331,18 +391,18 @@ void queryBootHealth(QString *text, bool *healthy)
     const QString execMainStatus = properties.value(QStringLiteral("ExecMainStatus")).trimmed();
 
     if (unitFileState != QStringLiteral("enabled")) {
-        *text = QStringLiteral("service disabled - shares will not be armed at boot");
+        *text = i18n("service disabled - shares will not be armed at boot");
         *healthy = false;
         return;
     }
     if (activeState == QStringLiteral("failed") || (result != QStringLiteral("success") && !result.isEmpty())
         || (execMainStatus != QStringLiteral("0") && !execMainStatus.isEmpty())) {
-        *text = QStringLiteral(
-            "service failed to start - shares may not be armed (check journalctl -u nasmount-boot)");
+        *text = i18n("service failed to start - shares may not be armed (check %1)",
+                     QStringLiteral("journalctl -u nasmount-boot"));
         *healthy = false;
         return;
     }
-    *text = QStringLiteral("service enabled");
+    *text = i18n("service enabled");
     *healthy = true;
 }
 
@@ -436,6 +496,16 @@ QString MountModel::bootHealthText() const
 bool MountModel::bootHealthy() const
 {
     return m_bootHealthy;
+}
+
+QStringList MountModel::stateLabels() const
+{
+    return allStateLabels();
+}
+
+QStringList MountModel::accessLabels() const
+{
+    return allAccessLabels();
 }
 
 void MountModel::refresh()
@@ -676,7 +746,7 @@ MountModel::RefreshResult MountModel::computeRefresh()
             row.unc = entry.mountSource;
             row.mountPoint = entry.mountPoint;
             row.state = DisplayState::Foreign;
-            row.detail = QStringLiteral("mounted by another tool");
+            row.detail = i18n("mounted by another tool");
             rows.append(row);
         }
     }

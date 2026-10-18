@@ -10,6 +10,8 @@
 #include "userlock.h"
 #include "verify.h"
 
+#include <KLocalizedString>
+
 #include <QDir>
 #include <QFutureWatcher>
 #include <QtConcurrentRun>
@@ -54,8 +56,8 @@ QString describeOutcome(HelperOutcome outcome, const QString &detail, const QStr
     case HelperOutcome::ConfirmedFailure:
         return detail;
     case HelperOutcome::Unknown:
-        return QStringLiteral("could not confirm the result (%1) - refresh before retrying")
-            .arg(detail.isEmpty() ? QStringLiteral("connection to the helper was lost") : detail);
+        return i18n("could not confirm the result (%1) - refresh before retrying",
+                    detail.isEmpty() ? i18n("connection to the helper was lost") : detail);
     }
     return detail;
 }
@@ -121,8 +123,8 @@ void MountActions::addShare(const QString &shareInput, const QString &rawMountPo
 
     if (!guestFieldsConsistent(username, domain, password)) {
         Q_EMIT finished(QString(), kind, false,
-                        QStringLiteral("a share with no username is guest, and cannot also have a password or "
-                                       "domain"));
+                        i18n("a share with no username is guest, and cannot also have a password or "
+                             "domain"));
         return;
     }
 
@@ -145,7 +147,7 @@ void MountActions::addShare(const QString &shareInput, const QString &rawMountPo
             return r;
         }
         if (!UnitValue::isValidShareId(defineResult.id)) {
-            r.message = QStringLiteral("the helper returned an invalid share id");
+            r.message = i18n("the helper returned an invalid share id");
             return r;
         }
         r.id = defineResult.id;
@@ -167,17 +169,16 @@ void MountActions::addShare(const QString &shareInput, const QString &rawMountPo
                                         : access;
         QString commitError;
         if (Store::commitShare(share, /*expectedGeneration=*/0, &commitError) != Store::CommitResult::Ok) {
-            r.message = QStringLiteral(
-                            "the definition was created, but could not be saved locally (%1) - it exists on this "
-                            "machine but will not appear here until this is resolved")
-                            .arg(commitError);
+            r.message = i18n("the definition was created, but could not be saved locally (%1) - it exists on "
+                             "this machine but will not appear here until this is resolved",
+                             commitError);
             return r;
         }
 
         r.success = true;
         r.message = defineResult.activated
-            ? QStringLiteral("Share successfuly added and mounted")
-            : QStringLiteral("Share added, but could not be mounted - check setting for more info"); // TODO improve this message
+            ? i18n("Share added and mounted")
+            : i18n("Share added, but it could not be mounted - see its state in the list");
         return r;
     });
 
@@ -207,7 +208,7 @@ void MountActions::deleteShare(const QString &id)
 
         const Store::Snapshot snap = Store::snapshotById(id);
         if (!snap.exists) {
-            r.message = QStringLiteral("no such share");
+            r.message = i18n("no such share");
             return r;
         }
         const Store::Share &share = snap.share;
@@ -218,15 +219,14 @@ void MountActions::deleteShare(const QString &id)
             // the Store record - an unknown removal that actually succeeded
             // would otherwise leave a root definition with no local record
             // pointing at it.
-            r.message = QStringLiteral("could not fully remove %1: %2%3")
-                            .arg(share.mountPoint,
-                                 describeOutcome(undefineResult.outcome, undefineResult.message, QString()),  QStringLiteral(" - retry removal later"));
+            r.message = i18n("could not fully remove %1: %2 - retry removal later", share.mountPoint,
+                             describeOutcome(undefineResult.outcome, undefineResult.message, QString()));
             return r;
         }
         r.success = Store::removeShare(id);
-        r.message = r.success ? QStringLiteral("Removed")
-                              : QStringLiteral("removed the definition, but the local record could not be fully "
-                                               "cleared - retry from this list");
+        r.message = r.success ? i18nc("@info:status operation result", "Removed")
+                              : i18n("removed the definition, but the local record could not be fully "
+                                     "cleared - retry from this list");
         return r;
     });
 
@@ -257,8 +257,8 @@ void MountActions::removeOrphanedRecord(const QString &id)
             return r;
         }
         r.success = Store::removeShare(id);
-        r.message = r.success ? QStringLiteral("Removed")
-                              : QStringLiteral("could not confirm local-record cleanup - retry");
+        r.message = r.success ? i18nc("@info:status operation result", "Removed")
+                              : i18n("could not confirm local-record cleanup - retry");
         return r;
     });
     auto *watcher = new QFutureWatcher<WorkResult>(this);
@@ -290,13 +290,14 @@ void MountActions::removeOrphanByPath(const QString &mountPoint)
         }
         const auto def = Verify::inspectDefinition(paths, ::getuid(), mountPoint);
         if (def.state != Verify::Definition::Pair && def.state != Verify::Definition::Partial) {
-            r.message = QStringLiteral("no owned definition exists at %1").arg(mountPoint);
+            r.message = i18n("no owned definition exists at %1", mountPoint);
             return r;
         }
         const HelperResult result = invokeHelperAction(QStringLiteral("undefinesystem"),
                                                        {{QStringLiteral("path"), mountPoint}});
         r.success = (result.outcome == HelperOutcome::ConfirmedSuccess);
-        r.message = describeOutcome(result.outcome, result.message, QStringLiteral("Removed"));
+        r.message = describeOutcome(result.outcome, result.message,
+                                    i18nc("@info:status operation result", "Removed"));
         return r;
     });
     auto *watcher = new QFutureWatcher<WorkResult>(this);

@@ -1,7 +1,19 @@
 {
     "KPlugin": {
         "Name": "SMB Network Mounts",
+        "Name[ru]": "Сетевые подключения SMB",
+        "Name[de]": "SMB-Netzwerklaufwerke",
+        "Name[fr]": "Montages réseau SMB",
+        "Name[es]": "Montajes de red SMB",
+        "Name[pt_BR]": "Montagens de rede SMB",
+        "Name[zh_CN]": "SMB 网络挂载",
         "Description": "Add and remove CIFS SMB network mounts",
+        "Description[ru]": "Добавление и удаление сетевых подключений CIFS SMB",
+        "Description[de]": "CIFS-/SMB-Netzwerklaufwerke hinzufügen und entfernen",
+        "Description[fr]": "Ajouter et supprimer des montages réseau CIFS SMB",
+        "Description[es]": "Añadir y eliminar montajes de red CIFS SMB",
+        "Description[pt_BR]": "Adicionar e remover montagens de rede CIFS SMB",
+        "Description[zh_CN]": "添加和移除 CIFS SMB 网络挂载",
         "Icon": "drive-network",
         "Id": "kcm_nasmount",
         "Category": "",
@@ -16,5 +28,11 @@
         ]
     },
     "X-KDE-System-Settings-Parent-Category": "network",
-    "X-KDE-Keywords": "cifs,smb,samba,network,mount,share,drive,nas"
+    "X-KDE-Keywords": "cifs,smb,samba,network,mount,share,drive,nas",
+    "X-KDE-Keywords[ru]": "cifs,smb,samba,nas,сеть,сетевой,подключение,монтирование,общая папка,папка,диск",
+    "X-KDE-Keywords[de]": "cifs,smb,samba,nas,Netzwerk,Netzwerklaufwerk,Laufwerk,einhängen,Freigabe",
+    "X-KDE-Keywords[fr]": "cifs,smb,samba,nas,réseau,montage,monter,partage,lecteur,disque",
+    "X-KDE-Keywords[es]": "cifs,smb,samba,nas,red,montaje,montar,recurso compartido,compartir,unidad",
+    "X-KDE-Keywords[pt_BR]": "cifs,smb,samba,nas,rede,montagem,montar,compartilhamento,compartilhar,unidade",
+    "X-KDE-Keywords[zh_CN]": "cifs,smb,samba,nas,网络,挂载,共享,驱动器,磁盘"
 }

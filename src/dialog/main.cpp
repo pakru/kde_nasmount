@@ -24,6 +24,7 @@
 #include "nasmountversion.h"
 #include "shareaddress.h"
 
+#include <KLocalizedQmlContext>
 #include <KLocalizedString>
 
 #include <QApplication>
@@ -59,10 +60,15 @@ int main(int argc, char **argv)
     }
 
     QApplication app(argc, argv);
-    KLocalizedString::setApplicationDomain(QByteArrayLiteral("nasmount"));
+    // One catalog serves the dialog and the KCM, so a call compiled without the
+    // TRANSLATION_DOMAIN macro still lands in it. Only the domain: the
+    // application name set below stays "nasmount".
+    KLocalizedString::setApplicationDomain(QByteArrayLiteral(TRANSLATION_DOMAIN));
     QGuiApplication::setApplicationName(QStringLiteral("nasmount"));
     QGuiApplication::setApplicationVersion(QString::fromLatin1(Nasmount::Version));
-    QGuiApplication::setApplicationDisplayName(i18n("Mount as Network Drive"));
+    // The same call as the window title in main.qml, so the two are one catalog
+    // entry and cannot be translated differently.
+    QGuiApplication::setApplicationDisplayName(i18nc("@title:window", "Mount as Network Drive"));
     QGuiApplication::setDesktopFileName(QStringLiteral("nasmount"));
 
     QCommandLineParser parser;
@@ -70,12 +76,18 @@ int main(int argc, char **argv)
         i18n("Mounts an SMB share on demand, available again after a reboot."));
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addPositionalArgument(QStringLiteral("url"), i18n("smb:// URL of the share to mount"));
+    // Its own statement so the translator note sits on the line above the call;
+    // xgettext drops a note that other code separates from the call.
+    // i18n: %1 is the URL scheme "smb://", which is not translated. Shown in
+    // i18n: --help beside the argument name.
+    const QString urlHelp = i18n("%1 URL of the share to mount", QStringLiteral("smb://"));
+    parser.addPositionalArgument(QStringLiteral("url"), urlHelp);
     parser.process(app);
 
     const QStringList args = parser.positionalArguments();
     if (args.isEmpty()) {
-        reportStartupFailure(i18n("Usage: nasmount-dialog smb://host/share"));
+        // i18n: %1 is the command line to type, which is not translated.
+        reportStartupFailure(i18n("Usage: %1", QStringLiteral("nasmount-dialog smb://host/share")));
         return 2;
     }
 
@@ -99,6 +111,12 @@ int main(int argc, char **argv)
     DialogBackend backend(unc, urlUser, loginUser);
 
     QQmlApplicationEngine engine;
+    // Without this i18n() is undefined in this engine, and a call to it throws
+    // a ReferenceError the moment a binding evaluates. ShareForm.qml, which the
+    // KCM also loads, depends on it. It must precede load(): a binding
+    // evaluates as soon as its component is created. It takes the domain from
+    // TRANSLATION_DOMAIN.
+    KLocalization::setupLocalizedContext(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("backend"), &backend);
     engine.load(QUrl(QStringLiteral("qrc:/nasmount/main.qml")));
     if (engine.rootObjects().isEmpty()) {

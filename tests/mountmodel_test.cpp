@@ -16,6 +16,9 @@
 #include "mountmodel.h"
 
 #include <QCoreApplication>
+#include <QMetaObject>
+#include <QMetaProperty>
+#include <QSet>
 #include <QTextStream>
 
 static int passed = 0;
@@ -670,6 +673,116 @@ int main(int argc, char **argv)
         const auto p = presentRow(foreign);
         check(QStringLiteral("foreign: Mounted, no detail, foreign section"),
               p.stateText == QStringLiteral("Mounted") && p.detail.isEmpty() && p.section == QStringLiteral("foreign"));
+    }
+
+    out << "=== label sets: the status and access columns' whole vocabulary ===" << Qt::endl;
+    {
+        // The KCM sizes its two columns from these lists, so a label a row
+        // can show but a list lacks would be clipped in some language. The
+        // lists are built from stateLabel() and accessModeLabel() by walking
+        // the enumerators' values, so there is no second list in the product
+        // to fall behind. The enumerators are listed here by hand too, in
+        // value order, and the counts below fail when an enumerator is
+        // added, which is the cue to extend this list. A state that stateLabel()
+        // forgot is the compiler's -Wswitch to find, not this test's.
+        using Session::allAccessLabels;
+        using Session::allStateLabels;
+        const QList<QPair<DisplayState, QString>> states = {
+            {DisplayState::Inactive, QStringLiteral("Inactive")},
+            {DisplayState::Armed, QStringLiteral("Armed")},
+            {DisplayState::Mounted, QStringLiteral("Mounted")},
+            {DisplayState::MissingCredentials, QStringLiteral("MissingCredentials")},
+            {DisplayState::Broken, QStringLiteral("Broken")},
+            {DisplayState::Busy, QStringLiteral("Busy")},
+            {DisplayState::Foreign, QStringLiteral("Foreign")},
+        };
+        const QList<UnitValue::AccessMode> modes = {UnitValue::AccessMode::ReadWrite, UnitValue::AccessMode::ReadOnly,
+                                                    UnitValue::AccessMode::ReadWriteExecutable};
+        const QStringList stateLabels = allStateLabels();
+        const QStringList accessLabels = allAccessLabels();
+
+        check(QStringLiteral("state labels are not empty"), !stateLabels.isEmpty());
+        check(QStringLiteral("access labels are not empty"), !accessLabels.isEmpty());
+        check(QStringLiteral("state labels have no duplicates"),
+              QSet<QString>(stateLabels.begin(), stateLabels.end()).size() == stateLabels.size(),
+              stateLabels.join(QLatin1Char('|')));
+        check(QStringLiteral("access labels have no duplicates"),
+              QSet<QString>(accessLabels.begin(), accessLabels.end()).size() == accessLabels.size(),
+              accessLabels.join(QLatin1Char('|')));
+        check(QStringLiteral("no label is empty"),
+              !stateLabels.contains(QString()) && !accessLabels.contains(QString()));
+
+        for (const auto &state : states) {
+            Session::RowPresentInput in;
+            in.state = state.first;
+            const QString text = Session::presentRow(in).stateText;
+            check(QStringLiteral("%1: its row text is in allStateLabels()").arg(state.second),
+                  stateLabels.contains(text) && text == Session::stateLabel(state.first), text);
+        }
+        for (const UnitValue::AccessMode mode : modes) {
+            const QString label = Session::accessModeLabel(mode);
+            check(QStringLiteral("access %1: its label is in allAccessLabels()")
+                      .arg(UnitValue::accessModeToString(mode)),
+                  !label.isEmpty() && accessLabels.contains(label), label);
+        }
+        check(QStringLiteral("one state label per distinct meaning (Foreign repeats Mounted)"),
+              Session::stateLabel(DisplayState::Foreign) == Session::stateLabel(DisplayState::Mounted)
+                  && stateLabels.size() == states.size() - 1);
+        check(QStringLiteral("one access label per access mode"), accessLabels.size() == modes.size());
+
+        // The lists walk the enumerators by value from zero, so the listed
+        // enumerators must be exactly those values in order, and the values
+        // just past them must have no label. A state or mode added to the
+        // enum fails the count, instead of being missing from a list.
+        bool statesConsecutive = true;
+        QStringList expectedStateLabels;
+        for (int i = 0; i < states.size(); ++i) {
+            statesConsecutive = statesConsecutive && static_cast<int>(states.at(i).first) == i;
+            const QString label = Session::stateLabel(states.at(i).first);
+            if (!expectedStateLabels.contains(label)) {
+                expectedStateLabels.append(label);
+            }
+        }
+        check(QStringLiteral("DisplayState enumerators are the consecutive values the lists walk"),
+              statesConsecutive);
+        check(QStringLiteral("DisplayState: no label past the last enumerator this test lists"),
+              Session::stateLabel(static_cast<DisplayState>(states.size())).isEmpty());
+        check(QStringLiteral("allStateLabels() is stateLabel() of every enumerator, in order"),
+              stateLabels == expectedStateLabels, stateLabels.join(QLatin1Char('|')));
+
+        bool modesConsecutive = true;
+        QStringList expectedAccessLabels;
+        for (int i = 0; i < modes.size(); ++i) {
+            modesConsecutive = modesConsecutive && static_cast<int>(modes.at(i)) == i;
+            expectedAccessLabels.append(Session::accessModeLabel(modes.at(i)));
+        }
+        check(QStringLiteral("AccessMode enumerators are the consecutive values the lists walk"), modesConsecutive);
+        check(QStringLiteral("AccessMode: no label past the last mode this test lists"),
+              Session::accessModeLabel(static_cast<UnitValue::AccessMode>(modes.size())).isEmpty());
+        check(QStringLiteral("allAccessLabels() is accessModeLabel() of every mode, in order"),
+              accessLabels == expectedAccessLabels, accessLabels.join(QLatin1Char('|')));
+
+        // The test language is pinned to English, so the lists are exactly
+        // the English words the rows show.
+        check(QStringLiteral("state labels in English"),
+              stateLabels == QStringList({QStringLiteral("Inactive"), QStringLiteral("Ready"),
+                                          QStringLiteral("Mounted"), QStringLiteral("Missing credentials"),
+                                          QStringLiteral("Broken"), QStringLiteral("Busy")}),
+              stateLabels.join(QLatin1Char('|')));
+        check(QStringLiteral("access labels in English"),
+              accessLabels == QStringList({QStringLiteral("Read & Write"), QStringLiteral("Read only"),
+                                           QStringLiteral("Read & Write & Execute")}),
+              accessLabels.join(QLatin1Char('|')));
+
+        // The names the KCM's QML reads: a rename compiles cleanly and
+        // breaks on the first click, so they are pinned here as properties.
+        const QMetaObject &meta = Session::MountModel::staticMetaObject;
+        for (const char *name : {"stateLabels", "accessLabels"}) {
+            const int index = meta.indexOfProperty(name);
+            check(QStringLiteral("MountModel exposes %1 as a constant list of strings").arg(QLatin1String(name)),
+                  index >= 0 && meta.property(index).isConstant()
+                      && meta.property(index).metaType() == QMetaType::fromType<QStringList>());
+        }
     }
 
     out << "=== presentRow: remote address ===" << Qt::endl;

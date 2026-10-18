@@ -4,6 +4,8 @@
 
 #include "userlock.h"
 
+#include <KLocalizedString>
+
 #include <QDir>
 #include <QStandardPaths>
 
@@ -46,7 +48,8 @@ std::unique_ptr<UserLock> UserLock::acquire(QString *error)
 {
     const QString runtimeDir = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
     if (runtimeDir.isEmpty()) {
-        *error = QStringLiteral("XDG_RUNTIME_DIR is not set");
+        // i18n: %1 is the name of an environment variable.
+        *error = i18n("%1 is not set", QStringLiteral("XDG_RUNTIME_DIR"));
         return nullptr;
     }
     QDir().mkpath(runtimeDir);
@@ -55,11 +58,15 @@ std::unique_ptr<UserLock> UserLock::acquire(QString *error)
     std::unique_ptr<UserLock> lock(new UserLock);
     lock->fd_ = ::open(path.toLocal8Bit().constData(), O_CREAT | O_RDWR | O_CLOEXEC, 0600);
     if (lock->fd_ < 0) {
-        *error = QStringLiteral("cannot open %1: %2").arg(path, QString::fromLocal8Bit(strerror(errno)));
+        // i18n: %2 is the C library's description of the error, which the C
+        // i18n: library localizes by itself.
+        *error = i18n("cannot open %1: %2", path, QString::fromLocal8Bit(strerror(errno)));
         return nullptr;
     }
     if (::flock(lock->fd_, LOCK_EX) != 0) {
-        *error = QStringLiteral("cannot lock %1: %2").arg(path, QString::fromLocal8Bit(strerror(errno)));
+        // i18n: %2 is the C library's description of the error, which the C
+        // i18n: library localizes by itself.
+        *error = i18n("cannot lock %1: %2", path, QString::fromLocal8Bit(strerror(errno)));
         return nullptr;
     }
     return lock;

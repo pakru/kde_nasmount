@@ -35,7 +35,7 @@ QQC2.ApplicationWindow {
                                                     content.implicitHeight + 2 * content.anchors.margins)
 
     visible: true
-    title: "Mount as Network Drive"
+    title: i18nc("@title:window", "Mount as Network Drive")
     width: preferredWidth
     height: preferredHeight
     minimumWidth: preferredWidth
@@ -76,10 +76,11 @@ QQC2.ApplicationWindow {
         function onFinished(id, kind, success, message) {
             root.busy = false
             if (success) {
-                resultDialog.title = kind === "add" ? "Added" : "Removed"
+                resultDialog.title = kind === "add" ? i18nc("@title:window", "Added")
+                                                    : i18nc("@title:window", "Removed")
                 resultDialog.closeWhenDone = true
             } else {
-                resultDialog.title = "Failed"
+                resultDialog.title = i18nc("@title:window", "Failed")
                 resultDialog.closeWhenDone = false
             }
             resultText.text = message
@@ -112,7 +113,7 @@ QQC2.ApplicationWindow {
         anchors.centerIn: parent
         width: Math.min(root.width - 40, 460)
         modal: true
-        title: "Remove this saved share?"
+        title: i18nc("@title:window", "Remove this saved share?")
         standardButtons: QQC2.Dialog.Ok | QQC2.Dialog.Cancel
         onAccepted: {
             root.busy = true
@@ -122,8 +123,7 @@ QQC2.ApplicationWindow {
         QQC2.Label {
             width: parent.width
             wrapMode: Text.WordWrap
-            text: "If it is currently mounted, it will be unmounted first. The mount point directory "
-                + "itself is left in place."
+            text: i18n("If it is currently mounted, it will be unmounted first. The mount point directory itself is left in place.")
         }
     }
 
@@ -144,8 +144,9 @@ QQC2.ApplicationWindow {
         QQC2.Label {
             visible: root.existing
             wrapMode: Text.WordWrap
-            text: "This share is already saved, at " + backend.existingMountPoint
-                + " (" + backend.existingStateText + ")."
+            // i18n: %1 is a folder path. %2 is the share's state, a short phrase that
+            // begins in lower case, such as "mounted".
+            text: i18n("This share is already saved at %1 (%2).", backend.existingMountPoint, backend.existingStateText)
             Layout.fillWidth: true
         }
         QQC2.Label {
@@ -153,8 +154,10 @@ QQC2.ApplicationWindow {
             wrapMode: Text.WordWrap
             opacity: 0.7
             font.italic: true
-            text: "To change settings for a saved share, use System Settings → Network Mounts. "
-                + "Remove below deletes it entirely."
+            // i18n: "System Settings" is the name of KDE's settings application and
+            // "SMB Network Mounts" the name of this tool's module in it: write both as
+            // they appear in your language. "Remove" is the button below.
+            text: i18n("To change settings for a saved share, use System Settings → SMB Network Mounts. Remove below deletes it entirely.")
             Layout.fillWidth: true
         }
 
@@ -177,7 +180,7 @@ QQC2.ApplicationWindow {
             Item { Layout.fillWidth: true }
             QQC2.Button {
                 visible: !root.existing
-                text: "Mount"
+                text: i18nc("@action:button", "Mount")
                 // The same icon the KCM and the polkit prompt use for this
                 // tool (io.github.pakru.nasmount.actions), so the action the
                 // user is confirming looks like the thing they invoked.
@@ -187,7 +190,7 @@ QQC2.ApplicationWindow {
             }
             QQC2.Button {
                 visible: root.existing
-                text: "Remove"
+                text: i18nc("@action:button", "Remove")
                 enabled: !root.busy
                 onClicked: confirmRemove.open()
             }

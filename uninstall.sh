@@ -28,7 +28,7 @@ fi
 
 # The manifest is user-writable, so resolve it into a checked array before
 # any privileged operation. The installed cleanup executable independently
-# applies the same finite allowlist before it requests purge authorization.
+# applies the same allowlist before it requests purge authorization.
 allowed_pattern='^/usr/(bin/nasmount(-(dialog|cleanup|uninstall))?'
 allowed_pattern+='|((lib/[^/]+/libexec|libexec)/kf6/kauth|lib/kf6/kauth/libexec)/nasmount-helper'
 allowed_pattern+='|(lib/[^/]+/libexec|lib64/libexec|libexec)/nasmount-(boot|package-guard)'
@@ -42,7 +42,26 @@ allowed_pattern+='|share/dbus-1/system-services/io\.github\.pakru\.nasmount\.ser
 allowed_pattern+='|share/kio/servicemenus/nasmount\.desktop'
 allowed_pattern+='|share/nasmount/(cleanup-manifest\.txt|package-family)'
 allowed_pattern+='|share/(doc|licenses)/nasmount/LICENSE'
+# Translation catalogs are the one family whose number varies (one per shipped
+# language, possibly none; ki18n_install lists each in install_manifest.txt on
+# its own). Only this project's catalog name is admitted, inside a locale
+# directory spelled ll, ll_CC or ll@variant, because this list decides what
+# `sudo rm` deletes below. It mirrors Session::validateInstallManifest().
+allowed_pattern+='|share/locale/[a-z]{2,3}(_[A-Z]{2})?(@[a-z]+)?/LC_MESSAGES/kcm_nasmount\.mo'
+# Last, because it closes the group opened at the top.
 allowed_pattern+='|share/doc/nasmount/(changelog\.Debian\.gz|copyright))$'
+
+# Match in the C locale. A bracket range follows the locale's collation order,
+# which is neither ASCII nor alphabetical everywhere: under en_US.UTF-8 the
+# range [a-z] also admits letters such as 'é', and under tr_TR.UTF-8 it refuses
+# a plain 'i', so the same manifest would be accepted or refused by locale. This
+# list decides what `sudo rm` deletes below, so it must mean exactly the ASCII
+# letters it spells. `local` restores the caller's locale on return.
+is_allowed_path()
+{
+    local LC_ALL=C
+    [[ "$1" =~ $allowed_pattern ]]
+}
 
 targets=()
 declare -A seen=()
@@ -52,7 +71,7 @@ declare -A seen=()
 # on every uninstall.
 while IFS= read -r line || [ -n "$line" ]; do
     [ -n "$line" ] || continue
-    if [[ ! "$line" =~ $allowed_pattern ]]; then
+    if ! is_allowed_path "$line"; then
         echo "ERROR: manifest contains an unexpected path: $line" >&2
         exit 1
     fi

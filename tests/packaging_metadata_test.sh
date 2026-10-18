@@ -141,11 +141,15 @@ if grep -Eq "diff [^ ]*rpm-packages-before-removal" "$smoke_script" \
     exit 1
 fi
 
-# --- credential autofill build dependencies ----------------------------------
+# --- credential autofill and translation build dependencies -----------------
 # Six hand-maintained lists have to agree, and a missing entry fails only in
 # the distribution it was forgotten in: without the KIO development package
-# nasmount-dialog does not compile, and without the QML runtime modules
-# shareform_qml_test cannot load the form (ctest runs in both package builds).
+# nasmount-dialog does not compile, without the QML runtime modules
+# shareform_qml_test cannot load the form, and without gettext the build cannot
+# compile the catalogs (msgfmt, run by ki18n_install) and the translations gate
+# cannot run (xgettext and msgcat) - ctest runs in both package builds.
+# gettext reaches a build machine today only because KI18n's CMake config
+# requires it, so naming it keeps the build from depending on that accident.
 deb_kio_lists=(
     "$repo_root/packaging/debian/control"
     "$repo_root/packaging/build-in-container.sh"
@@ -182,6 +186,71 @@ for dependency in libkf6kio-dev qml6-module-qtquick-dialogs kf6-kio-devel; do
         exit 1
     }
 done
+
+# gettext as a whole list entry, so gettext-base or gettext-devel cannot stand
+# in for it. An entry ends at a space, at the comma of a Debian field, at a
+# line-continuation backslash, at a closing quote or at the end of the line.
+gettext_entry="(^|[[:space:]])gettext([[:space:],\\']|\$)"
+
+# Build-Depends: spans continuation lines, so read the whole field; a gettext in
+# another field or a comment must not satisfy the check.
+deb_build_depends=$(awk '/^Build-Depends:/ {field = 1; print; next} /^[^ \t]/ {field = 0} field' \
+    "$repo_root/packaging/debian/control")
+printf '%s\n' "$deb_build_depends" | grep -Eq "$gettext_entry" || {
+    echo "ERROR: debian/control Build-Depends is missing gettext" >&2
+    exit 1
+}
+grep -Eq '^BuildRequires: +gettext$' "$repo_root/packaging/rpm/nasmount.spec.in" || {
+    echo "ERROR: the RPM spec is missing BuildRequires: gettext" >&2
+    exit 1
+}
+
+# build-in-container.sh holds both families' lists, one per case branch. Read
+# each branch on its own, or gettext in one family would satisfy the other.
+for family in deb rpm; do
+    container_list=$(awk -v branch="    $family)" \
+        '$0 == branch {on = 1; next} /^    [a-z]+\)$/ || /^esac$/ {on = 0} on' \
+        "$repo_root/packaging/build-in-container.sh")
+    printf '%s\n' "$container_list" | grep -Eq "$gettext_entry" || {
+        echo "ERROR: build-in-container.sh does not install gettext for $family" >&2
+        exit 1
+    }
+done
+
+# Every ci.yml build block, not just the first, and both release.yml blocks:
+# a job added or copied later without gettext would otherwise fail only once
+# someone reads its log.
+for workflow in ci.yml release.yml; do
+    workflow_file="$repo_root/.github/workflows/$workflow"
+    build_blocks=$(( $(grep -Fc 'qt6-base-dev' "$workflow_file" || true) \
+        + $(grep -Fc 'qt6-qtbase-devel' "$workflow_file" || true) ))
+    gettext_blocks=$(grep -Ec "$gettext_entry" "$workflow_file" || true)
+    [ "$build_blocks" -gt 0 ] && [ "$gettext_blocks" -eq "$build_blocks" ] || {
+        echo "ERROR: $workflow has $build_blocks build dependency blocks but" >&2
+        echo "       $gettext_blocks lines naming gettext" >&2
+        exit 1
+    }
+done
+
+# CMakeLists.txt refuses a KI18n older than the version it names (6.8 added
+# KLocalizedQmlContext). The package metadata has to say the same, or a host
+# with an older KI18n installs the build dependency and then fails to
+# configure. The version is read from CMakeLists.txt so the two cannot drift.
+ki18n_min=$(sed -n -E 's/^find_package\(KF6I18n ([0-9]+(\.[0-9]+)*) REQUIRED\)$/\1/p' \
+    "$repo_root/CMakeLists.txt")
+[ -n "$ki18n_min" ] || {
+    echo "ERROR: CMakeLists.txt has no find_package(KF6I18n <version> REQUIRED)" >&2
+    exit 1
+}
+ki18n_min_re=${ki18n_min//./\\.}
+printf '%s\n' "$deb_build_depends" | grep -Eq "libkf6i18n-dev \\(>= $ki18n_min_re\\)" || {
+    echo "ERROR: debian/control must require libkf6i18n-dev (>= $ki18n_min)" >&2
+    exit 1
+}
+grep -Eq "^BuildRequires: +kf6-ki18n-devel >= $ki18n_min_re\$" "$repo_root/packaging/rpm/nasmount.spec.in" || {
+    echo "ERROR: the RPM spec must require kf6-ki18n-devel >= $ki18n_min" >&2
+    exit 1
+}
 
 # Weak in both families, never hard: a host without the service must still
 # install and still mount with a hand-typed credential. On Fedora it is what
