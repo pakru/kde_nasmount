@@ -291,11 +291,73 @@ nasmount_full_install_path(NASMOUNT_FULL_PLUGINDIR "${KDE_INSTALL_PLUGINDIR}")
 nasmount_full_install_path(NASMOUNT_FULL_SYSTEMDUNITDIR "${KDE_INSTALL_SYSTEMDUNITDIR}")
 nasmount_full_install_path(NASMOUNT_FULL_DATADIR "${KDE_INSTALL_DATADIR}")
 nasmount_full_install_path(NASMOUNT_FULL_KAUTH_HELPER_DIR "${KAUTH_HELPER_INSTALL_DIR}")
+nasmount_full_install_path(NASMOUNT_FULL_LOCALEDIR "${KDE_INSTALL_LOCALEDIR}")
 
 if(NASMOUNT_PACKAGE_FAMILY STREQUAL "rpm")
     set(NASMOUNT_LICENSE_MANIFEST_PATH "${NASMOUNT_FULL_DATADIR}/licenses/nasmount/LICENSE")
 else()
     set(NASMOUNT_LICENSE_MANIFEST_PATH "${NASMOUNT_FULL_DATADIR}/doc/nasmount/LICENSE")
+endif()
+
+# Catalogs are the one family of installed files whose number varies: one per
+# shipped language, and none until the first language exists. The manifest
+# lists exactly the .mo files ki18n_install() above compiles, so it is derived
+# from the same po/ tree rather than from build/locale, which is empty until
+# the build has run and can hold a catalog of a language since deleted.
+#
+# Both allowlists that decide what a privileged uninstall deletes
+# (Session::validateInstallManifest() and uninstall.sh) admit a catalog only as
+# <localedir>/<lang>/LC_MESSAGES/kcm_nasmount.mo with <lang> shaped like ll,
+# ll_CC or ll@variant. A tree that breaks that layout would build a package
+# whose own manifest its uninstaller then refuses, so it stops here instead.
+# The language alphabet is the same one tests/translations_gate.sh checks;
+# CMake's regex dialect has no {m,n}, hence the spelled-out repetitions.
+#
+# GLOB_RECURSE over every file, not a shallow glob of .po files: ki18n_install()
+# compiles every .po at any depth, and it also copies anything under a
+# scripts/ directory and every .pmap into the locale directory, so each of
+# those would be installed without ever being listed. KF_SKIP_PO_PROCESSING
+# installs nothing at all, so there is then nothing to list or to validate.
+set(NASMOUNT_LOCALE_MANIFEST_LINES "")
+if(NOT KF_SKIP_PO_PROCESSING)
+    file(GLOB_RECURSE _nasmount_po_files CONFIGURE_DEPENDS
+         RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/po"
+         "${CMAKE_CURRENT_SOURCE_DIR}/po/*")
+    list(SORT _nasmount_po_files)
+    set(_nasmount_catalogs)
+    foreach(_nasmount_po_file IN LISTS _nasmount_po_files)
+        if(_nasmount_po_file MATCHES "\\.pmap$" OR _nasmount_po_file MATCHES "(^|/)scripts/")
+            message(FATAL_ERROR
+                "po/${_nasmount_po_file} is KI18n scripting data, which ki18n_install() "
+                "would copy into the locale directory. This project ships message "
+                "catalogs only, and the install manifest and the uninstall allowlists "
+                "list nothing else there.")
+        endif()
+        if(_nasmount_po_file MATCHES "\\.po$")
+            list(APPEND _nasmount_catalogs "${_nasmount_po_file}")
+        endif()
+    endforeach()
+    set(_nasmount_catalog_lines)
+    foreach(_nasmount_catalog IN LISTS _nasmount_catalogs)
+        if(NOT _nasmount_catalog MATCHES "^[^/]+/${NASMOUNT_TRANSLATION_DOMAIN}\\.po$")
+            message(FATAL_ERROR
+                "po/${_nasmount_catalog} is not po/<lang>/${NASMOUNT_TRANSLATION_DOMAIN}.po. "
+                "ki18n_install() would compile and install it, but the install "
+                "manifest and the uninstall allowlists admit only that layout.")
+        endif()
+        get_filename_component(_nasmount_lang "${_nasmount_catalog}" DIRECTORY)
+        if(NOT _nasmount_lang MATCHES "^[a-z][a-z][a-z]?(_[A-Z][A-Z])?(@[a-z]+)?$")
+            message(FATAL_ERROR
+                "po/${_nasmount_lang} is not a language directory name (expected "
+                "ll, ll_CC or ll@variant). The uninstall allowlists admit no other "
+                "shape, so the installed catalog could never be removed.")
+        endif()
+        list(APPEND _nasmount_catalog_lines
+             "${NASMOUNT_FULL_LOCALEDIR}/${_nasmount_lang}/LC_MESSAGES/${NASMOUNT_TRANSLATION_DOMAIN}.mo")
+    endforeach()
+    # One line per catalog; an empty list leaves an empty value, which becomes
+    # a blank manifest line that every reader already skips.
+    string(JOIN "\n" NASMOUNT_LOCALE_MANIFEST_LINES ${_nasmount_catalog_lines})
 endif()
 
 set(NASMOUNT_PRESET_MANIFEST_LINE "")

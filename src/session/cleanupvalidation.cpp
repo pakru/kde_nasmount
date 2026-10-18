@@ -24,6 +24,16 @@ bool validateInstallManifest(const QString &manifestPath, QStringList *targets, 
         return false;
     }
 
+    // This list decides what a privileged uninstall deletes, so every
+    // alternative names one exact path, except the translation catalogs. They
+    // are the one family with a variable number of members (one per shipped
+    // language); its alternative admits only this project's catalog name,
+    // inside a locale directory spelled ll, ll_CC or ll@variant, and nothing a
+    // path could traverse with: the language part cannot contain '/' or '.'.
+    // The pattern is spelled again below to count catalogs, and in
+    // uninstall.sh's own allowlist. The two here can only disagree towards
+    // rejection: a path allowed but not counted fails the exact-size check,
+    // and a path counted but not allowed never gets that far.
     static const QRegularExpression allowed(QStringLiteral(
         "^/usr/(?:"
         "bin/nasmount(?:-(?:dialog|cleanup|uninstall))?|"
@@ -37,6 +47,7 @@ bool validateInstallManifest(const QString &manifestPath, QStringList *targets, 
         "share/dbus-1/system\\.d/io\\.github\\.pakru\\.nasmount\\.conf|"
         "share/dbus-1/system-services/io\\.github\\.pakru\\.nasmount\\.service|"
         "share/kio/servicemenus/nasmount\\.desktop|"
+        "share/locale/[a-z]{2,3}(?:_[A-Z]{2})?(?:@[a-z]+)?/LC_MESSAGES/kcm_nasmount\\.mo|"
         "share/nasmount/(?:cleanup-manifest\\.txt|package-family)|"
         "share/(?:doc|licenses)/nasmount/LICENSE|"
         "share/doc/nasmount/(?:changelog\\.Debian\\.gz|copyright)"
@@ -84,12 +95,25 @@ bool validateInstallManifest(const QString &manifestPath, QStringList *targets, 
         QStringLiteral("^/usr/share/nasmount/package-family$"),
         QStringLiteral("^/usr/share/(?:doc|licenses)/nasmount/LICENSE$"),
     };
+    // Catalogs are counted apart from requiredPatterns so they can neither
+    // satisfy nor disturb it: zero is as valid as ten, because a build with no
+    // language yet (or KF_SKIP_PO_PROCESSING) installs none. They still enter
+    // the exact-size check below, so a manifest cannot trade a missing
+    // component for a catalog. A listed catalog is only text here: dpkg
+    // path-exclude and rpm %_install_langs may leave one off the disk, and
+    // that is not an error, so nothing in this file looks at the filesystem.
+    static const QRegularExpression catalog(QStringLiteral(
+        "^/usr/share/locale/[a-z]{2,3}(?:_[A-Z]{2})?(?:@[a-z]+)?/LC_MESSAGES/kcm_nasmount\\.mo$"));
+    qsizetype catalogs = 0;
+    for (const QString &target : *targets) {
+        catalogs += catalog.match(target).hasMatch() ? 1 : 0;
+    }
     const bool hasPreset = targets->contains(QStringLiteral("/usr/lib/systemd/system-preset/90-nasmount.preset"));
     const bool hasDebianChangelog = targets->contains(QStringLiteral("/usr/share/doc/nasmount/changelog.Debian.gz"));
     const bool hasDebianCopyright = targets->contains(QStringLiteral("/usr/share/doc/nasmount/copyright"));
     if (hasDebianChangelog != hasDebianCopyright
         || targets->size() != requiredPatterns.size() + (hasPreset ? 1 : 0)
-               + (hasDebianChangelog ? 2 : 0)) {
+               + (hasDebianChangelog ? 2 : 0) + catalogs) {
         *error = QStringLiteral("install manifest is incomplete");
         return false;
     }

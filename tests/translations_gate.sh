@@ -7,15 +7,19 @@
 #
 # Nothing else in the build notices these mistakes, and each one reaches users
 # silently: KI18n falls back to English for any message a catalog lacks, and
-# ki18n_install() installs whatever it finds under po/. Five checks, each
+# ki18n_install() installs whatever it finds under po/. Six checks, each
 # reported on its own so one run shows every problem:
 #
 #  1. po/ layout. A .po file directly under po/ would be compiled into a
-#     language-less directory by ki18n_install(). A language directory must be
-#     named like a locale, because the uninstall allowlist for an installed
-#     catalog must accept exactly that alphabet or uninstall would refuse the
-#     installed .mo, and hold exactly kcm_nasmount.po: ki18n_install() would
-#     install any other .po under the same directory.
+#     language-less directory by ki18n_install(), which also copies every
+#     .pmap and anything under a scripts/ directory into the locale directory,
+#     where no manifest lists it. A language directory must be
+#     named like a locale, because the allowlists for an installed catalog
+#     (Session::validateInstallManifest() and uninstall.sh) accept exactly that
+#     alphabet and CMake's configure step enforces it too: a directory outside
+#     it would be installed and then refused by the uninstaller. It must also
+#     hold exactly kcm_nasmount.po: ki18n_install() would install any other
+#     .po under the same directory.
 #  2. Every catalog passes `msgfmt --check`. ki18n_install() runs msgfmt
 #     without --check, so a translation that drops or mangles a %1 would
 #     otherwise be compiled, installed and shown to users. msgfmt checks a
@@ -43,6 +47,15 @@
 #     Dolphin shows in its context menu is the second), and each polkit action
 #     needs exactly one Name and one Description, since the Name becomes the
 #     text of the authentication prompt.
+#  6. The allowlists that admit an installed catalog agree. The language
+#     alphabet is spelled by hand in CMakeLists.txt, in two places in
+#     Session::validateInstallManifest() and in uninstall.sh, and nothing else
+#     would notice one drifting. uninstall.sh also decides what `sudo rm`
+#     deletes, and its bracket ranges follow the locale's collation unless the
+#     match runs in the C locale: the same manifest would be accepted or refused
+#     depending on who runs the uninstall. So its allowlist is run here against
+#     accepted and rejected paths under every UTF-8 locale this host has among
+#     the ones known to differ.
 
 set -euo pipefail
 
@@ -52,8 +65,9 @@ cd "$repo_root"
 domain=kcm_nasmount
 template="po/$domain.pot"
 # The alphabet of an installed catalog's directory: ru, pt_BR, sr@latin,
-# ca@valencia, zh_CN. The uninstall allowlist for an installed catalog must stay
-# identical to it.
+# ca@valencia, zh_CN. Three other places spell it and must stay identical:
+# CMakeLists.txt's configure-time check, Session::validateInstallManifest()
+# (its allowlist and its catalog count) and uninstall.sh.
 lang_pattern='^[a-z]{2,3}(_[A-Z]{2})?(@[a-z]+)?$'
 
 tmp=$(mktemp -d)
@@ -72,6 +86,9 @@ languages=()
 for stray in po/*.po; do
     fail "$stray sits directly under po/; ki18n_install() would compile it into a language-less directory. Move it to po/<lang>/$domain.po."
 done
+for stray in po/*.pmap; do
+    fail "$stray sits directly under po/; ki18n_install() would copy it into a language-less directory."
+done
 for dir in po/*/; do
     lang=${dir#po/}
     lang=${lang%/}
@@ -86,6 +103,11 @@ for dir in po/*/; do
     while IFS= read -r extra; do
         fail "$extra is not po/$lang/$domain.po; ki18n_install() would install it too."
     done < <(find "po/$lang" -name '*.po' ! -path "po/$lang/$domain.po" -print | LC_ALL=C sort)
+    # Scripting data: copied into the locale directory next to the catalog,
+    # and listed by neither the install manifest nor the uninstall allowlists.
+    while IFS= read -r extra; do
+        fail "$extra is scripting data; ki18n_install() would install it into the locale directory, where nothing lists it."
+    done < <(find "po/$lang" -type f \( -name '*.pmap' -o -path '*/scripts/*' \) -print | LC_ALL=C sort)
 done
 
 # --- 2. catalogs compile cleanly ---------------------------------------------
@@ -204,6 +226,93 @@ for lang in ${languages[@]+"${languages[@]}"}; do
         printf '%s\n' "$problems" >&2
     fi
 done
+
+# --- 6. the allowlists that admit an installed catalog agree ----------------
+# The alphabet as lang_pattern spells it, without the anchors, then respelled
+# for each dialect that has to carry it: PCRE (QRegularExpression) wants
+# non-capturing groups, and CMake's regex has no {m,n}. A bare `grep -F` finds
+# each spelling, so a drift in any copy fails here instead of surfacing as a
+# catalog that installs and then cannot be uninstalled.
+alphabet=${lang_pattern#^}
+alphabet=${alphabet%\$}
+backslash='\'
+if ! grep -Fq "share/locale/${alphabet}/LC_MESSAGES/${domain}${backslash}.mo'" uninstall.sh; then
+    fail "uninstall.sh does not admit a catalog as share/locale/$alphabet/LC_MESSAGES/$domain.mo."
+fi
+pcre_alphabet=${alphabet//(/(?:}
+spellings=$(grep -cF "share/locale/${pcre_alphabet}/LC_MESSAGES/${domain}${backslash}${backslash}.mo" \
+    src/session/cleanupvalidation.cpp || true)
+if [ "$spellings" -ne 2 ]; then
+    fail "src/session/cleanupvalidation.cpp spells the catalog pattern $spellings times; expected 2 (the allowlist and the count), each with the alphabet $pcre_alphabet."
+fi
+cmake_alphabet=${alphabet/'[a-z]{2,3}'/'[a-z][a-z][a-z]?'}
+cmake_alphabet=${cmake_alphabet/'[A-Z]{2}'/'[A-Z][A-Z]'}
+if ! grep -Fq "MATCHES \"^${cmake_alphabet}\$\"" CMakeLists.txt; then
+    fail "CMakeLists.txt does not check the language directory against ^${cmake_alphabet}\$."
+fi
+
+# uninstall.sh's own allowlist, run for real. Everything from the pattern to
+# the end of is_allowed_path() is assignments and one function definition, so
+# sourcing the extract executes nothing else.
+allowlist=$tmp/uninstall-allowlist.sh
+sed -n '/^allowed_pattern=/,/^}$/p' uninstall.sh > "$allowlist"
+if ! grep -q '^is_allowed_path()' "$allowlist"; then
+    fail "could not extract allowed_pattern and is_allowed_path() from uninstall.sh."
+else
+    if ! sed -n '/^is_allowed_path()/,/^}$/p' "$allowlist" | grep -Eq '^[[:space:]]+local LC_ALL=C$'; then
+        fail "uninstall.sh's is_allowed_path() must match in the C locale: a bracket range follows the locale's collation otherwise."
+    fi
+    locale_dir=/usr/share/locale
+    catalog=LC_MESSAGES/$domain.mo
+    non_ascii=$'\xc3\xa9\xc3\xa9'
+    vectors=$tmp/allowlist-vectors.txt
+    {
+        # The language shapes the alphabet promises, including letters whose
+        # collation differs by locale ('i' in Turkish).
+        for lang in ru it id fil ast pt_BR zh_CN sr@latin ca@valencia sr_RS@latin; do
+            printf 'accept %s/%s/%s\n' "$locale_dir" "$lang" "$catalog"
+        done
+        # The fixed members, so the catalog alternative cannot displace the
+        # alternative that closes the group.
+        printf 'accept %s\n' /usr/bin/nasmount /usr/share/nasmount/package-family \
+            /usr/share/doc/nasmount/LICENSE /usr/share/doc/nasmount/copyright
+        for lang in .. ru/.. RU r russ x-test pt_br sr@Latin sr@ ru_ru ru_RUS "ru@$non_ascii" "$non_ascii" ""; do
+            printf 'reject %s/%s/%s\n' "$locale_dir" "$lang" "$catalog"
+        done
+        printf 'reject %s\n' \
+            "$locale_dir/ru/LC_MESSAGES/kio6.mo" \
+            "$locale_dir/ru/LC_MESSAGES/$domain.mo.bak" \
+            "$locale_dir/ru/$domain.mo" \
+            "$locale_dir/ru/LC_MESSAGES/x/$domain.mo" \
+            "/usr/local/share/locale/ru/$catalog" \
+            "/etc/passwd"
+    } > "$vectors"
+    # The host's own locale, then each of these that exists here: C.UTF-8 as the
+    # plain case, en_US.UTF-8 where a range wrongly admits accented letters,
+    # tr_TR.UTF-8 where it wrongly refuses a plain 'i'.
+    have_locales=$(locale -a 2>/dev/null | tr 'A-Z' 'a-z' || true)
+    locales=("")
+    for candidate in C.UTF-8 en_US.UTF-8 tr_TR.UTF-8; do
+        wanted=$(printf '%s' "$candidate" | tr 'A-Z' 'a-z' | sed 's/utf-8/utf8/')
+        if printf '%s\n' "$have_locales" | grep -qxF "$wanted"; then
+            locales+=("$candidate")
+        fi
+    done
+    for loc in "${locales[@]}"; do
+        # An empty LC_ALL counts as unset, so the first pass runs in whatever
+        # locale the test was started in.
+        wrong=$(LC_ALL=$loc bash -c '
+            source "$1"
+            while read -r want path; do
+                if is_allowed_path "$path"; then got=accept; else got=reject; fi
+                [ "$got" = "$want" ] || printf "expected %s: %s\n" "$want" "$path"
+            done < "$2"' _ "$allowlist" "$vectors")
+        if [ -n "$wrong" ]; then
+            fail "uninstall.sh's allowlist judged paths wrongly under LC_ALL=${loc:-<inherited>}:"
+            printf '%s\n' "$wrong" >&2
+        fi
+    done
+fi
 
 if [ "$failed" -ne 0 ]; then
     exit 1

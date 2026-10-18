@@ -44,7 +44,7 @@ make dist-clean       # rm -rf dist/
   checkout, or one where `make clean` has run, cannot uninstall until
   `install.sh` regenerates the manifest. The manifest content is deterministic
   (validated against the hardcoded allowlist in
-  [`cleanupvalidation.cpp`](src/session/cleanupvalidation.cpp#L27), which also
+  [`cleanupvalidation.cpp`](src/session/cleanupvalidation.cpp#L37), which also
   requires it to be complete), so regenerating it is safe.
 - `build/` is the only build directory the tooling knows about; `.gitignore`
   also covers `build-*/` for ad-hoc trees.
