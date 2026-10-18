@@ -76,12 +76,18 @@ int main(int argc, char **argv)
         i18n("Mounts an SMB share on demand, available again after a reboot."));
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addPositionalArgument(QStringLiteral("url"), i18n("smb:// URL of the share to mount"));
+    // Its own statement so the translator note sits on the line above the call;
+    // xgettext drops a note that other code separates from the call.
+    // i18n: %1 is the URL scheme "smb://", which is not translated. Shown in
+    // i18n: --help beside the argument name.
+    const QString urlHelp = i18n("%1 URL of the share to mount", QStringLiteral("smb://"));
+    parser.addPositionalArgument(QStringLiteral("url"), urlHelp);
     parser.process(app);
 
     const QStringList args = parser.positionalArguments();
     if (args.isEmpty()) {
-        reportStartupFailure(i18n("Usage: nasmount-dialog smb://host/share"));
+        // i18n: %1 is the command line to type, which is not translated.
+        reportStartupFailure(i18n("Usage: %1", QStringLiteral("nasmount-dialog smb://host/share")));
         return 2;
     }
 

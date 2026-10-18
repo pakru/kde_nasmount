@@ -297,6 +297,8 @@ KCMUtils.ScrollViewKCM {
             width: parent.width - Kirigami.Units.gridUnit * 4
             visible: listView.count === 0
             text: i18nc("@info:placeholder", "No network mounts yet")
+            // i18n: "Add…" is the label of the Add button in this window: use
+            // i18n: its translation here.
             explanation: i18n("Click Add… to create one.")
         }
     }

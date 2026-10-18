@@ -12,7 +12,7 @@ DIST_DIR ?= dist
 PREFIX ?= /usr
 JOBS ?= $(shell nproc)
 
-.PHONY: all build configure test install uninstall clean deb rpm packages dist-clean
+.PHONY: all build configure test pot install uninstall clean deb rpm packages dist-clean
 
 all: build
 
@@ -28,6 +28,10 @@ build: configure
 
 test: build
 	ctest --test-dir $(BUILD_DIR) --output-on-failure
+
+# Regenerate po/kcm_nasmount.pot and merge it into every language.
+pot:
+	./po/extract-messages.sh
 
 # Not `sudo make install`: install.sh itself elevates only for the `cmake
 # --install` step, and refuses that step as root (see the script). Run it

@@ -541,6 +541,13 @@ add_test(NAME version_metadata
         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/version_metadata_test.cmake
 )
 
+# Nothing else notices a stale template, a misplaced or malformed catalog, a
+# language without its desktop/KCM/polkit translations, or a QML string that
+# was never wrapped in a translation call: each one only shows up to users, as
+# untranslated text. Needs xgettext, msgcat and msgfmt from gettext.
+add_test(NAME translations_gate
+         COMMAND ${CMAKE_COMMAND} -E env bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/translations_gate.sh)
+
 # Tests assert English text. KI18n would translate it on a workstation whose
 # locale has an installed catalog (after `make install`, or a .mo copied to
 # ~/.local/share/locale), so pin the language for every test. LANGUAGE wins
