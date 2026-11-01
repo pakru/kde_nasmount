@@ -61,7 +61,7 @@ jobs:
           dpkg-deb --contents artifacts/*.deb > logs/dpkg-contents.txt
           dpkg-query -W > logs/build-packages.txt
       - name: Upload DEB and build evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-ubuntu-26.04-amd64
           path: |
@@ -101,7 +101,7 @@ jobs:
           rpm -qpR artifacts/*.rpm > logs/rpm-requires.txt
           rpm -qa > logs/build-packages.txt
       - name: Upload RPM and build evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-fedora-44-x86_64
           path: |
@@ -152,7 +152,7 @@ jobs:
             "$(tr -d '[:space:]' < VERSION)" downloaded/artifacts logs
           printf '%s smoke install/removal passed\n' '${{ matrix.target }}' > logs/result.txt
       - name: Upload smoke report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: smoke-${{ matrix.target }}
           path: logs/
@@ -256,7 +256,7 @@ jobs:
           fi
           printf 'deb in-place upgrade, downgrade refusal and purge passed\n' > logs/result.txt
       - name: Upload upgrade report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: upgrade-ubuntu-26.04-amd64
           path: logs/
@@ -364,7 +364,7 @@ jobs:
           done
           printf 'rpm in-place upgrade and erase-time teardown passed\n' > logs/result.txt
       - name: Upload upgrade report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: upgrade-fedora-44-x86_64
           path: logs/
@@ -395,7 +395,7 @@ jobs:
           ./packaging/verify-artifact-set.sh packages metadata
           cp packages/* metadata/* verified/
       - name: Upload verified candidate release set
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verified-native-packages
           path: verified/
