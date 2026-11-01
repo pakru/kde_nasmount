@@ -87,7 +87,7 @@ jobs:
           dpkg-deb --contents artifacts/*.deb > logs/files.txt
           dpkg-query -W > logs/build-packages.txt
       - name: Upload release DEB
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-package-ubuntu-26.04-amd64
           path: |
@@ -129,7 +129,7 @@ jobs:
           rpm -qpR artifacts/*.rpm > logs/requires.txt
           rpm -qa > logs/build-packages.txt
       - name: Upload release RPM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-package-fedora-44-x86_64
           path: |
@@ -180,7 +180,7 @@ jobs:
             '${{ needs.validate_release.outputs.version }}' downloaded/artifacts logs
           printf '%s release smoke passed\n' '${{ matrix.target }}' > logs/result.txt
       - name: Upload release smoke report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-smoke-${{ matrix.target }}
           path: logs/
@@ -222,7 +222,7 @@ jobs:
           cmp "packages/$NASMOUNT_DEB" "release/$NASMOUNT_DEB_RELEASE_ASSET"
           cmp "packages/$NASMOUNT_RPM" "release/$NASMOUNT_RPM_RELEASE_ASSET"
       - name: Upload final release set
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: final-native-release-set
           path: release/
