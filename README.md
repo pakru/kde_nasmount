@@ -6,10 +6,8 @@
 [![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-1d99f3)](#install)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
-Mount SMB network shares from Dolphin in two clicks. No `fstab` editing, and
-mounts come back after reboot.
+![KDE NAS Mount desktop workflow: choose Mount as Network Drive in Dolphin, enter the mount settings, and manage SMB shares in System Settings. Actual application screenshots.](docs/img/readme-banner.png)
 
-![Network Mounts settings page](docs/img/img2.png)
 
 **Supported:** Kubuntu 26.04+ (`.deb`), Fedora KDE 44+ (`.rpm`). Other distros
 can build from source (Plasma 6 with KDE Frameworks 6.8+, Linux 6.8+).
@@ -41,6 +39,9 @@ sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm
    ![Mount as Network Drive dialog](docs/img/img1.png)
 
 3. Manage mounts in **System Settings → SMB Network Mounts**, or run `nasmount`.
+
+   ![Network Mounts settings page](docs/img/img2.png)
+
 
 ## How it works
 
