@@ -278,6 +278,18 @@ if printf '%s\n' "$deb_depends" | grep -q 'kio-extras' \
     exit 1
 fi
 
+# System Settings, which hosts the KCM, is weak in both families and is named
+# differently in each. apt and dnf skip an unknown Recommends silently, so a
+# name from the wrong family would pass every build and never pull it in.
+grep -Eq '^Recommends:.*[ ,]systemsettings([ ,]|$)' "$repo_root/packaging/debian/control" || {
+    echo "ERROR: the DEB must recommend systemsettings" >&2
+    exit 1
+}
+grep -Eq '^Recommends: +plasma-systemsettings$' "$repo_root/packaging/rpm/nasmount.spec.in" || {
+    echo "ERROR: the RPM must recommend plasma-systemsettings" >&2
+    exit 1
+}
+
 # The KCM page imports org.kde.kirigami. KCMUtils happens to pull it in today,
 # but a direct import deserves a direct runtime dependency in both families.
 # Runtime only: ShareForm.qml, the one QML file a test loads, must stay free
