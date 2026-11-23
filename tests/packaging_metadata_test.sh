@@ -9,9 +9,9 @@ source "$repo_root/packaging/lib.sh"
 read_release_contract "$repo_root"
 
 [ "$NASMOUNT_DEB" = "nasmount_${NASMOUNT_VERSION}-${NASMOUNT_RELEASE}_amd64.deb" ]
-[ "$NASMOUNT_RPM" = "nasmount-${NASMOUNT_VERSION}-${NASMOUNT_RELEASE}.fc44.x86_64.rpm" ]
+[ "$NASMOUNT_RPM" = "nasmount-${NASMOUNT_VERSION}-${NASMOUNT_RELEASE}.fc45.x86_64.rpm" ]
 [ "$NASMOUNT_DEB_RELEASE_ASSET" = "nasmount-amd64-${NASMOUNT_VERSION}.deb" ]
-[ "$NASMOUNT_RPM_RELEASE_ASSET" = "nasmount-fedora44-x86_64-${NASMOUNT_VERSION}.rpm" ]
+[ "$NASMOUNT_RPM_RELEASE_ASSET" = "nasmount-fedora45-x86_64-${NASMOUNT_VERSION}.rpm" ]
 
 while IFS= read -r script; do
     bash -n "$script"
@@ -328,8 +328,8 @@ done
 grep -Fq 'build-in-container.sh deb' "$repo_root/Makefile"
 grep -Fq 'build-in-container.sh rpm' "$repo_root/Makefile"
 
-if grep -R -n -E 'Fedora 43|fedora-43|fc43' "$repo_root/packaging"; then
-    echo "ERROR: retired Fedora 43 target remains in packaging" >&2
+if grep -R -n -E 'Fedora 4[34]|fedora-4[34]|fedora:4[34]|fedora4[34]|fc4[34]' "$repo_root/packaging"; then
+    echo "ERROR: retired Fedora 43 or 44 target remains in packaging" >&2
     exit 1
 fi
 
@@ -367,8 +367,8 @@ release_jobs=$(sed -n '/^jobs:/,$p' "$repo_root/.github/workflows/release.yml" \
 expected_release=$(printf '%s\n' attest_and_publish build_deb_release build_rpm_release smoke_release_packages validate_release verify_release_set | sort)
 [ "$release_jobs" = "$expected_release" ]
 
-if grep -R -n -E 'Fedora 43|fedora-43|fc43' "$repo_root/.github"; then
-    echo "ERROR: retired Fedora 43 target remains in workflows" >&2
+if grep -R -n -E 'Fedora 4[34]|fedora-4[34]|fedora:4[34]|fedora4[34]|fc4[34]' "$repo_root/.github"; then
+    echo "ERROR: retired Fedora 43 or 44 target remains in workflows" >&2
     exit 1
 fi
 

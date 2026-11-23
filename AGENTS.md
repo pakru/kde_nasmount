@@ -26,7 +26,7 @@ make pot              # regenerate po/kcm_nasmount.pot, merge it into every lang
 make install          # runs ./install.sh - NOT with sudo
 make uninstall        # runs ./uninstall.sh
 make deb              # .deb in dist/deb/, built in the pinned Ubuntu 26.04 image
-make rpm              # .rpm in dist/rpm/, built in the pinned Fedora 44 image
+make rpm              # .rpm in dist/rpm/, built in the pinned Fedora 45 image
 make packages         # both
 make clean            # rm -rf build/
 make dist-clean       # rm -rf dist/
@@ -53,14 +53,14 @@ make dist-clean       # rm -rf dist/
 ## Native packages and release CI
 
 The supported binary targets are Ubuntu/Kubuntu 26.04 amd64 (`.deb`) and
-Fedora KDE 44 x86_64 (`.rpm`). KDE neon and a generic DEB/RPM compatibility
+Fedora KDE 45 x86_64 (`.rpm`). KDE neon and a generic DEB/RPM compatibility
 claim are explicitly out of scope. Build packages only inside their matching
 target containers:
 
 ```bash
 make deb                                    # or: make rpm / make packages
 ./packaging/build-deb.sh EMPTY_OUTPUT_DIR   # Ubuntu 26.04, non-root
-./packaging/build-rpm.sh EMPTY_OUTPUT_DIR   # Fedora 44, non-root
+./packaging/build-rpm.sh EMPTY_OUTPUT_DIR   # Fedora 45, non-root
 ./packaging/verify-artifact-set.sh PACKAGE_DIR EMPTY_METADATA_DIR
 ```
 
@@ -119,7 +119,7 @@ release workflow independently rebuilds the tag through `validate_release`,
 `verify_release_set`, and `attest_and_publish`; only its last job can publish.
 The publication job renames the verified native build outputs to the
 still-versioned user-facing assets `nasmount-amd64-<version>.deb` and
-`nasmount-fedora44-x86_64-<version>.rpm`. README's one-line download commands and the
+`nasmount-fedora45-x86_64-<version>.rpm`. README's one-line download commands and the
 generated Release-note install commands depend on those exact names.
 
 `VERSION` is the sole place where a maintainer enters an application version.
@@ -299,7 +299,7 @@ disk (dpkg `path-exclude`, rpm `%_install_langs`), so nothing that reads the
 manifest may treat that as an error: the validator reads only its text.
 
 Before publishing a draft, run the privileged release checklist on fresh
-Kubuntu 26.04 and Fedora KDE 44 VMs; GitHub container smoke tests do not replace
+Kubuntu 26.04 and Fedora KDE 45 VMs; GitHub container smoke tests do not replace
 KAuth, polkit, D-Bus, CIFS, service enablement, and reboot checks.
 
 ## Project name vs product name
@@ -338,7 +338,7 @@ shares rather than failing loudly:
   domain KCMUtils fixes for its QML; see "Translations"), `nasmount.desktop`,
   `nasmount-manager.desktop`,
   `share/nasmount/`, `share/doc/nasmount/`, and the release asset names
-  `nasmount-amd64-<version>.deb` / `nasmount-fedora44-x86_64-<version>.rpm`.
+  `nasmount-amd64-<version>.deb` / `nasmount-fedora45-x86_64-<version>.rpm`.
 
 Consequently [`cleanupvalidation.cpp`](src/session/cleanupvalidation.cpp)'s
 allowlist, `packaging/cleanup-manifest.in`, `uninstall.sh`, both package file

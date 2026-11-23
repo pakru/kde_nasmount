@@ -33,7 +33,7 @@ mapfile -t package_files < <(find "$package_dir" -maxdepth 1 -type f \( -name '*
 [ "$(dpkg-deb -f "$package_dir/$NASMOUNT_DEB" Architecture)" = amd64 ]
 [ "$(rpm -qp --qf '%{NAME}' "$package_dir/$NASMOUNT_RPM")" = nasmount ]
 [ "$(rpm -qp --qf '%{VERSION}' "$package_dir/$NASMOUNT_RPM")" = "$NASMOUNT_VERSION" ]
-[ "$(rpm -qp --qf '%{RELEASE}' "$package_dir/$NASMOUNT_RPM")" = "$NASMOUNT_RELEASE.fc44" ]
+[ "$(rpm -qp --qf '%{RELEASE}' "$package_dir/$NASMOUNT_RPM")" = "$NASMOUNT_RELEASE.fc45" ]
 [ "$(rpm -qp --qf '%{ARCH}' "$package_dir/$NASMOUNT_RPM")" = x86_64 ]
 
 work_dir=$(mktemp -d)
@@ -63,7 +63,7 @@ jq -n \
         {build_file:$deb, release_asset:$deb_release_asset,
          target:"ubuntu-26.04-amd64", sha256:$deb_sha256},
         {build_file:$rpm, release_asset:$rpm_release_asset,
-         target:"fedora-44-x86_64", sha256:$rpm_sha256}
+         target:"fedora-45-x86_64", sha256:$rpm_sha256}
       ]}' > "$output_dir/$NASMOUNT_RELEASE_MANIFEST"
 
 printf '%s\n%s\n' "$output_dir/$NASMOUNT_CHECKSUMS" \

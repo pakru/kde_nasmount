@@ -96,11 +96,11 @@ jobs:
           if-no-files-found: error
 
   build_rpm_release:
-    name: Rebuild Fedora 44 RPM from tag
+    name: Rebuild Fedora 45 RPM from tag
     needs: validate_release
     runs-on: ubuntu-24.04
     container:
-      image: fedora:44@sha256:89f61a124414261868224666aa7fb8df1b78397a53623774bdfb105d1612b48b
+      image: fedora:45@sha256:53d138f25f6738257c78553d51369b662efc0e0eb1cd1556a2fe0ad5a115be88
     steps:
       - name: Install action runtime and build dependencies
         run: |
@@ -131,7 +131,7 @@ jobs:
       - name: Upload release RPM
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: release-package-fedora-44-x86_64
+          name: release-package-fedora-45-x86_64
           path: |
             artifacts/*.rpm
             logs/
@@ -149,10 +149,10 @@ jobs:
             family: deb
             image: ubuntu:26.04@sha256:7b202b0e2e0028c6250f5fcf41d04df492d145a1654c6995a6553f0c1f6f1960
             artifact: release-package-ubuntu-26.04-amd64
-          - target: fedora-44-x86_64
+          - target: fedora-45-x86_64
             family: rpm
-            image: fedora:44@sha256:89f61a124414261868224666aa7fb8df1b78397a53623774bdfb105d1612b48b
-            artifact: release-package-fedora-44-x86_64
+            image: fedora:45@sha256:53d138f25f6738257c78553d51369b662efc0e0eb1cd1556a2fe0ad5a115be88
+            artifact: release-package-fedora-45-x86_64
     container:
       image: ${{ matrix.image }}
     steps:
@@ -265,17 +265,17 @@ jobs:
         run: |
           DEB_ASSET=$(jq -r '.artifacts[] | select(.target == "ubuntu-26.04-amd64") | .release_asset' \
             release/*-release-manifest.json)
-          RPM_ASSET=$(jq -r '.artifacts[] | select(.target == "fedora-44-x86_64") | .release_asset' \
+          RPM_ASSET=$(jq -r '.artifacts[] | select(.target == "fedora-45-x86_64") | .release_asset' \
             release/*-release-manifest.json)
           [ "$DEB_ASSET" = "nasmount-amd64-${VERSION}.deb" ]
-          [ "$RPM_ASSET" = "nasmount-fedora44-x86_64-${VERSION}.rpm" ]
+          [ "$RPM_ASSET" = "nasmount-fedora45-x86_64-${VERSION}.rpm" ]
           [ -f "release/$DEB_ASSET" ]
           [ -f "release/$RPM_ASSET" ]
           cat > release-notes.txt <<EOF
           ## Supported systems
 
           - **Kubuntu / Ubuntu 26.04 LTS** (amd64) with Plasma 6, as a \`.deb\`
-          - **Fedora KDE Plasma 44** (x86_64), as a \`.rpm\`
+          - **Fedora KDE Plasma 45** (x86_64), as a \`.rpm\`
 
           Requires Linux 6.8 or newer.
 

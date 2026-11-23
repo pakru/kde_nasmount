@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # AGENTS.md requires packages to be built only in their matching target
-# distribution. Almost no developer workstation *is* Ubuntu 26.04 or Fedora 44,
+# distribution. Almost no developer workstation *is* Ubuntu 26.04 or Fedora 45,
 # so `make deb` / `make rpm` route through this: it runs the same pinned images
 # CI uses, installs the same dependency list, and invokes the same
 # build-deb.sh / build-rpm.sh as an unprivileged user. A local build therefore
@@ -20,7 +20,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # tests/packaging_metadata_test.sh fails the suite if they drift, because a
 # local build against a different image proves nothing about CI.
 readonly NASMOUNT_DEB_IMAGE=ubuntu:26.04@sha256:7b202b0e2e0028c6250f5fcf41d04df492d145a1654c6995a6553f0c1f6f1960
-readonly NASMOUNT_RPM_IMAGE=fedora:44@sha256:89f61a124414261868224666aa7fb8df1b78397a53623774bdfb105d1612b48b
+readonly NASMOUNT_RPM_IMAGE=fedora:45@sha256:53d138f25f6738257c78553d51369b662efc0e0eb1cd1556a2fe0ad5a115be88
 
 family=${1:-}
 output_arg=${2:-}

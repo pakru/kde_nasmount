@@ -35,7 +35,7 @@ make test         # build, then run the whole suite
 ```
 
 `make test` must pass before you open a PR. CI runs it on both native
-targets (Kubuntu 26.04 and Fedora KDE 44).
+targets (Kubuntu 26.04 and Fedora KDE 45).
 
 - **Don't `make install` on a machine you care about.** It writes system
   D-Bus and polkit files and enables a boot service. Use a VM. The privileged
