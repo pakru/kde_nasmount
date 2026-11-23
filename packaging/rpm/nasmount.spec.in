@@ -288,4 +288,4 @@ fi
 
 %changelog
 * @CHANGELOG_DATE@ Pavel Krutikhin <krutikhin92@gmail.com> - @VERSION@-@RELEASE@%{?dist}
-- Upstream release @VERSION@ for Fedora 44
+- Upstream release @VERSION@ for Fedora 45

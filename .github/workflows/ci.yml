@@ -71,11 +71,11 @@ jobs:
           retention-days: 14
 
   build_rpm:
-    name: Build Fedora 44 RPM
+    name: Build Fedora 45 RPM
     needs: validate_packaging
     runs-on: ubuntu-24.04
     container:
-      image: fedora:44@sha256:89f61a124414261868224666aa7fb8df1b78397a53623774bdfb105d1612b48b
+      image: fedora:45@sha256:53d138f25f6738257c78553d51369b662efc0e0eb1cd1556a2fe0ad5a115be88
     steps:
       - name: Install action runtime and build dependencies
         run: |
@@ -103,7 +103,7 @@ jobs:
       - name: Upload RPM and build evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: package-fedora-44-x86_64
+          name: package-fedora-45-x86_64
           path: |
             artifacts/*.rpm
             logs/
@@ -122,10 +122,10 @@ jobs:
             family: deb
             image: ubuntu:26.04@sha256:7b202b0e2e0028c6250f5fcf41d04df492d145a1654c6995a6553f0c1f6f1960
             artifact: package-ubuntu-26.04-amd64
-          - target: fedora-44-x86_64
+          - target: fedora-45-x86_64
             family: rpm
-            image: fedora:44@sha256:89f61a124414261868224666aa7fb8df1b78397a53623774bdfb105d1612b48b
-            artifact: package-fedora-44-x86_64
+            image: fedora:45@sha256:53d138f25f6738257c78553d51369b662efc0e0eb1cd1556a2fe0ad5a115be88
+            artifact: package-fedora-45-x86_64
     container:
       image: ${{ matrix.image }}
     steps:
@@ -264,11 +264,11 @@ jobs:
           retention-days: 14
 
   upgrade_rpm:
-    name: Upgrade Fedora 44 RPM in place
+    name: Upgrade Fedora 45 RPM in place
     needs: build_rpm
     runs-on: ubuntu-24.04
     container:
-      image: fedora:44@sha256:89f61a124414261868224666aa7fb8df1b78397a53623774bdfb105d1612b48b
+      image: fedora:45@sha256:53d138f25f6738257c78553d51369b662efc0e0eb1cd1556a2fe0ad5a115be88
     steps:
       - name: Install build and smoke dependencies
         run: |
@@ -285,7 +285,7 @@ jobs:
       - name: Download the release-1 package
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: package-fedora-44-x86_64
+          name: package-fedora-45-x86_64
           path: downloaded
       - name: Build the release-2 package from the same tree
         run: |
@@ -304,12 +304,12 @@ jobs:
         run: |
           mkdir -p logs
           version=$(tr -d '[:space:]' < VERSION)
-          old="downloaded/artifacts/nasmount-${version}-1.fc44.x86_64.rpm"
-          new="artifacts-r2/nasmount-${version}-2.fc44.x86_64.rpm"
+          old="downloaded/artifacts/nasmount-${version}-1.fc45.x86_64.rpm"
+          new="artifacts-r2/nasmount-${version}-2.fc45.x86_64.rpm"
           [ -f "$old" ] && [ -f "$new" ]
 
           dnf install -y --allowerasing --setopt=install_weak_deps=False "./$old"
-          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "1.fc44" ]
+          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "1.fc45" ]
 
           corpus=tests/golden/units/v0.1.0
           install -d -m 0700 /etc/nasmount
@@ -323,7 +323,7 @@ jobs:
           # with $1=1 here; if their teardown were ungated this would unmount
           # and delete every share.
           dnf install -y --allowerasing --setopt=install_weak_deps=False "./$new"
-          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "2.fc44" ] || {
+          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "2.fc45" ] || {
             echo 'ERROR: in-place upgrade did not complete' >&2; exit 1; }
 
           [ "$(stat -c '%a' /etc/nasmount)" = 700 ]
@@ -342,11 +342,11 @@ jobs:
           # managed state survives it.
           dnf install -y --allowerasing --setopt=install_weak_deps=False "./$old"
           rpm -q --qf '%{RELEASE}\n' nasmount | tee logs/downgrade.txt
-          # Verified empirically against Fedora 44: DNF5 reports "Downgrading"
-          # and completes. Assert it, or every check below passes vacuously on
-          # a no-op that left release 2 installed.
-          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "1.fc44" ] || {
-            echo 'ERROR: expected DNF to downgrade to 1.fc44' >&2; exit 1; }
+          # DNF5 reports "Downgrading" and completes. Assert it on every run,
+          # or every check below passes vacuously on a no-op that left
+          # release 2 installed.
+          [ "$(rpm -q --qf '%{RELEASE}' nasmount)" = "1.fc45" ] || {
+            echo 'ERROR: expected DNF to downgrade to 1.fc45' >&2; exit 1; }
           [ -d /etc/nasmount ]
           [ -f /etc/nasmount/0123456789abcdef0123456789abcdef.cred ]
           cmp "$corpus/credentials.mount" /etc/systemd/system/home-tester-mnt-media.mount
@@ -366,7 +366,7 @@ jobs:
       - name: Upload upgrade report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: upgrade-fedora-44-x86_64
+          name: upgrade-fedora-45-x86_64
           path: logs/
           if-no-files-found: error
           retention-days: 14
@@ -421,4 +421,4 @@ jobs:
           for result in "$VALIDATE" "$DEB" "$RPM" "$SMOKE" "$UPGRADE_DEB" "$UPGRADE_RPM" "$VERIFY"; do
             [ "$result" = success ] || exit 1
           done
-          echo "Ubuntu 26.04 DEB and Fedora 44 RPM passed all required CI stages."
+          echo "Ubuntu 26.04 DEB and Fedora 45 RPM passed all required CI stages."

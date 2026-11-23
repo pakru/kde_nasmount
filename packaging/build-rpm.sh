@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the Fedora 44 x86_64 RPM in an isolated rpmbuild tree.
+# Build the Fedora 45 x86_64 RPM in an isolated rpmbuild tree.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 set -euo pipefail
@@ -19,8 +19,8 @@ version=$(tr -d '[:space:]' < "$repo_root/VERSION")
 release=$(tr -d '[:space:]' < "$repo_root/packaging/RELEASE")
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 [[ "$release" =~ ^[1-9][0-9]*$ ]]
-[ "$(rpm --eval '%{fedora}')" = 44 ] || {
-    echo "ERROR: the initial RPM target is Fedora 44 only." >&2
+[ "$(rpm --eval '%{fedora}')" = 45 ] || {
+    echo "ERROR: the initial RPM target is Fedora 45 only." >&2
     exit 1
 }
 [ "$(uname -m)" = x86_64 ] || {
@@ -62,7 +62,7 @@ sed -e "s/@VERSION@/$version/g" -e "s/@RELEASE@/$release/g" \
 rpmbuild_args=(--define "_topdir $top_dir")
 [ "${NASMOUNT_NOCHECK:-}" != 1 ] || rpmbuild_args+=(--nocheck)
 rpmbuild "${rpmbuild_args[@]}" -ba "$top_dir/SPECS/nasmount.spec"
-artifact="$top_dir/RPMS/x86_64/nasmount-${version}-${release}.fc44.x86_64.rpm"
+artifact="$top_dir/RPMS/x86_64/nasmount-${version}-${release}.fc45.x86_64.rpm"
 [ -f "$artifact" ] || {
     echo "ERROR: expected package was not produced: $artifact" >&2
     exit 1

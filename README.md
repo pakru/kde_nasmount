@@ -9,7 +9,7 @@
 ![KDE NAS Mount desktop workflow: choose Mount as Network Drive in Dolphin, enter the mount settings, and manage SMB shares in System Settings. Actual application screenshots.](docs/img/readme-banner.png)
 
 
-**Supported:** Kubuntu 26.04+ (`.deb`), Fedora KDE 44+ (`.rpm`). Other distros
+**Supported:** Kubuntu 26.04+ (`.deb`), Fedora KDE 45+ (`.rpm`). Other distros
 can build from source (Plasma 6 with KDE Frameworks 6.8+, Linux 6.8+).
 
 ## Install
@@ -22,9 +22,9 @@ Replace `<version>` with the number on the
 wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-amd64-<version>.deb
 sudo apt install ./nasmount-amd64-<version>.deb
 
-# Fedora KDE 44 x86_64
-wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-fedora44-x86_64-<version>.rpm
-sudo dnf install ./nasmount-fedora44-x86_64-<version>.rpm
+# Fedora KDE 45 x86_64
+wget https://github.com/pakru/kde_nasmount/releases/latest/download/nasmount-fedora45-x86_64-<version>.rpm
+sudo dnf install ./nasmount-fedora45-x86_64-<version>.rpm
 ```
 
 ## Usage
@@ -86,7 +86,7 @@ sudo apt install \
   qml6-module-qtquick-layouts qt6-base-dev qt6-declarative-dev systemd
 ```
 
-On Fedora KDE 44, use:
+On Fedora KDE 45, use:
 
 ```bash
 sudo dnf install \
